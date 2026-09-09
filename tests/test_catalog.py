@@ -588,16 +588,31 @@ def all_records(normalized: dict) -> list[dict]:
 
 @pytest.fixture(scope="module")
 def full_records() -> list[dict]:
+    from benchmark_radar.benchmark_scores import DEFAULT_SCORES_PATH, load_scores
     from benchmark_radar.catalog import SOURCES
     from benchmark_radar.catalog_opencompass import normalize_opencompass
+    from benchmark_radar.catalog_reports import normalize_reports
+    from benchmark_radar.model_cards import DEFAULT_REGISTRY_PATH, load_registry
 
+    # The model-report registry is a source record population like the crawls,
+    # and `normalize-catalog` resolves identity across all of them. Without it
+    # here, a reviewed group naming a registry record passes every test in this
+    # file and fails the real build with "not a source record" -- the exact
+    # failure the seed test below exists to prevent.
     snapshots = load_snapshots(DEFAULT_SNAPSHOTS_PATH)["snapshots"]
-    return [
-        record
-        for snapshot in snapshots
-        if snapshot["id"] in SOURCES
-        for record in normalize_snapshot(snapshot)["source_records"]
-    ] + normalize_opencompass()["source_records"]
+    return (
+        [
+            record
+            for snapshot in snapshots
+            if snapshot["id"] in SOURCES
+            for record in normalize_snapshot(snapshot)["source_records"]
+        ]
+        + normalize_opencompass()["source_records"]
+        + normalize_reports(
+            load_registry(DEFAULT_REGISTRY_PATH),
+            load_scores(DEFAULT_SCORES_PATH),
+        )["source_records"]
+    )
 
 
 # Identity candidate generation
@@ -949,20 +964,15 @@ def test_inheritance_never_touches_scores_or_other_records(
     assert all("identity_inheritance" not in obs for obs in normalized["score_observations"])
 
 
-def test_claire_exact_identity_links_are_reviewed_and_bidirectional() -> None:
-    from benchmark_radar.catalog import SOURCES, normalize_snapshot
+def test_claire_exact_identity_links_are_reviewed_and_bidirectional(
+    full_records: list[dict],
+) -> None:
     from benchmark_radar.catalog_identity import DEFAULT_IDENTITY_PATH, load_identity
-    from benchmark_radar.catalog_opencompass import normalize_opencompass
-    from benchmark_radar.leaderboard_snapshots import load_snapshots
 
-    snapshots = load_snapshots()["snapshots"]
-    records = [
-        record
-        for snapshot in snapshots
-        if snapshot["id"] in SOURCES
-        for record in normalize_snapshot(snapshot)["source_records"]
-    ] + normalize_opencompass()["source_records"]
-    identity = load_identity(records, DEFAULT_IDENTITY_PATH)
+    # `load_identity` validates every group in the seed, not just the Claire
+    # ones, so it needs the same record population `normalize-catalog` resolves
+    # against -- model reports included.
+    identity = load_identity(full_records, DEFAULT_IDENTITY_PATH)
 
     expected = {
         "claire-radar:2608.05948": "opencompass:2574",
