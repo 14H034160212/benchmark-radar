@@ -167,6 +167,19 @@ def json_list(value: str) -> list[str]:
     return [str(item) for item in parsed] if isinstance(parsed, list) else []
 
 
+def json_object(value: str, *, label: str) -> dict[str, Any]:
+    text = (value or "").strip()
+    if not text:
+        return {}
+    try:
+        parsed = json.loads(text)
+    except json.JSONDecodeError as error:
+        raise CatalogError(f"{label} is not valid JSON") from error
+    if not isinstance(parsed, dict):
+        raise CatalogError(f"{label} must be a JSON object")
+    return parsed
+
+
 def value_kind(raw: str, parsed: float | None) -> str:
     if not (raw or "").strip():
         return "missing"
@@ -214,6 +227,11 @@ def _source_record(
         "record_sha256": (row.get("record_sha256") or "").strip(),
     }
     provenance.update({key: value for key, value in optional_provenance.items() if value})
+    source_metadata = json_object(
+        row.get("extra_json", ""), label=f"{snapshot_id}:{source_id}:extra_json"
+    )
+    released = (row.get("released") or "").strip() or None
+    source_url = provenance["source_url"]
     return {
         "key": f"{key_prefix}:{source_id}",
         "slug": slug,
@@ -221,6 +239,7 @@ def _source_record(
         "source": source,
         "source_benchmark_id": source_id,
         "name": (row.get("name") or "").strip() or source_id,
+        "aliases": json_list(row.get("aliases", "")),
         "description": {"en": description} if description else {},
         # Optional source fields stay optional; unknown values remain unknown.
         # See the module docstring: these are answers, not gaps.
@@ -233,10 +252,20 @@ def _source_record(
             "evidence": [],
         },
         "sizes": [],
-        "released": (row.get("released") or "").strip() or None,
+        "released": released,
+        "released_reference": (
+            {
+                "source_key": f"{key_prefix}:{source_id}",
+                "source_url": source_url,
+                "basis": "benchmark_release",
+            }
+            if released and source_url
+            else None
+        ),
         "modality": (row.get("modality") or "").strip() or None,
         "categories": json_list(row.get("categories", "")),
         "provenance": provenance,
+        **({"source_metadata": {"claire_radar": source_metadata}} if source_metadata else {}),
     }
 
 

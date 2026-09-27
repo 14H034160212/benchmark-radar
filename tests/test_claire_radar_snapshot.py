@@ -1,4 +1,5 @@
 import importlib.util
+import json
 from pathlib import Path
 
 from benchmark_radar.catalog import normalize_snapshot
@@ -25,6 +26,8 @@ def test_export_preserves_every_record_with_exact_source_ids_and_review_states()
                 "name": "Accepted Bench",
                 "displayEligible": True,
                 "releasedAt": "2026-09-24",
+                "aliases": ["Accepted Evaluation"],
+                "whyItMatters": "A fixture-only extra field.",
                 "source": {
                     "id": "github:owner/accepted",
                     "type": "github",
@@ -68,6 +71,11 @@ def test_export_preserves_every_record_with_exact_source_ids_and_review_states()
     ]
     by_id = {row["benchmark_id"]: row for row in rows}
     assert by_id["github:owner/accepted"]["review_model"] == "claude-haiku"
+    assert by_id["github:owner/accepted"]["aliases"] == '["Accepted Evaluation"]'
+    assert (
+        json.loads(by_id["github:owner/accepted"]["extra_json"])["whyItMatters"]
+        == "A fixture-only extra field."
+    )
     assert by_id["github:owner/accepted"]["display_eligible"] == "true"
     assert by_id["github:owner/deferred"]["review_state"] == "ai-name-audit-deferred"
     assert by_id["github:owner/deferred"]["display_eligible"] == "false"
@@ -91,10 +99,13 @@ def test_registered_snapshot_preserves_review_provenance_and_links():
     )
     assert record["key"] == "claire-radar:github:liningbest/apitest"
     assert record["released"] == "2026-09-13"
+    assert record["released_reference"]["source_url"] == "https://github.com/liningbest/apitest"
     assert record["provenance"]["review_state"] == "ai-reviewed"
     assert record["provenance"]["origin_source"] == "github"
     assert record["provenance"]["display_eligible"] == "true"
     assert {item["kind"] for item in record["artifacts"]} == {"repo"}
+    assert record["source_metadata"]["claire_radar"]["id"] == "bm_apitest_7d8e6901"
+    assert record["source_metadata"]["claire_radar"]["whyItMatters"]
 
     unreviewed = next(
         row for row in normalized["source_records"] if row["source_benchmark_id"] == "2608.16081"

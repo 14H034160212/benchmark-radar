@@ -14,6 +14,7 @@ from urllib.parse import urlsplit
 FIELDS = (
     "benchmark_id",
     "name",
+    "aliases",
     "description",
     "categories",
     "released",
@@ -33,6 +34,7 @@ FIELDS = (
     "reviewed_at",
     "review_model",
     "admission_policy_version",
+    "extra_json",
     "record_sha256",
 )
 
@@ -116,6 +118,7 @@ def export_rows(document: dict[str, Any]) -> list[dict[str, str]]:
             {
                 "benchmark_id": source_id,
                 "name": name,
+                "aliases": json.dumps(record.get("aliases") or [], ensure_ascii=False),
                 "description": str(
                     record.get("description") or record.get("oneLine") or ""
                 ).strip(),
@@ -149,6 +152,9 @@ def export_rows(document: dict[str, Any]) -> list[dict[str, str]]:
                 "admission_policy_version": str(
                     curation.get("admissionPolicyVersion") or ""
                 ).strip(),
+                "extra_json": json.dumps(
+                    record, ensure_ascii=False, sort_keys=True, separators=(",", ":")
+                ),
                 "record_sha256": _sha256(record),
             }
         )
