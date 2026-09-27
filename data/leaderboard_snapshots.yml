@@ -138,7 +138,8 @@ snapshots:
     crawled_at: "2026-09-25T04:40:22Z"
     description: >-
       Immutable export of the complete 1,914-record Claire Radar benchmark
-      corpus. Review and display states remain record-level provenance: accepted,
+      working-tree snapshot. The original object is embedded and hashed in each
+      row. Review and display states remain record-level provenance: accepted,
       deferred, excluded and unreviewed records all remain inspectable. Exact
       source ids are retained; similar names are not merged.
     benchmark_file: leaderboard_snapshots/claire_radar_benchmarks_2026-09-25.csv

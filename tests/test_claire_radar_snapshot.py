@@ -1,11 +1,24 @@
+import hashlib
 import importlib.util
 import json
 from pathlib import Path
 
-from benchmark_radar.catalog import normalize_snapshot
+from benchmark_radar.catalog import artifact_identifier, normalize_snapshot
 from benchmark_radar.leaderboard_snapshots import load_snapshots
 
 ROOT = Path(__file__).resolve().parents[1]
+
+
+def test_claire_artifact_urls_use_catalog_identity_anchors():
+    assert artifact_identifier("https://arxiv.org/abs/2406.01574v2") == "arxiv:2406.01574"
+    assert artifact_identifier("https://arxiv.org/pdf/2406.01574.pdf") == "arxiv:2406.01574"
+    assert artifact_identifier("https://github.com/TIGER-AI-Lab/MMLU-Pro") == (
+        "gh:tiger-ai-lab/mmlu-pro"
+    )
+    assert artifact_identifier("https://huggingface.co/datasets/xai-org/RealworldQA") == (
+        "hf:xai-org/realworldqa"
+    )
+    assert artifact_identifier("https://github.com/org/repo/tree/main/data") is None
 
 
 def _export_module():
@@ -104,6 +117,7 @@ def test_registered_snapshot_preserves_review_provenance_and_links():
     assert record["provenance"]["origin_source"] == "github"
     assert record["provenance"]["display_eligible"] == "true"
     assert {item["kind"] for item in record["artifacts"]} == {"repo"}
+    assert record["artifacts"][0]["id"] == "gh:liningbest/apitest"
     assert record["source_metadata"]["claire_radar"]["id"] == "bm_apitest_7d8e6901"
     assert record["source_metadata"]["claire_radar"]["whyItMatters"]
 
@@ -113,3 +127,22 @@ def test_registered_snapshot_preserves_review_provenance_and_links():
     assert unreviewed["name"] == "SafeGesture"
     assert unreviewed["provenance"]["review_state"] == "unreviewed"
     assert unreviewed["provenance"]["display_eligible"] == "unknown"
+
+
+def test_registered_snapshot_retains_every_original_object_losslessly():
+    snapshot = next(
+        row for row in load_snapshots()["snapshots"] if row["id"] == "claire_radar_2026-09-25"
+    )
+
+    originals = []
+    for row in snapshot["benchmark_rows"]:
+        original = json.loads(row["extra_json"])
+        payload = json.dumps(
+            original, ensure_ascii=False, sort_keys=True, separators=(",", ":")
+        ).encode()
+        assert hashlib.sha256(payload).hexdigest() == row["record_sha256"]
+        assert original["id"] == row["origin_record_id"]
+        originals.append(original["id"])
+
+    assert len(originals) == 1914
+    assert len(set(originals)) == 1914

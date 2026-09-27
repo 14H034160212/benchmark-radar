@@ -20,6 +20,7 @@ import re
 from datetime import date
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlsplit
 
 from .score_summary import score_summary
 
@@ -180,6 +181,31 @@ def json_object(value: str, *, label: str) -> dict[str, Any]:
     return parsed
 
 
+def artifact_identifier(url: str) -> str | None:
+    """Return a catalog identity anchor for a supported first-party URL.
+
+    Identity links are reviewed elsewhere; this function only gives a stable
+    spelling to an arXiv paper, GitHub repository, or Hugging Face dataset so
+    the candidate generator can compare like with like. Repository subpaths
+    are deliberately rejected because a directory inside a monorepo is not the
+    same identity claim as the repository itself.
+    """
+    parsed = urlsplit(url)
+    host = (parsed.hostname or "").lower().removeprefix("www.")
+    path = parsed.path.strip("/")
+    if host == "arxiv.org":
+        match = re.fullmatch(r"(?:abs|pdf)/(\d{4}\.\d{4,5})(?:v\d+)?(?:\.pdf)?", path)
+        return f"arxiv:{match.group(1)}" if match else None
+    if host == "github.com":
+        parts = path.removesuffix(".git").split("/")
+        return f"gh:{parts[0]}/{parts[1]}".lower() if len(parts) == 2 else None
+    if host == "huggingface.co":
+        parts = path.split("/")
+        if len(parts) == 3 and parts[0] == "datasets":
+            return f"hf:{parts[1]}/{parts[2]}".lower()
+    return None
+
+
 def value_kind(raw: str, parsed: float | None) -> str:
     if not (raw or "").strip():
         return "missing"
@@ -205,8 +231,13 @@ def _source_record(
         ("website", "project_url"),
     ):
         url = (row.get(column) or "").strip()
-        if url and {"kind": kind, "url": url} not in artifacts:
-            artifacts.append({"kind": kind, "url": url})
+        if url:
+            artifact = {"kind": kind, "url": url}
+            identifier = artifact_identifier(url)
+            if identifier:
+                artifact["id"] = identifier
+            if artifact not in artifacts:
+                artifacts.append(artifact)
     provenance = {
         "source_url": (row.get("detail_source_url") or "").strip() or None,
         "crawled_at": crawled_at,
