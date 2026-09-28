@@ -275,6 +275,7 @@ def write_registry(tmp_path: Path, rows: int) -> Path:
                         "crawled_at": "2026-08-17T00:00:00+00:00",
                         "benchmark_file": "files/bench.csv",
                         "benchmark_count": 3,
+                        "score_series_policy": "preserve_empty",
                         "columns": {"benchmark_id": "benchmark_id", "benchmark_name": "name"},
                     }
                 ],
@@ -289,6 +290,65 @@ def write_registry(tmp_path: Path, rows: int) -> Path:
 def test_loader_accepts_a_file_matching_its_declaration(tmp_path: Path) -> None:
     loaded = load_snapshots(write_registry(tmp_path, rows=3))
     assert len(loaded["snapshots"][0]["benchmark_rows"]) == 3
+
+
+def _rewrite_registry(tmp_path: Path, change) -> Path:
+    registry = write_registry(tmp_path, rows=3)
+    document = yaml.safe_load(registry.read_text(encoding="utf-8"))
+    change(document["snapshots"][0])
+    registry.write_text(yaml.safe_dump(document, sort_keys=False), encoding="utf-8")
+    return registry
+
+
+def test_loader_requires_a_score_series_policy(tmp_path: Path) -> None:
+    registry = _rewrite_registry(tmp_path, lambda snapshot: snapshot.pop("score_series_policy"))
+
+    with pytest.raises(LeaderboardSnapshotError, match="score_series_policy"):
+        load_snapshots(registry)
+
+
+def test_loader_rejects_an_unknown_score_series_policy(tmp_path: Path) -> None:
+    registry = _rewrite_registry(
+        tmp_path, lambda snapshot: snapshot.__setitem__("score_series_policy", "source_specific")
+    )
+
+    with pytest.raises(LeaderboardSnapshotError, match="score_series_policy"):
+        load_snapshots(registry)
+
+
+def test_loader_rejects_an_unknown_catalog_adapter(tmp_path: Path) -> None:
+    registry = _rewrite_registry(
+        tmp_path, lambda snapshot: snapshot.__setitem__("catalog_adapter", "test_only")
+    )
+
+    with pytest.raises(LeaderboardSnapshotError, match="catalog_adapter"):
+        load_snapshots(registry)
+
+
+def _synthetic_snapshot(policy: str) -> dict:
+    return {
+        "id": LLM_STATS_SNAPSHOT_ID,
+        "crawled_at": "2026-08-17T00:00:00+00:00",
+        "score_series_policy": policy,
+        "catalog_adapter": "identity",
+        "adapter_options": {},
+        "benchmark_rows": [{"benchmark_id": "empty", "name": "Empty Bench"}],
+        "score_rows": [],
+    }
+
+
+def test_observed_only_policy_omits_an_empty_series_for_any_source() -> None:
+    normalized = normalize_snapshot(_synthetic_snapshot("observed_only"))
+
+    assert len(normalized["source_records"]) == 1
+    assert normalized["score_series"] == []
+
+
+def test_preserve_empty_policy_retains_an_empty_series_for_any_source() -> None:
+    normalized = normalize_snapshot(_synthetic_snapshot("preserve_empty"))
+
+    assert len(normalized["score_series"]) == 1
+    assert normalized["score_series"][0]["observation_count"] == 0
 
 
 def test_loader_rejects_a_file_whose_row_count_drifted(tmp_path: Path) -> None:

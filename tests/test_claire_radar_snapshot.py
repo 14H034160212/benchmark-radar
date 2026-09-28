@@ -201,6 +201,53 @@ def test_registered_snapshot_preserves_review_provenance_and_links():
         assert all("127.0.0.1" not in artifact["url"] for artifact in item["artifacts"])
 
 
+def test_registered_snapshot_declares_source_neutral_normalization_contract():
+    snapshot = next(
+        row for row in load_snapshots()["snapshots"] if row["id"] == "claire_radar_2026-09-25"
+    )
+
+    assert snapshot["score_series_policy"] == "observed_only"
+    assert snapshot["catalog_adapter"] == "claire_radar_v1"
+    assert snapshot["adapter_options"]["first_public_evidence"] == {
+        "2607.05155": "https://edge-bench.org/",
+        "2607.07946": "https://datacurve.ai/research",
+        "2608.00267": "https://github.com/microsoft/Loopsbench",
+    }
+    assert "release_evidence" not in snapshot
+
+
+def test_claire_adapter_translates_every_private_release_date():
+    snapshot = next(
+        row for row in load_snapshots()["snapshots"] if row["id"] == "claire_radar_2026-09-25"
+    )
+    records = {
+        row["source_benchmark_id"]: row for row in normalize_snapshot(snapshot)["source_records"]
+    }
+    rows_with_dates = {
+        row["benchmark_id"]: json.loads(row["extra_json"])["releaseDates"]
+        for row in snapshot["benchmark_rows"]
+        if (json.loads(row["extra_json"]).get("releaseDates") or {}).get("firstPublicAt")
+    }
+
+    assert len(rows_with_dates) == 6
+    for source_id, dates in rows_with_dates.items():
+        record = records[source_id]
+        assert record["released"] == dates["firstPublicAt"]
+        assert record["released_reference"]["basis"] == "first_public"
+        if dates.get("paperV1At"):
+            assert record["publication_dates"][0]["date"] == dates["paperV1At"]
+            assert record["publication_dates"][0]["basis"] == "paper_first_version"
+
+
+def test_catalog_normalizer_contains_no_claire_private_schema_or_series_branch():
+    source = (ROOT / "src" / "benchmark_radar" / "catalog.py").read_text(encoding="utf-8")
+
+    assert "releaseDates" not in source
+    assert "firstPublicAt" not in source
+    assert "paperV1At" not in source
+    assert 'source != "claire_radar"' not in source
+
+
 def test_claire_dates_distinguish_first_public_evidence_from_paper_dates():
     snapshot = next(
         row for row in load_snapshots()["snapshots"] if row["id"] == "claire_radar_2026-09-25"
