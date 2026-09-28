@@ -165,11 +165,6 @@ def test_registered_snapshot_preserves_review_provenance_and_links():
 
     normalized = normalize_snapshot(snapshot)
 
-    assert snapshot["release_evidence"] == {
-        "2607.05155": "https://edge-bench.org/",
-        "2607.07946": "https://datacurve.ai/research",
-        "2608.00267": "https://github.com/microsoft/Loopsbench",
-    }
     assert normalized["validation"]["source_record_count"] == 1914
     assert normalized["validation"]["score_observation_count"] == 0
     assert normalized["validation"]["score_series_count"] == 0

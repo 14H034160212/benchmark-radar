@@ -41,6 +41,8 @@ from typing import Any
 
 import yaml
 
+from .catalog_snapshot_adapters import CATALOG_ADAPTERS, SCORE_SERIES_POLICIES
+
 SNAPSHOTS_SCHEMA_VERSION = 1
 
 DEFAULT_SNAPSHOTS_PATH = Path("data/leaderboard_snapshots.yml")
@@ -53,6 +55,7 @@ _REQUIRED_SNAPSHOT_FIELDS = (
     "benchmark_file",
     "benchmark_count",
     "columns",
+    "score_series_policy",
 )
 _REQUIRED_COLUMN_FIELDS = ("benchmark_id", "benchmark_name")
 
@@ -249,6 +252,20 @@ def load_snapshots(path: Path = DEFAULT_SNAPSHOTS_PATH) -> dict[str, Any]:
         _require(columns, _REQUIRED_COLUMN_FIELDS, label=f"{label} columns")
         _require(benchmark_columns, _REQUIRED_COLUMN_FIELDS, label=f"{label} benchmark_columns")
         _require_iso_timestamp(str(entry["crawled_at"]), label=f"{label} crawled_at")
+        score_series_policy = str(entry["score_series_policy"])
+        if score_series_policy not in SCORE_SERIES_POLICIES:
+            raise LeaderboardSnapshotError(
+                f"{label} score_series_policy must be one of: "
+                f"{', '.join(sorted(SCORE_SERIES_POLICIES))}"
+            )
+        catalog_adapter = str(entry.get("catalog_adapter") or "identity")
+        if catalog_adapter not in CATALOG_ADAPTERS:
+            raise LeaderboardSnapshotError(
+                f"{label} catalog_adapter {catalog_adapter!r} is not registered"
+            )
+        adapter_options = entry.get("adapter_options") or {}
+        if not isinstance(adapter_options, dict):
+            raise LeaderboardSnapshotError(f"{label} adapter_options must be a mapping")
         files = _load_snapshot_files(entry, base)
         loaded.append(
             {
@@ -259,15 +276,14 @@ def load_snapshots(path: Path = DEFAULT_SNAPSHOTS_PATH) -> dict[str, Any]:
                 "description": str(entry.get("description") or ""),
                 "benchmark_file": str(entry["benchmark_file"]),
                 "benchmark_count": int(entry["benchmark_count"]),
+                "score_series_policy": score_series_policy,
+                "catalog_adapter": catalog_adapter,
+                "adapter_options": adapter_options,
                 "scores_file": str(entry["scores_file"]) if entry.get("scores_file") else None,
                 "score_row_count": int(entry["score_row_count"]) if entry.get("scores_file") else 0,
                 "columns": {str(key): str(value) for key, value in columns.items()},
                 "benchmark_columns": {
                     str(key): str(value) for key, value in benchmark_columns.items()
-                },
-                "release_evidence": {
-                    str(key): str(value)
-                    for key, value in (entry.get("release_evidence") or {}).items()
                 },
                 "benchmark_rows": files["benchmark_rows"],
                 "score_rows": files["score_rows"],

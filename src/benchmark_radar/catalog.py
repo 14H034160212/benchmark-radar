@@ -22,6 +22,11 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urlsplit
 
+from .catalog_snapshot_adapters import (
+    SCORE_SERIES_POLICIES,
+    CatalogSnapshotAdapterError,
+    adapt_catalog_row,
+)
 from .score_summary import score_summary
 
 CATALOG_SCHEMA_VERSION = 1
@@ -168,19 +173,6 @@ def json_list(value: str) -> list[str]:
     return [str(item) for item in parsed] if isinstance(parsed, list) else []
 
 
-def json_object(value: str, *, label: str) -> dict[str, Any]:
-    text = (value or "").strip()
-    if not text:
-        return {}
-    try:
-        parsed = json.loads(text)
-    except json.JSONDecodeError as error:
-        raise CatalogError(f"{label} is not valid JSON") from error
-    if not isinstance(parsed, dict):
-        raise CatalogError(f"{label} must be a JSON object")
-    return parsed
-
-
 def artifact_identifier(url: str) -> str | None:
     """Return a catalog identity anchor for a supported first-party URL.
 
@@ -220,7 +212,6 @@ def _source_record(
     source: str,
     key_prefix: str,
     snapshot_id: str,
-    release_evidence: dict[str, str],
 ) -> dict[str, Any]:
     source_id = row["benchmark_id"].strip()
     description = (row.get("description") or "").strip()
@@ -259,36 +250,57 @@ def _source_record(
         "record_sha256": (row.get("record_sha256") or "").strip(),
     }
     provenance.update({key: value for key, value in optional_provenance.items() if value})
-    source_metadata = json_object(
-        row.get("extra_json", ""), label=f"{snapshot_id}:{source_id}:extra_json"
-    )
+    source_metadata = row.get("source_metadata") or {}
+    if not isinstance(source_metadata, dict):
+        raise CatalogError(f"{snapshot_id}:{source_id}:source_metadata must be an object")
     source_url = provenance["source_url"]
-    released = (row.get("released") or "").strip() or None
-    released_basis = "benchmark_release"
-    released_source_url = source_url
-    publication_dates: list[dict[str, str]] = []
-    if source == "claire_radar":
-        release_dates = source_metadata.get("releaseDates") or {}
-        first_public = release_dates.get("firstPublicAt")
-        paper_date = release_dates.get("paperV1At")
-        if isinstance(first_public, str) and first_public.strip():
-            released = first_public.strip()
-            released_basis = "first_public"
-            evidence_url = release_evidence.get(source_id, "").strip()
-            if evidence_url:
-                released_source_url = evidence_url
-        paper_url = next(
-            (item["url"] for item in artifacts if item.get("kind") == "paper"),
-            None,
+    released = str(row.get("released") or "").strip() or None
+    if released:
+        try:
+            if date.fromisoformat(released).isoformat() != released:
+                raise ValueError
+        except ValueError as error:
+            raise CatalogError(
+                f"{snapshot_id}:{source_id}: released {released!r} is not an ISO date"
+            ) from error
+    released_basis = str(row.get("released_basis") or "benchmark_release").strip()
+    if released_basis not in {"benchmark_release", "first_public"}:
+        raise CatalogError(
+            f"{snapshot_id}:{source_id}: released_basis {released_basis!r} is not supported"
         )
-        if isinstance(paper_date, str) and paper_date.strip() and paper_url:
-            publication_dates.append(
-                {
-                    "date": paper_date.strip(),
-                    "basis": "paper_first_version",
-                    "source_url": paper_url,
-                }
+    released_source_url = str(row.get("released_source_url") or "").strip() or source_url
+    publication_dates = row.get("publication_dates") or []
+    if not isinstance(publication_dates, list):
+        raise CatalogError(f"{snapshot_id}:{source_id}: publication_dates must be an array")
+    normalized_publication_dates: list[dict[str, str]] = []
+    for index, item in enumerate(publication_dates):
+        if not isinstance(item, dict):
+            raise CatalogError(
+                f"{snapshot_id}:{source_id}: publication_dates[{index}] must be an object"
             )
+        date_value = str(item.get("date") or "").strip()
+        basis = str(item.get("basis") or "").strip()
+        evidence_url = str(item.get("source_url") or "").strip()
+        if basis != "paper_first_version":
+            raise CatalogError(
+                f"{snapshot_id}:{source_id}: publication_dates[{index}].basis "
+                f"{basis!r} is not supported"
+            )
+        if not date_value or not evidence_url:
+            raise CatalogError(
+                f"{snapshot_id}:{source_id}: publication_dates[{index}] needs date and source_url"
+            )
+        try:
+            if date.fromisoformat(date_value).isoformat() != date_value:
+                raise ValueError
+        except ValueError as error:
+            raise CatalogError(
+                f"{snapshot_id}:{source_id}: publication_dates[{index}].date "
+                f"{date_value!r} is not an ISO date"
+            ) from error
+        normalized_publication_dates.append(
+            {"date": date_value, "basis": basis, "source_url": evidence_url}
+        )
     return {
         "key": f"{key_prefix}:{source_id}",
         "slug": slug,
@@ -319,11 +331,15 @@ def _source_record(
             if released and released_source_url
             else None
         ),
-        **({"publication_dates": publication_dates} if publication_dates else {}),
+        **(
+            {"publication_dates": normalized_publication_dates}
+            if normalized_publication_dates
+            else {}
+        ),
         "modality": (row.get("modality") or "").strip() or None,
         "categories": json_list(row.get("categories", "")),
         "provenance": provenance,
-        **({"source_metadata": {"claire_radar": source_metadata}} if source_metadata else {}),
+        **({"source_metadata": {source: source_metadata}} if source_metadata else {}),
     }
 
 
@@ -476,8 +492,26 @@ def normalize_snapshot(snapshot: dict[str, Any]) -> dict[str, Any]:
         raise CatalogError(f"snapshot {snapshot_id!r} has no source descriptor")
     source, key_prefix = SOURCES[snapshot_id]
 
-    benchmark_rows = snapshot["benchmark_rows"]
+    adapter = snapshot.get("catalog_adapter") or "identity"
+    adapter_options = snapshot.get("adapter_options") or {}
+    try:
+        benchmark_rows = [
+            adapt_catalog_row(
+                row,
+                adapter=adapter,
+                adapter_options=adapter_options,
+                snapshot_id=snapshot_id,
+            )
+            for row in snapshot["benchmark_rows"]
+        ]
+    except CatalogSnapshotAdapterError as error:
+        raise CatalogError(str(error)) from error
     score_rows = snapshot["score_rows"] or []
+    score_series_policy = snapshot.get("score_series_policy")
+    if score_series_policy not in SCORE_SERIES_POLICIES:
+        raise CatalogError(
+            f"snapshot {snapshot_id!r} has invalid score_series_policy {score_series_policy!r}"
+        )
     crawled_at = snapshot["crawled_at"]
 
     keys = [f"{key_prefix}:{row['benchmark_id'].strip()}" for row in benchmark_rows]
@@ -502,7 +536,6 @@ def normalize_snapshot(snapshot: dict[str, Any]) -> dict[str, Any]:
                 source=source,
                 key_prefix=key_prefix,
                 snapshot_id=snapshot_id,
-                release_evidence=snapshot.get("release_evidence") or {},
             )
         )
         series_id = f"{source}:{source_id}:default"
@@ -514,7 +547,7 @@ def normalize_snapshot(snapshot: dict[str, Any]) -> dict[str, Any]:
             for score_row in rows
         ]
         observations.extend(observed)
-        if observed or source != "claire_radar":
+        if observed or score_series_policy == "preserve_empty":
             series.append(_series(row, key=key, observations=observed, source=source))
 
     records.sort(key=lambda item: item["key"])
