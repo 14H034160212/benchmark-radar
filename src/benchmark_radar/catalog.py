@@ -41,10 +41,8 @@ ARTIFICIAL_ANALYSIS_SNAPSHOT_ID = "artificial_analysis_2026-08-25"
 ARTIFICIAL_ANALYSIS_SOURCE = "artificial_analysis"
 ARTIFICIAL_ANALYSIS_KEY_PREFIX = "artificial-analysis"
 
-# Every crawled snapshot in the registry is the same two CSVs with the same
-# header vocabulary, so one normalizer reads all of them and a source is three
-# strings rather than a module. A second shape would mean a second loader, a
-# second normalizer, and two sets of invariants drifting apart.
+# Publication identity stays separate from input shape. Registry-selected
+# adapters translate source rows before this map supplies their catalog keys.
 SOURCES = {
     LLM_STATS_SNAPSHOT_ID: (LLM_STATS_SOURCE, LLM_STATS_KEY_PREFIX),
     ARTIFICIAL_ANALYSIS_SNAPSHOT_ID: (ARTIFICIAL_ANALYSIS_SOURCE, ARTIFICIAL_ANALYSIS_KEY_PREFIX),
@@ -205,7 +203,7 @@ def value_kind(raw: str, parsed: float | None) -> str:
 
 
 def _source_record(
-    row: dict[str, str],
+    row: dict[str, Any],
     slug: str,
     crawled_at: str,
     *,
@@ -439,7 +437,7 @@ def first_score_record(
 
 
 def _series(
-    row: dict[str, str],
+    row: dict[str, Any],
     *,
     key: str,
     observations: list[dict[str, Any]],
@@ -481,11 +479,10 @@ def _series(
 def normalize_snapshot(snapshot: dict[str, Any]) -> dict[str, Any]:
     """Turn one validated crawl snapshot into catalog records.
 
-    Source-agnostic: every snapshot in the registry is the same two CSVs with
-    the same header vocabulary, so the only thing that varies between them is
-    the three strings in `SOURCES`. Returns source records, score series and
-    observations, plus the validation counts that let a reviewer check the
-    result without rereading the CSVs.
+    Registry-selected adapters translate source-private rows into the common
+    contract consumed here. This function applies source-independent record and
+    series rules, then returns validation counts a reviewer can check without
+    rereading the CSVs.
     """
     snapshot_id = snapshot["id"]
     if snapshot_id not in SOURCES:
