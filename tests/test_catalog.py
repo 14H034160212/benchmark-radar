@@ -351,6 +351,55 @@ def test_preserve_empty_policy_retains_an_empty_series_for_any_source() -> None:
     assert normalized["score_series"][0]["observation_count"] == 0
 
 
+def test_common_normalizer_consumes_adapter_normalized_dates_and_metadata() -> None:
+    snapshot = _synthetic_snapshot("observed_only")
+    snapshot["benchmark_rows"][0].update(
+        {
+            "released": "2026-01-02",
+            "released_basis": "first_public",
+            "released_source_url": "https://example.org/launch",
+            "publication_dates": [
+                {
+                    "date": "2026-01-09",
+                    "basis": "paper_first_version",
+                    "source_url": "https://arxiv.org/abs/2601.00001",
+                }
+            ],
+            "extra_json": '{"private": "kept"}',
+        }
+    )
+
+    [record] = normalize_snapshot(snapshot)["source_records"]
+
+    assert record["released_reference"] == {
+        "source_key": "llm-stats:empty",
+        "source_url": "https://example.org/launch",
+        "basis": "first_public",
+    }
+    assert record["publication_dates"] == [
+        {
+            "date": "2026-01-09",
+            "basis": "paper_first_version",
+            "source_url": "https://arxiv.org/abs/2601.00001",
+        }
+    ]
+    assert record["source_metadata"] == {"llm_stats": {"private": "kept"}}
+
+
+def test_common_normalizer_rejects_an_invalid_normalized_date_basis() -> None:
+    snapshot = _synthetic_snapshot("observed_only")
+    snapshot["benchmark_rows"][0].update(
+        {
+            "released": "2026-01-02",
+            "released_basis": "source_specific",
+            "released_source_url": "https://example.org/launch",
+        }
+    )
+
+    with pytest.raises(CatalogError, match="released_basis"):
+        normalize_snapshot(snapshot)
+
+
 def test_loader_rejects_a_file_whose_row_count_drifted(tmp_path: Path) -> None:
     """A truncated copy would otherwise look identical to a complete snapshot."""
     with pytest.raises(LeaderboardSnapshotError, match="registry declares 3"):
