@@ -400,6 +400,38 @@ def test_common_normalizer_rejects_an_invalid_normalized_date_basis() -> None:
         normalize_snapshot(snapshot)
 
 
+@pytest.mark.parametrize(
+    ("field", "value", "error"),
+    [
+        ("released", "2026-02-30", "released"),
+        (
+            "publication_dates",
+            [
+                {
+                    "date": "not-a-date",
+                    "basis": "paper_first_version",
+                    "source_url": "https://arxiv.org/abs/2601.00001",
+                }
+            ],
+            "publication_dates\\[0\\].date",
+        ),
+    ],
+)
+def test_common_normalizer_rejects_invalid_normalized_dates(field, value, error) -> None:
+    snapshot = _synthetic_snapshot("observed_only")
+    snapshot["benchmark_rows"][0].update(
+        {
+            "released": "2026-01-02",
+            "released_basis": "first_public",
+            "released_source_url": "https://example.org/launch",
+            field: value,
+        }
+    )
+
+    with pytest.raises(CatalogError, match=error):
+        normalize_snapshot(snapshot)
+
+
 def test_loader_rejects_a_file_whose_row_count_drifted(tmp_path: Path) -> None:
     """A truncated copy would otherwise look identical to a complete snapshot."""
     with pytest.raises(LeaderboardSnapshotError, match="registry declares 3"):
