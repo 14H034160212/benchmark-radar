@@ -794,6 +794,31 @@ def test_inheritance_never_touches_scores_or_other_records(
     assert all("identity_inheritance" not in obs for obs in normalized["score_observations"])
 
 
+def test_claire_exact_identity_links_are_reviewed_and_bidirectional() -> None:
+    from benchmark_radar.catalog import SOURCES, normalize_snapshot
+    from benchmark_radar.catalog_identity import DEFAULT_IDENTITY_PATH, load_identity
+    from benchmark_radar.catalog_opencompass import normalize_opencompass
+    from benchmark_radar.leaderboard_snapshots import load_snapshots
+
+    snapshots = load_snapshots()["snapshots"]
+    records = [
+        record
+        for snapshot in snapshots
+        if snapshot["id"] in SOURCES
+        for record in normalize_snapshot(snapshot)["source_records"]
+    ] + normalize_opencompass()["source_records"]
+    identity = load_identity(records, DEFAULT_IDENTITY_PATH)
+
+    expected = {
+        "claire-radar:2608.05948": "opencompass:2574",
+        "claire-radar:2608.09548": "opencompass:2571",
+    }
+    for left, right in expected.items():
+        assert {row["key"] for row in identity.siblings_for(left)} == {right}
+        assert {row["key"] for row in identity.siblings_for(right)} == {left}
+        assert identity.siblings_for(left)[0]["relation"] == "equivalent"
+
+
 def test_seed_inherits_gpqa_identity_and_leaves_near_matches_alone(
     all_records: list[dict],
 ) -> None:
@@ -902,6 +927,25 @@ def test_llm_stats_shard_carries_its_scores(shard_inputs: dict, tmp_path: Path) 
     block = shard["scores_by_source"]["llm_stats"]
     assert len(block["rows"]) == 239
     assert block["series"]["display_scale"] is None
+
+
+def test_series_without_observations_does_not_create_a_score_bucket() -> None:
+    from benchmark_radar.catalog_identity import IdentityIndex
+    from benchmark_radar.catalog_shards import build_shard
+
+    record = {
+        "key": "source:unscored",
+        "slug": "source-unscored",
+        "source": "source",
+    }
+    shard = build_shard(
+        record,
+        identity=IdentityIndex(),
+        series_by_key={record["key"]: {"key": record["key"], "observation_count": 0}},
+        observations_by_key={},
+    )
+
+    assert shard["scores_by_source"] == {}
 
 
 def test_opencompass_shard_has_empty_scores(shard_inputs: dict, tmp_path: Path) -> None:

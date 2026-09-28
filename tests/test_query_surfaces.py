@@ -137,6 +137,69 @@ def _catalog(tmp_path: Path) -> QueryPaths:
     return QueryPaths(index=index_path, shards=shard_dir, snapshots=snapshot_dir)
 
 
+def test_search_and_detail_expose_reviewed_identity_siblings(tmp_path: Path) -> None:
+    paths = _catalog(tmp_path)
+    index = json.loads(paths.index.read_text(encoding="utf-8"))
+    related = {
+        "slug": "claire-agent-workbench",
+        "key": "claire-radar:agent-workbench",
+        "name": "Agent Workbench",
+        "source": "claire_radar",
+        "publisher": None,
+        "released": None,
+        "openness": "unknown",
+        "modality": "text",
+        "description": "Imported source record for the same reviewed benchmark identity.",
+        "categories": ["agent", "coding"],
+        "languages": [],
+        "score_count": 0,
+        "has_paper": True,
+        "has_repo": False,
+        "has_dataset": False,
+        "has_size": False,
+    }
+    index["benchmarks"].append(related)
+    index["count"] += 1
+    paths.index.write_text(json.dumps(index), encoding="utf-8")
+    (paths.shards / f"{related['slug']}.json").write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "record": related,
+                "siblings": [
+                    {
+                        "key": "opencompass:agent-workbench",
+                        "slug": "opencompass-agent-workbench",
+                        "name": "Agent Workbench",
+                        "source": "opencompass_hub",
+                        "relation": "equivalent",
+                    }
+                ],
+                "scores_by_source": {},
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    service = QueryService(paths)
+    search = service.search("Agent Workbench", scope="catalog", limit=10)
+    detail = service.show("claire-radar:agent-workbench")
+
+    assert {row["key"] for row in search["results"]} >= {
+        "claire-radar:agent-workbench",
+        "opencompass:agent-workbench",
+    }
+    assert detail["benchmark"]["siblings"] == [
+        {
+            "key": "opencompass:agent-workbench",
+            "slug": "opencompass-agent-workbench",
+            "name": "Agent Workbench",
+            "source": "opencompass_hub",
+            "relation": "equivalent",
+        }
+    ]
+
+
 def test_catalog_search_is_deterministic_and_explains_matches(tmp_path: Path) -> None:
     # Regression: interface-specific ranking would let CLI and HTTP disagree.
     service = QueryService(_catalog(tmp_path))

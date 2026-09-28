@@ -97,6 +97,28 @@ def test_export_preserves_every_record_with_exact_source_ids_and_review_states()
     assert all(len(row["record_sha256"]) == 64 for row in rows)
 
 
+def test_export_rejects_loopback_project_links():
+    module = _export_module()
+    document = {
+        "records": [
+            {
+                "id": "local-project",
+                "name": "Local Project Bench",
+                "source": {
+                    "id": "github:owner/local-project",
+                    "type": "github",
+                    "url": "https://github.com/owner/local-project",
+                },
+                "links": {"project": "http://localhost:8737"},
+            }
+        ]
+    }
+
+    [row] = module.export_rows(document)
+
+    assert row["project_url"] == ""
+
+
 def test_registered_snapshot_preserves_review_provenance_and_links():
     snapshots = load_snapshots()
     snapshot = next(row for row in snapshots["snapshots"] if row["id"] == "claire_radar_2026-09-25")
@@ -105,6 +127,7 @@ def test_registered_snapshot_preserves_review_provenance_and_links():
 
     assert normalized["validation"]["source_record_count"] == 1914
     assert normalized["validation"]["score_observation_count"] == 0
+    assert normalized["validation"]["score_series_count"] == 0
     record = next(
         row
         for row in normalized["source_records"]
@@ -127,6 +150,38 @@ def test_registered_snapshot_preserves_review_provenance_and_links():
     assert unreviewed["name"] == "SafeGesture"
     assert unreviewed["provenance"]["review_state"] == "unreviewed"
     assert unreviewed["provenance"]["display_eligible"] == "unknown"
+
+
+def test_claire_dates_distinguish_first_public_evidence_from_paper_dates():
+    snapshot = next(
+        row for row in load_snapshots()["snapshots"] if row["id"] == "claire_radar_2026-09-25"
+    )
+    records = {row["name"]: row for row in normalize_snapshot(snapshot)["source_records"]}
+
+    expected = {
+        "DeepSWE": ("2026-05-18", "2026-07-08", "https://datacurve.ai/research"),
+        "LoopsBench": ("2026-07-03", "2026-07-31", "https://github.com/microsoft/Loopsbench"),
+        "EdgeBench": ("2026-07-02", "2026-07-06", "https://edge-bench.org/"),
+    }
+    for name, (released, paper_date, source_url) in expected.items():
+        record = records[name]
+        assert record["released"] == released
+        assert record["released_reference"] == {
+            "source_key": record["key"],
+            "source_url": source_url,
+            "basis": "first_public",
+        }
+        assert record["publication_dates"] == [
+            {
+                "date": paper_date,
+                "basis": "paper_first_version",
+                "source_url": next(
+                    artifact["url"]
+                    for artifact in record["artifacts"]
+                    if artifact["kind"] == "paper"
+                ),
+            }
+        ]
 
 
 def test_registered_snapshot_retains_every_original_object_losslessly():
