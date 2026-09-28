@@ -143,8 +143,12 @@ snapshots:
       deferred, excluded and unreviewed records all remain inspectable. Exact
       source ids are retained; similar names are not merged.
     benchmark_file: leaderboard_snapshots/claire_radar_benchmarks_2026-09-25.csv
-    benchmark_sha256: abcfb78b27dd92523ceef1d781e8a30ef10fbe3fb7cb442c2ae1f7e265e94d1b
+    benchmark_sha256: cb15e3e585c4234517f4dfe6f93235980b3acf762f093739caea4338e77f166d
     benchmark_count: 1914
+    release_evidence:
+      "2607.05155": https://edge-bench.org/
+      "2607.07946": https://datacurve.ai/research
+      "2608.00267": https://github.com/microsoft/Loopsbench
     benchmark_columns:
       benchmark_id: benchmark_id
       benchmark_name: name

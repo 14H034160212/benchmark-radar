@@ -6,10 +6,14 @@ from __future__ import annotations
 import argparse
 import csv
 import hashlib
+import ipaddress
 import json
+import re
+import socket
+import unicodedata
 from pathlib import Path
 from typing import Any
-from urllib.parse import urlsplit
+from urllib.parse import unquote, urlsplit
 
 FIELDS = (
     "benchmark_id",
@@ -40,8 +44,52 @@ FIELDS = (
 
 
 def _url(value: Any) -> str:
-    text = str(value or "").strip()
-    return text if urlsplit(text).scheme in {"http", "https"} else ""
+    text = str(value or "").strip().rstrip("`")
+    if "\\" in text:
+        return ""
+    try:
+        parsed = urlsplit(text)
+        raw_host = unquote(parsed.hostname or "")
+        authority = parsed.netloc.rsplit("@", 1)[-1]
+        if authority.endswith(":"):
+            return ""
+        port = parsed.port
+        host = (
+            unicodedata.normalize("NFKC", raw_host)
+            .encode("idna")
+            .decode("ascii")
+            .rstrip(".")
+            .casefold()
+        )
+    except (UnicodeError, ValueError):
+        return ""
+    if not host or len(host) > 253 or any(ord(char) <= 32 or ord(char) == 127 for char in raw_host):
+        return ""
+    try:
+        address = ipaddress.ip_address(host)
+    except ValueError:
+        try:
+            address = ipaddress.ip_address(socket.inet_aton(host))
+        except (OSError, ValueError):
+            address = None
+    valid_domain = address is not None or all(
+        0 < len(label) <= 63 and re.fullmatch(r"[a-z0-9](?:[a-z0-9-]*[a-z0-9])?", label)
+        for label in host.split(".")
+    )
+    blocked = (
+        not valid_domain
+        or host == "localhost"
+        or host.endswith(".localhost")
+        or (address is not None and (address.is_loopback or address.is_unspecified))
+    )
+    return (
+        text
+        if parsed.scheme in {"http", "https"}
+        and parsed.netloc
+        and (port is None or 0 < port <= 65535)
+        and not blocked
+        else ""
+    )
 
 
 def _artifact_url(value: Any, kind: str) -> str:

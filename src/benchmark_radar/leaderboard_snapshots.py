@@ -265,6 +265,10 @@ def load_snapshots(path: Path = DEFAULT_SNAPSHOTS_PATH) -> dict[str, Any]:
                 "benchmark_columns": {
                     str(key): str(value) for key, value in benchmark_columns.items()
                 },
+                "release_evidence": {
+                    str(key): str(value)
+                    for key, value in (entry.get("release_evidence") or {}).items()
+                },
                 "benchmark_rows": files["benchmark_rows"],
                 "score_rows": files["score_rows"],
             }

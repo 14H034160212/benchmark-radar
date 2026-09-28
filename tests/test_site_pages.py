@@ -138,6 +138,23 @@ def test_page_shows_importer_original_evidence_and_review_status(tmp_path):
     assert "source-reviewed" in page
 
 
+@pytest.mark.parametrize("source_url", ["javascript:alert(1)", "data:text/html,x", "http://["])
+def test_page_omits_unsafe_original_evidence_links(tmp_path, source_url):
+    output = _generated_pages(
+        tmp_path,
+        _shard(
+            "alpha-bench",
+            "Alpha Bench",
+            source="claire_radar",
+            provenance={"source_url": source_url},
+        ),
+    )
+    page = _page_text(output, "alpha-bench")
+
+    assert "Original evidence" not in page
+    assert source_url not in page
+
+
 def test_page_has_unique_title_and_canonical(tmp_path):
     output = _generated_pages(
         tmp_path,

@@ -220,6 +220,7 @@ def _source_record(
     source: str,
     key_prefix: str,
     snapshot_id: str,
+    release_evidence: dict[str, str],
 ) -> dict[str, Any]:
     source_id = row["benchmark_id"].strip()
     description = (row.get("description") or "").strip()
@@ -261,8 +262,33 @@ def _source_record(
     source_metadata = json_object(
         row.get("extra_json", ""), label=f"{snapshot_id}:{source_id}:extra_json"
     )
-    released = (row.get("released") or "").strip() or None
     source_url = provenance["source_url"]
+    released = (row.get("released") or "").strip() or None
+    released_basis = "benchmark_release"
+    released_source_url = source_url
+    publication_dates: list[dict[str, str]] = []
+    if source == "claire_radar":
+        release_dates = source_metadata.get("releaseDates") or {}
+        first_public = release_dates.get("firstPublicAt")
+        paper_date = release_dates.get("paperV1At")
+        if isinstance(first_public, str) and first_public.strip():
+            released = first_public.strip()
+            released_basis = "first_public"
+            evidence_url = release_evidence.get(source_id, "").strip()
+            if evidence_url:
+                released_source_url = evidence_url
+        paper_url = next(
+            (item["url"] for item in artifacts if item.get("kind") == "paper"),
+            None,
+        )
+        if isinstance(paper_date, str) and paper_date.strip() and paper_url:
+            publication_dates.append(
+                {
+                    "date": paper_date.strip(),
+                    "basis": "paper_first_version",
+                    "source_url": paper_url,
+                }
+            )
     return {
         "key": f"{key_prefix}:{source_id}",
         "slug": slug,
@@ -287,12 +313,13 @@ def _source_record(
         "released_reference": (
             {
                 "source_key": f"{key_prefix}:{source_id}",
-                "source_url": source_url,
-                "basis": "benchmark_release",
+                "source_url": released_source_url,
+                "basis": released_basis,
             }
-            if released and source_url
+            if released and released_source_url
             else None
         ),
+        **({"publication_dates": publication_dates} if publication_dates else {}),
         "modality": (row.get("modality") or "").strip() or None,
         "categories": json_list(row.get("categories", "")),
         "provenance": provenance,
@@ -475,6 +502,7 @@ def normalize_snapshot(snapshot: dict[str, Any]) -> dict[str, Any]:
                 source=source,
                 key_prefix=key_prefix,
                 snapshot_id=snapshot_id,
+                release_evidence=snapshot.get("release_evidence") or {},
             )
         )
         series_id = f"{source}:{source_id}:default"
@@ -486,7 +514,8 @@ def normalize_snapshot(snapshot: dict[str, Any]) -> dict[str, Any]:
             for score_row in rows
         ]
         observations.extend(observed)
-        series.append(_series(row, key=key, observations=observed, source=source))
+        if observed or source != "claire_radar":
+            series.append(_series(row, key=key, observations=observed, source=source))
 
     records.sort(key=lambda item: item["key"])
     series.sort(key=lambda item: item["series_id"])
@@ -537,7 +566,7 @@ def _validation(
         "obs_id_unique": not collisions,
         "obs_id_collisions": collisions,
         "benchmarks_with_zero_observations": sorted(
-            item["key"] for item in series if item["observation_count"] == 0
+            {item["key"] for item in records} - {item["key"] for item in observations}
         ),
         "max_score_contradicted_benchmarks": sorted(contradicted),
         "max_score_contradicted_row_count": sum(
@@ -676,7 +705,9 @@ def build_benchmark_index(
                 "openness": openness.get("status", "unknown"),
                 "modality": record.get("modality"),
                 "score_count": series.get("observation_count", 0),
-                "score_summary": series.get("score_summary"),
+                "score_summary": (
+                    series.get("score_summary") if series.get("observation_count", 0) else None
+                ),
                 "score_direction": series.get("direction"),
                 "unit": series.get("unit"),
                 "evidence_summary": record.get("evidence_summary"),

@@ -5315,6 +5315,11 @@ const CATALOG_SOURCE_META = {
       "Scores embedded in the OpenCompass hub card. Column meaning varies from card to card, and rows are listed in the source's own order.",
     emptyKey: "The OpenCompass hub card records no scores for this benchmark.",
   },
+  claire_radar: {
+    name: "Claire Radar",
+    noteKey: "Metadata imported from Claire Radar. Review status and original evidence remain attached to the source record.",
+    emptyKey: "Claire Radar recorded no scores for this benchmark.",
+  },
   artificial_analysis: {
     name: "Artificial Analysis",
     noteKey:
@@ -5402,6 +5407,9 @@ function catalogInheritanceNote(detail) {
 function catalogIdentityBlock(detail) {
   const publisher = detail.publisher;
   const description = l10nProse(detail.description?.en, detail.description?.zh);
+  const provenance = detail.provenance || {};
+  const importer = catalogSourceMeta(detail.source).name;
+  const originalEvidence = safeHttpUrl(provenance.source_url);
   const artifacts = (detail.artifacts || []).filter((artifact) =>
     safeHttpUrl(artifact.url),
   );
@@ -5428,7 +5436,24 @@ function catalogIdentityBlock(detail) {
           : t("release date not established"),
       ],
       [t("Modality"), detail.modality || t("modality not established")],
+      [t("Importer"), importer],
+      ...(provenance.review_state
+        ? [[t("Review status"), provenance.review_state]]
+        : []),
     ]),
+    originalEvidence
+      ? element("p", { className: "catalog-basis" }, [
+          element("span", { text: `${t("Original evidence")}: ` }),
+          element("a", {
+            text: provenance.source_url,
+            attrs: {
+              href: originalEvidence,
+              target: "_blank",
+              rel: "noopener noreferrer",
+            },
+          }),
+        ])
+      : null,
     artifacts.length
       ? element(
           "ul",

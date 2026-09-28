@@ -3,6 +3,8 @@ import importlib.util
 import json
 from pathlib import Path
 
+import pytest
+
 from benchmark_radar.catalog import artifact_identifier, normalize_snapshot
 from benchmark_radar.leaderboard_snapshots import load_snapshots
 
@@ -97,7 +99,45 @@ def test_export_preserves_every_record_with_exact_source_ids_and_review_states()
     assert all(len(row["record_sha256"]) == 64 for row in rows)
 
 
-def test_export_rejects_loopback_project_links():
+@pytest.mark.parametrize(
+    "url",
+    [
+        "http://localhost:8737",
+        "http://sub.localhost/path",
+        "http://127.0.0.2",
+        "http://127.1",
+        "http://2130706433",
+        "http://0x7f000001",
+        "http://0177.0.0.1",
+        "http://127.0.0.1.",
+        "http://2130706433.",
+        "http://0x7f000001.",
+        "http://0177.0.0.1.",
+        "http://127%2e0%2e0%2e1",
+        "http://127.0.0.1%2e",
+        "http://127。0。0。1/",
+        "http://１２７.０.０.１/",
+        "http://ｌｏｃａｌｈｏｓｔ/",
+        "http://ⓛⓞⓒⓐⓛⓗⓞⓢⓣ/",
+        "http://127%E3%80%820%E3%80%820%E3%80%821/",
+        "http://exa mple.com/",
+        "http://example.com:bad/",
+        "http://example.com%00.evil/",
+        "http://127.0.0.1\\@example.com/",
+        "http://localhost\\@example.com/",
+        "http://2130706433\\@example.com/",
+        "http://0x7f000001\\@example.com/",
+        "http://127%2e0%2e0%2e1\\@example.com/",
+        "http://example.com:",
+        f"http://{'1' * 4301}",
+        "http://[::1]",
+        "http://[::ffff:127.0.0.1]",
+        "http://0.0.0.0",
+        "http://[::]",
+        "http://[",
+    ],
+)
+def test_export_rejects_local_or_malformed_project_links(url):
     module = _export_module()
     document = {
         "records": [
@@ -109,7 +149,7 @@ def test_export_rejects_loopback_project_links():
                     "type": "github",
                     "url": "https://github.com/owner/local-project",
                 },
-                "links": {"project": "http://localhost:8737"},
+                "links": {"project": url},
             }
         ]
     }
@@ -125,9 +165,15 @@ def test_registered_snapshot_preserves_review_provenance_and_links():
 
     normalized = normalize_snapshot(snapshot)
 
+    assert snapshot["release_evidence"] == {
+        "2607.05155": "https://edge-bench.org/",
+        "2607.07946": "https://datacurve.ai/research",
+        "2608.00267": "https://github.com/microsoft/Loopsbench",
+    }
     assert normalized["validation"]["source_record_count"] == 1914
     assert normalized["validation"]["score_observation_count"] == 0
     assert normalized["validation"]["score_series_count"] == 0
+    assert len(normalized["validation"]["benchmarks_with_zero_observations"]) == 1914
     record = next(
         row
         for row in normalized["source_records"]
@@ -150,6 +196,9 @@ def test_registered_snapshot_preserves_review_provenance_and_links():
     assert unreviewed["name"] == "SafeGesture"
     assert unreviewed["provenance"]["review_state"] == "unreviewed"
     assert unreviewed["provenance"]["display_eligible"] == "unknown"
+    for item in normalized["source_records"]:
+        assert all("localhost" not in artifact["url"] for artifact in item["artifacts"])
+        assert all("127.0.0.1" not in artifact["url"] for artifact in item["artifacts"])
 
 
 def test_claire_dates_distinguish_first_public_evidence_from_paper_dates():
@@ -165,6 +214,10 @@ def test_claire_dates_distinguish_first_public_evidence_from_paper_dates():
     }
     for name, (released, paper_date, source_url) in expected.items():
         record = records[name]
+        assert record["source_metadata"]["claire_radar"]["releaseDates"] == {
+            "firstPublicAt": released,
+            "paperV1At": paper_date,
+        }
         assert record["released"] == released
         assert record["released_reference"] == {
             "source_key": record["key"],
