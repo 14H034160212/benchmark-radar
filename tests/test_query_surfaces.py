@@ -166,6 +166,36 @@ def test_catalog_search_is_deterministic_and_explains_matches(tmp_path: Path) ->
     assert result["data"]["catalog_count"] == 3
 
 
+def test_catalog_search_accepts_chinese_terms_present_in_source_text(tmp_path: Path) -> None:
+    # OpenCompass descriptions contain Chinese evidence that ASCII-only tokens hid.
+    paths = _catalog(tmp_path)
+    index = json.loads(paths.index.read_text(encoding="utf-8"))
+    index["benchmarks"][0]["description"] = "中文语义相似度评测。"
+    paths.index.write_text(json.dumps(index), encoding="utf-8")
+
+    result = QueryService(paths).search("中文语义", scope="catalog")
+
+    assert result["search_status"] == "full_matches_found"
+    assert result["results"][0]["key"] == "opencompass:agent-workbench"
+    assert result["results"][0]["match"]["matched_tokens"] == ["中文", "文语", "语义"]
+
+
+def test_chinese_description_does_not_reweight_english_search(tmp_path: Path) -> None:
+    paths = _catalog(tmp_path)
+    baseline = QueryService(paths).search("agent workbench", scope="catalog")
+    index = json.loads(paths.index.read_text(encoding="utf-8"))
+    index["benchmarks"][2]["description"] += " 中文语义相似度评测。"
+    paths.index.write_text(json.dumps(index), encoding="utf-8")
+
+    after = QueryService(paths).search("agent workbench", scope="catalog")
+    assert [item["key"] for item in after["results"]] == [
+        item["key"] for item in baseline["results"]
+    ]
+    assert [item["match"]["retrieval_score"] for item in after["results"]] == [
+        item["match"]["retrieval_score"] for item in baseline["results"]
+    ]
+
+
 @pytest.mark.parametrize("source", ["model_reports", "llm_stats", "artificial_analysis"])
 def test_registered_aliases_are_searchable_for_every_source(tmp_path: Path, source: str) -> None:
     paths = _catalog(tmp_path)

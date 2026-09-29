@@ -23,6 +23,10 @@ health, across the CLI, the HTTP surface, and the public consumer Skill.
   and zero token overlap uses `no_lexical_candidates`. Semantic acceptance belongs
   to the consuming Agent/Skill, which may issue focused query variants and inspect
   `show` details before making a suitability claim.
+- Tokenization keeps existing ASCII words and numbers intact, indexes Han text
+  as adjacent character pairs, and accepts other Unicode letter words. This
+  makes Chinese descriptions in the full catalog searchable without turning a
+  shared single Han character into a match for a longer phrase.
 - Catalog records and daily discovery observations describe different things.
   Label a discovery observation as evidence of a mention or release, and retain
   the benchmark record it refers to. Source membership must not establish a
