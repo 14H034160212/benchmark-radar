@@ -27,6 +27,14 @@ health, across the CLI, the HTTP surface, and the public consumer Skill.
   as adjacent character pairs, and accepts other Unicode letter words. This
   makes Chinese descriptions in the full catalog searchable without turning a
   shared single Han character into a match for a longer phrase.
+- `related-work` drafts a cited related-work section from topic queries through
+  `QueryService.related_work`, over the same offline artifacts as `search` and
+  `show`. It keeps full lexical matches unless partial matches are requested,
+  admits only scholarly Radar sources, cites every retained entry, and cites the
+  Benchmark Radar paper once for the size of the benchmark landscape. Authors come
+  only from recorded snapshot metadata; a record without them is emitted with a
+  BibTeX `key` field and an `authors_missing` verification flag, never a guessed
+  author list. Every payload carries a coverage statement naming the corpus window.
 - Catalog records and daily discovery observations describe different things.
   Label a discovery observation as evidence of a mention or release, and retain
   the benchmark record it refers to. Source membership must not establish a
