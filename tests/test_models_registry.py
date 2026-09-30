@@ -129,7 +129,7 @@ def test_the_published_registry_matches_what_the_builder_produces():
 
 
 @needs_corpus
-def test_the_logo_registry_and_models_json_cannot_disagree():
+def test_the_logo_registry_and_models_json_cannot_disagree(rebuilt_logo_registry):
     """One answer to "which models exist".
 
     build_logo_registry.py used to walk radar.json and the shards itself,
@@ -139,7 +139,7 @@ def test_the_logo_registry_and_models_json_cannot_disagree():
     called in review.
     """
     models = json.loads(Path("site/data/models.json").read_text(encoding="utf-8"))
-    logos = json.loads(Path("site/data/logo-registry.json").read_text(encoding="utf-8"))
+    logos = rebuilt_logo_registry
 
     live = {f"{m['model']}␟{m['organization']}" for m in models["models"]}
     assert set(logos["models"]) == live, "logo registry and models.json disagree"
