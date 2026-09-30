@@ -43,7 +43,18 @@ _BM25_K1 = 1.2
 _BM25_B = 0.75
 _NAME_MATCH_MULTIPLIERS = (3.0, 1.5, 0.75)
 _PHRASE_MULTIPLIER = 0.5
-_TOKEN_PARTS = re.compile(r"[a-z0-9]+|[\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff]+|[^\W\d_]+")
+# Han ideographs plus hiragana and katakana, which share unspaced text with Han.
+_CJK_CHARS = (
+    r"\u3005\u3041-\u309f\u30a1-\u30fa\u30fc-\u30ff\u31f0-\u31ff"
+    r"\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff"
+)
+# Latin letters outside ASCII are left out of the word alternative so Latin text
+# keeps its original ASCII tokens, and English scores stay unchanged.
+_LATIN_EXTENDED = r"\u00c0-\u02af\u1e00-\u1eff\u2c60-\u2c7f\ua720-\ua7ff\uab30-\uab6f"
+_TOKEN_PARTS = re.compile(
+    rf"[a-z0-9]+|(?P<cjk>[{_CJK_CHARS}]+)"
+    rf"|(?:(?![{_CJK_CHARS}{_LATIN_EXTENDED}])[^\W\d_])+"
+)
 
 LOGGER = logging.getLogger(__name__)
 
@@ -125,11 +136,14 @@ def _validate_index_record(record: dict[str, Any], *, position: int) -> None:
 def _tokens(value: Any) -> tuple[str, ...]:
     normalized = unicodedata.normalize("NFKD", str(value or "")).casefold()
     tokens: list[str] = []
-    for part in _TOKEN_PARTS.findall(normalized):
-        if "\u3400" <= part[0] <= "\u9fff" or "\uf900" <= part[0] <= "\ufaff":
-            # Han text has no spaces between words. Adjacent character pairs
-            # let a short query find a longer source description without
-            # treating every shared single character as a strong match.
+    for match in _TOKEN_PARTS.finditer(normalized):
+        part = match.group()
+        if match.lastgroup == "cjk":
+            # Han and kana text has no spaces between words. Adjacent character
+            # pairs let a short query find a longer source description without
+            # treating every shared single character as a strong match. NFKD
+            # split voiced kana such as が from their marks, so recompose first.
+            part = unicodedata.normalize("NFC", part)
             tokens.extend(part[index : index + 2] for index in range(len(part) - 1))
             if len(part) == 1:
                 tokens.append(part)
