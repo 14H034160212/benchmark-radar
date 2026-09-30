@@ -18,7 +18,7 @@ from benchmark_radar.citation import (
     latex_citation,
 )
 from benchmark_radar.models import RadarItem, RadarRun, SourceHealth
-from benchmark_radar.query import QueryError, QueryPaths, QueryService
+from benchmark_radar.query import QueryError, QueryPaths, QueryService, _tokens
 from benchmark_radar.query_cli import run_query_cli
 from benchmark_radar.query_http import create_query_server
 from benchmark_radar.snapshots import write_snapshot
@@ -227,6 +227,61 @@ def test_catalog_search_is_deterministic_and_explains_matches(tmp_path: Path) ->
     assert result["results"][0]["match"]["retrieval_score"] > 0
     assert result["results"][0]["match"]["idf_coverage"] == pytest.approx(1.0)
     assert result["data"]["catalog_count"] == 3
+
+
+def test_catalog_search_accepts_chinese_terms_present_in_source_text(tmp_path: Path) -> None:
+    # OpenCompass descriptions contain Chinese evidence that ASCII-only tokens hid.
+    paths = _catalog(tmp_path)
+    index = json.loads(paths.index.read_text(encoding="utf-8"))
+    index["benchmarks"][0]["description"] = "中文语义相似度评测。"
+    paths.index.write_text(json.dumps(index), encoding="utf-8")
+
+    result = QueryService(paths).search("中文语义", scope="catalog")
+
+    assert result["search_status"] == "full_matches_found"
+    assert result["results"][0]["key"] == "opencompass:agent-workbench"
+    assert result["results"][0]["match"]["matched_tokens"] == ["中文", "文语", "语义"]
+
+
+def test_chinese_description_does_not_reweight_english_search(tmp_path: Path) -> None:
+    paths = _catalog(tmp_path)
+    baseline = QueryService(paths).search("agent workbench", scope="catalog")
+    index = json.loads(paths.index.read_text(encoding="utf-8"))
+    index["benchmarks"][2]["description"] += " 中文语义相似度评测。"
+    paths.index.write_text(json.dumps(index), encoding="utf-8")
+
+    after = QueryService(paths).search("agent workbench", scope="catalog")
+    assert [item["key"] for item in after["results"]] == [
+        item["key"] for item in baseline["results"]
+    ]
+    assert [item["match"]["retrieval_score"] for item in after["results"]] == [
+        item["match"]["retrieval_score"] for item in baseline["results"]
+    ]
+
+
+def test_kana_before_han_does_not_hide_the_han_phrase(tmp_path: Path) -> None:
+    # A generic letter run starting at kana used to swallow the following Han
+    # characters into one token, so a Japanese description never matched them.
+    paths = _catalog(tmp_path)
+    index = json.loads(paths.index.read_text(encoding="utf-8"))
+    index["benchmarks"][0]["description"] = "ひらがなで書かれた中文語義の評価。"
+    paths.index.write_text(json.dumps(index), encoding="utf-8")
+
+    for query in ("中文語義", "ひらがな"):
+        result = QueryService(paths).search(query, scope="catalog")
+        assert result["search_status"] == "full_matches_found"
+        assert result["results"][0]["key"] == "opencompass:agent-workbench"
+    assert _tokens("ひらがな") == ("ひら", "らが", "がな")
+
+
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [("Łódź", ("o", "dz")), ("Ørsted", ("rsted",)), ("café Straße", ("cafe", "strasse"))],
+)
+def test_latin_text_keeps_ascii_tokens(text: str, expected: tuple[str, ...]) -> None:
+    # Non-ASCII Latin letters must not start new tokens; English scores depend
+    # on the ASCII token population staying the same as before Unicode support.
+    assert _tokens(text) == expected
 
 
 @pytest.mark.parametrize("source", ["model_reports", "llm_stats", "artificial_analysis"])
