@@ -93,10 +93,6 @@ npx skills add ktwu01/benchmark-radar
 
 <img src="assets/wechat-group-qr.jpg" alt="微信群二维码" width="280" />
 
-## 加入 Discord 群组
-
-扫描永久二维码，加入 Benchmark Radar Discord 社区：
-
 <img src="assets/discord-group-qr.jpg" alt="加入 Benchmark Radar Discord 群组的永久二维码" width="360" />
 
 ## 贡献者
