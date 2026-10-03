@@ -1349,6 +1349,28 @@ def test_datacite_requires_every_term_of_a_search_phrase(monkeypatch):
     assert " OR " not in calls[0]["query"]
 
 
+def test_datacite_skips_a_search_phrase_with_no_terms_left(monkeypatch):
+    calls: list[dict] = []
+
+    def fake_get_json(url, **kwargs):
+        calls.append(kwargs["params"])
+        return {"data": []}
+
+    monkeypatch.setattr("benchmark_radar.sources.get_json", fake_get_json)
+    fetch_datacite(
+        {
+            "searches": ["< >", "LLM benchmark"],
+            "_collection_now": datetime(2026, 7, 28, tzinfo=UTC),
+        },
+        datetime(2026, 7, 26, 12, tzinfo=UTC),
+        10,
+    )
+
+    assert [call["query"].split(" AND registered")[0] for call in calls] == [
+        "titles.title:(LLM AND benchmark)"
+    ]
+
+
 @pytest.mark.parametrize("field", ["titles", "creators", "descriptions"])
 @pytest.mark.parametrize("malformed", [{}, "", 0])
 def test_datacite_falsey_malformed_arrays_are_reported_not_swallowed(monkeypatch, field, malformed):

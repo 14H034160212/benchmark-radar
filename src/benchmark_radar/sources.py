@@ -1179,13 +1179,17 @@ def fetch_datacite(
     )
     found: dict[str, RadarItem] = {}
     for search in searches[:budget]:
+        terms = _datacite_query_terms(search)
+        # `titles.title:()` is a query_string parse error that would fail every search.
+        if not terms:
+            continue
         payload = get_json(
             DATACITE_API_URL,
             params={
                 # Title-scoped, like the Crossref connector: the description
                 # field indexes every abstract that mentions a benchmark in
                 # passing, and the shared taxonomy filters the rest downstream.
-                "query": f"titles.title:({_datacite_query_terms(search)}) AND {window}",
+                "query": f"titles.title:({terms}) AND {window}",
                 # The API cannot sort on `registered`; `-created` is the
                 # closest server-side order, and the result is re-sorted below.
                 "sort": "-created",
