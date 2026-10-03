@@ -23,9 +23,9 @@ Precision red lines, locked by ``tests/test_science_domains.py``:
   stay untagged; only compounds such as "neural decoding" appear;
 - acronym terms (EEG, MEG, ECoG, fMRI, BCI, SSVEP, P300) are word
   anchored on both sides so "megabyte" cannot match "meg";
-- "blood-brain barrier" and friends are excluded for neuroscience
-  because the corpus contains auto-generated hypothesis "datasets"
-  whose only neuro word is that phrase (PathMap records).
+- phrases such as "blood-brain barrier" are masked out before matching,
+  so one incidental mention cannot add or remove a tag; only genre
+  markers (PathMap hypothesis records, species descriptions) veto a record.
 
 The rule set is deliberately a first slice -- one merged "neuroscience"
 domain that includes BCI (brain-computer interfaces are a subfield, and a
@@ -45,13 +45,13 @@ from __future__ import annotations
 
 import re
 from collections.abc import Mapping
-from typing import Final
+from typing import Any, Final, NamedTuple
 
 # One entry per domain: ``match`` patterns, any one of which tags the
 # record, and ``exclude`` patterns, any one of which vetoes the domain
 # for that record. Patterns are lowercase regex fragments anchored at a
 # word start; embed ``\\b`` in a fragment to close its right edge.
-_RULES: Final[dict[str, dict[str, tuple[str, ...]]]] = {
+_RULES: Final[dict[str, dict[str, tuple[Any, ...]]]] = {
     # One merged domain: BCI vocabulary lives here rather than in its own
     # facet because "bci"-only records were a handful per month -- too few
     # to power a separate filter, but exactly the records a merged
@@ -154,76 +154,51 @@ _RULES: Final[dict[str, dict[str, tuple[str, ...]]]] = {
             r"intracranial",
             r"calcium imaging",
             r"optogenetic",
-            # Cardiac electrophysiology is the other big user of this stem
-            # ("cardiology, electrophysiology, ECG waveforms", Codex round
-            # 2); the cardiac-side words veto rather than compete, so an
-            # EEG record that merely mentions removing ECG artifacts keeps
-            # its tag.
-            r"electrophysiolog",
         ),
-        # "blood-brain barrier": auto-generated PathMap hypothesis records
-        # talk about the barrier without being neuroscience artifacts. The
-        # veto is whole-domain for now; a real record whose only neuro
-        # evidence is this phrase is a chemoinformatics candidate, so losing
-        # the tag is the safer error until measured otherwise.
-        # "as the brain of": the agent-as-brain metaphor ("the LLM acts as
-        # the brain of a simulated humanoid"), a live-corpus false positive
-        # where "brain" describes computation, not tissue.
-        # "brain-inspired" / "brain-like": neuromorphic-computing framing,
-        # the same metaphor class (Codex review, PR #647: "Pathway's
-        # brain-inspired architecture development").
-        # "sp. nov." / "gen. nov.": species-description genre markers. A
-        # fungal taxonomy record can mention "cortical cells of roots"
-        # without being neuroscience; genus/species novelty is the paper-
-        # genre marker that separates it, the same genre-marker pattern the
-        # main taxonomy uses for surveys (Codex review, PR #647).
-        # "electrocardiograph" / "cardiolog" / "cardiac electrophysiolog":
-        # the cardiac side of electrophysiology (ECGQuest, Codex round
-        # 2). Scoped to cardiology words rather than bare "ECG" so EEG
-        # records that mention removing ECG artifacts are unaffected.
-        # "interventional electrophysiolog" / "catheter ablation": cardiac
-        # EP registries name the field without any cardiac word (owner
-        # review, current-corpus audit: the Bulgaria EP registry).
-        # "no new neuroscience": explicit disclaimers (owner review:
-        # FluctlightDB, "we claim no new neuroscience").
-        # "brain natriuretic peptide": BNP/NT-proBNP is the cardiac
-        # hormone whose historical expansion contains "brain" (owner
-        # review: the troponin POCT study).
-        # "brain targeting" / "brain delivery": pharma drug-delivery
-        # framing, not brain science (current-corpus audit: the cubosomes
-        # review).
-        # "brain accomplishes": the brain-as-energy-benchmark analogy for
-        # edge computing (current-corpus audit: "the biological brain
-        # accomplishes complex cognition on an exceptionally modest..."
-        # budget).
-        # "cortical bone/porosity/thickness" / "trabecular": orthopedics
-        # owns these cortex senses (current-corpus audit: fragility-
-        # fracture QMRI).
-        # "pathmap experiment": auto-generated hypothesis "datasets" whose
-        # prose names gut/lung-brain axes; the genre marker covers every
-        # one of them regardless of which axis phrase fired.
-        # "analytical method development": pharma QC reviews name neuro
-        # indications (piracetam for cortical myoclonus) without being
-        # neuroscience work.
-        "exclude": (
+        # Terms that count only when the record carries no context from
+        # ``unless``. Cardiac electrophysiology is the other big user of
+        # this stem (ECGQuest, the Bulgarian EP registry, an epicardial
+        # atrial-fibrillation mesh), so cardiac words disarm this one term
+        # and leave every other match standing: an EEG record that mentions
+        # ECG screening keeps its tag.
+        "conditional": (
+            (
+                r"electrophysiolog",
+                r"cardi|\batri(?:al|um)\b|ablation|interventional electrophysiolog",
+            ),
+        ),
+        # Phrases blanked out before matching: each one is a non-neuro
+        # sense of a matched word, so removing the phrase leaves the rest
+        # of the record to speak for itself (owner review: a single
+        # incidental "blood-brain barrier" must not untag an EEG paper).
+        # "as the brain of" / "brain-inspired" / "brain-like" / "share one
+        # brain" / "brain accomplishes": computing metaphors. "no new
+        # neuroscience": FluctlightDB's explicit disclaimer. "brain
+        # natriuretic peptide": the cardiac hormone (NT-proBNP). "brain
+        # targeting" / "brain delivery": pharma drug-delivery framing.
+        # "cortical bone/porosity/thickness": orthopedic cortex.
+        "mask": (
             r"blood[- ]brain barrier",
             r"as the brain of",
             r"brain[- ]inspired",
             r"brain[- ]like",
-            r"(?:sp|spp|gen)\. nov",
-            r"electrocardiograph",
-            r"cardiolog",
-            r"cardiac electrophysiolog",
-            r"interventional electrophysiolog",
-            r"catheter ablation",
-            r"no new neuroscien",
+            r"share (?:one|a) brain",
+            r"brain accomplishes",
+            r"no new neuroscien\w*",
             r"brain natriuretic peptide",
             r"brain targeting",
             r"brain delivery",
-            r"brain accomplishes",
             r"cortical (?:bone|porosity|thickness)",
-            r"trabecular",
+        ),
+        # Genre markers that veto the whole record: the genre itself is
+        # not neuroscience whatever vocabulary it borrows. "pathmap
+        # experiment": auto-generated hypothesis datasets naming gut/lung-
+        # brain axes. "sp. nov." / "gen. nov.": species descriptions (a
+        # fungus with "cortical cells of roots"). "analytical method
+        # development": pharma QC reviews naming neuro indications.
+        "veto": (
             r"pathmap experiment",
+            r"(?:sp|spp|gen)\. nov",
             r"analytical method development",
         ),
     },
@@ -233,21 +208,44 @@ _RULES: Final[dict[str, dict[str, tuple[str, ...]]]] = {
 SCIENCE_DOMAINS: Final[tuple[str, ...]] = tuple(_RULES)
 
 _WORD_START: Final[str] = r"(?<![a-z0-9])"
-_COMPILED: Final[tuple[tuple[str, re.Pattern[str], re.Pattern[str] | None], ...]] = tuple(
-    (
+
+
+def _alternation(patterns: tuple[str, ...]) -> re.Pattern[str] | None:
+    # The word-start lookbehind must sit in front of the whole
+    # alternation, not just its first branch, or later branches such as
+    # "eeg\b" lose their left anchor.
+    if not patterns:
+        return None
+    return re.compile(_WORD_START + "(?:" + "|".join(f"(?:{p})" for p in patterns) + ")")
+
+
+class _Domain(NamedTuple):
+    name: str
+    match: re.Pattern[str] | None
+    conditional: tuple[tuple[re.Pattern[str], re.Pattern[str]], ...]
+    mask: re.Pattern[str] | None
+    veto: re.Pattern[str] | None
+
+
+_COMPILED: Final[tuple[_Domain, ...]] = tuple(
+    _Domain(
         domain,
-        # The word-start lookbehind must sit in front of the whole
-        # alternation, not just its first branch, or later branches
-        # such as "eeg\b" lose their left anchor.
-        re.compile(
-            _WORD_START + "(?:" + "|".join(f"(?:{pattern})" for pattern in rules["match"]) + ")"
-        ),
-        re.compile("|".join(f"(?:{pattern})" for pattern in rules["exclude"]))
-        if rules["exclude"]
-        else None,
+        _alternation(rules["match"]),
+        tuple((_alternation((term,)), re.compile(unless)) for term, unless in rules["conditional"]),
+        _alternation(rules["mask"]),
+        _alternation(rules["veto"]),
     )
     for domain, rules in _RULES.items()
 )
+
+
+def _declares(domain: _Domain, haystack: str) -> bool:
+    if domain.veto and domain.veto.search(haystack):
+        return False
+    text = domain.mask.sub(" ", haystack) if domain.mask else haystack
+    if domain.match and domain.match.search(text):
+        return True
+    return any(term.search(text) and not unless.search(text) for term, unless in domain.conditional)
 
 
 def derive_science_domains(title: str, summary: str = "") -> list[str]:
@@ -259,11 +257,7 @@ def derive_science_domains(title: str, summary: str = "") -> list[str]:
     get ``[]``, which stays distinct from "not yet derived".
     """
     haystack = f"{title} {summary}".casefold()
-    return [
-        domain
-        for domain, match, exclude in _COMPILED
-        if match.search(haystack) and not (exclude and exclude.search(haystack))
-    ]
+    return [domain.name for domain in _COMPILED if _declares(domain, haystack)]
 
 
 def science_domains_for_record(record: Mapping[str, object]) -> list[str]:
