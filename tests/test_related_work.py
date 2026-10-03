@@ -64,6 +64,22 @@ def _paths(tmp_path: Path) -> QueryPaths:
     return paths
 
 
+def _run_related_work_cli(paths: QueryPaths, *arguments: str) -> int:
+    return run_query_cli(
+        [
+            "related-work",
+            "Agent benchmarks=agent workbench",
+            *arguments,
+            "--index",
+            str(paths.index),
+            "--shards",
+            str(paths.shards),
+            "--snapshots",
+            str(paths.snapshots),
+        ]
+    )
+
+
 def _bib_keys(bibtex: str) -> list[str]:
     return re.findall(r"@misc\{([^,]+),", bibtex)
 
@@ -167,50 +183,37 @@ def test_coverage_statement_names_the_corpus_window(tmp_path: Path) -> None:
     assert "| Work | Cite key |" in payload["markdown"]
 
 
-def test_citation_verifier_rejects_incomplete_related_work_artifacts() -> None:
-    complete_latex = (
-        "Candidate benchmarks were retrieved using Benchmark Radar"
-        "~\\citep{wu2026benchmarkradarlivingdatabase}."
-    )
-    complete_bibtex = required_citations()[0]["bibtex"]
-
-    with pytest.raises(QueryError, match="in-text citation") as missing_text:
-        related_work.verify_citation_complete("No citation here.", complete_bibtex)
-    assert missing_text.value.code == "citation_contract_failed"
-
-    with pytest.raises(QueryError, match="BibTeX entry") as missing_bibtex:
-        related_work.verify_citation_complete(
-            complete_latex, "@misc{anotherwork,\n  title={Other},\n}"
-        )
-    assert missing_bibtex.value.code == "citation_contract_failed"
-
-
 @pytest.mark.parametrize(
-    "latex",
+    ("latex", "bibtex", "message"),
     [
-        "% \\citep{wu2026benchmarkradarlivingdatabase}",
-        "\\citep{wu2026benchmarkradarlivingdatabase-typo}",
+        ("No citation here.", None, "in-text citation"),
+        (f"% \\citep{{{BIBTEX_KEY}}}", None, "in-text citation"),
+        (f"\\citep{{{BIBTEX_KEY}-typo}}", None, "in-text citation"),
+        (rf"\\citep{{{BIBTEX_KEY}}}", None, "in-text citation"),
+        (None, "@misc{anotherwork,\n  title={Other},\n}", "BibTeX entry"),
+        (None, f"% @misc{{{BIBTEX_KEY},", "BibTeX entry"),
+        (None, f"@misc{{{BIBTEX_KEY},", "BibTeX entry"),
+        (None, f"@misc{{{BIBTEX_KEY},\n  title={{Not Benchmark Radar}},\n}}", "BibTeX entry"),
+    ],
+    ids=[
+        "missing-citation",
+        "commented-citation",
+        "suffixed-key",
+        "escaped-command",
+        "missing-entry",
+        "commented-entry",
+        "incomplete-entry",
+        "wrong-title",
     ],
 )
-def test_citation_verifier_requires_an_active_exact_citation_key(latex: str) -> None:
-    with pytest.raises(QueryError, match="in-text citation") as error:
-        related_work.verify_citation_complete(latex, required_citations()[0]["bibtex"])
-
-    assert error.value.code == "citation_contract_failed"
-
-
-@pytest.mark.parametrize(
-    "bibtex",
-    [
-        "% @misc{wu2026benchmarkradarlivingdatabase,",
-        "@misc{wu2026benchmarkradarlivingdatabase,",
-        "@misc{wu2026benchmarkradarlivingdatabase,\n  title={Not Benchmark Radar},\n}",
-    ],
-)
-def test_citation_verifier_requires_the_complete_canonical_bibtex_entry(bibtex: str) -> None:
-    latex = "\\citep{wu2026benchmarkradarlivingdatabase}"
-
-    with pytest.raises(QueryError, match="BibTeX entry") as error:
+def test_citation_verifier_rejects_incomplete_related_work_artifacts(
+    latex: str | None, bibtex: str | None, message: str
+) -> None:
+    if latex is None:
+        latex = f"\\citep{{{BIBTEX_KEY}}}"
+    if bibtex is None:
+        bibtex = required_citations()[0]["bibtex"]
+    with pytest.raises(QueryError, match=message) as error:
         related_work.verify_citation_complete(latex, bibtex)
 
     assert error.value.code == "citation_contract_failed"
@@ -223,47 +226,43 @@ def test_citation_verifier_accepts_valid_whitespace_around_opening_braces() -> N
     related_work.verify_citation_complete(latex, bibtex)
 
 
-def test_citation_verifier_rejects_an_escaped_citation_command() -> None:
-    latex = r"\\citep{wu2026benchmarkradarlivingdatabase}"
-
-    with pytest.raises(QueryError, match="in-text citation") as error:
-        related_work.verify_citation_complete(latex, required_citations()[0]["bibtex"])
-
-    assert error.value.code == "citation_contract_failed"
-
-
-def test_invalid_related_work_requests_are_machine_readable(tmp_path: Path) -> None:
+@pytest.mark.parametrize(
+    ("topics", "options", "code"),
+    [
+        (["Label="], {}, "invalid_query"),
+        (["agent"], {"per_topic": 0}, "invalid_limit"),
+    ],
+    ids=["empty-query", "invalid-limit"],
+)
+def test_invalid_related_work_requests_are_machine_readable(
+    tmp_path: Path, topics: list[str], options: dict[str, int], code: str
+) -> None:
     service = QueryService(_paths(tmp_path))
-    with pytest.raises(QueryError) as empty:
-        service.related_work(["Label="])
-    assert empty.value.code == "invalid_query"
-    with pytest.raises(QueryError) as limit:
-        service.related_work(["agent"], per_topic=0)
-    assert limit.value.code == "invalid_limit"
+    with pytest.raises(QueryError) as error:
+        service.related_work(topics, **options)
+    assert error.value.code == code
 
 
-def test_latex_escape_handles_specials_and_greek() -> None:
-    assert latex_escape("τ-bench 50% & $5") == "\\ensuremath{\\tau}-bench 50\\% \\& \\$5"
-    assert latex_escape("ΔΑ") == "\\ensuremath{\\Delta}A"
-    assert latex_escape("评测 bench ✅，ok") == "bench ,ok"
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        ("τ-bench 50% & $5", r"\ensuremath{\tau}-bench 50\% \& \$5"),
+        ("ΔΑ", r"\ensuremath{\Delta}A"),
+        ("评测 bench ✅，ok", "bench ,ok"),
+    ],
+    ids=["specials-and-lowercase-greek", "uppercase-greek", "unsupported-glyphs"],
+)
+def test_latex_escape(text: str, expected: str) -> None:
+    assert latex_escape(text) == expected
 
 
 def test_cli_bibtex_output_includes_agent_notice(tmp_path: Path, capsys) -> None:
     paths = _paths(tmp_path)
 
-    exit_code = run_query_cli(
-        [
-            "related-work",
-            "Agent benchmarks=agent workbench",
-            "--format",
-            "bibtex",
-            "--index",
-            str(paths.index),
-            "--shards",
-            str(paths.shards),
-            "--snapshots",
-            str(paths.snapshots),
-        ]
+    exit_code = _run_related_work_cli(
+        paths,
+        "--format",
+        "bibtex",
     )
     output = capsys.readouterr().out
 
@@ -304,22 +303,13 @@ def test_cli_writes_nothing_when_citation_contract_fails(
             lambda: "@misc{not-benchmark-radar,\n  title={Other},\n}",
         )
 
-    exit_code = run_query_cli(
-        [
-            "related-work",
-            "Agent benchmarks=agent workbench",
-            "--json",
-            "--tex",
-            str(tex_path),
-            "--bib",
-            str(bib_path),
-            "--index",
-            str(paths.index),
-            "--shards",
-            str(paths.shards),
-            "--snapshots",
-            str(paths.snapshots),
-        ]
+    exit_code = _run_related_work_cli(
+        paths,
+        "--json",
+        "--tex",
+        str(tex_path),
+        "--bib",
+        str(bib_path),
     )
     captured = capsys.readouterr()
 
@@ -342,22 +332,13 @@ def test_cli_rolls_back_all_exports_when_a_later_destination_fails(tmp_path: Pat
     blocked_parent.write_text("not a directory", encoding="utf-8")
     bib_path = blocked_parent / "related.bib"
 
-    exit_code = run_query_cli(
-        [
-            "related-work",
-            "Agent benchmarks=agent workbench",
-            "--json",
-            "--tex",
-            str(tex_path),
-            "--bib",
-            str(bib_path),
-            "--index",
-            str(paths.index),
-            "--shards",
-            str(paths.shards),
-            "--snapshots",
-            str(paths.snapshots),
-        ]
+    exit_code = _run_related_work_cli(
+        paths,
+        "--json",
+        "--tex",
+        str(tex_path),
+        "--bib",
+        str(bib_path),
     )
     captured = capsys.readouterr()
 
@@ -381,20 +362,11 @@ def test_cli_rejects_non_regular_export_destinations(
         target.write_text("symlink target", encoding="utf-8")
         destination.symlink_to(target)
 
-    exit_code = run_query_cli(
-        [
-            "related-work",
-            "Agent benchmarks=agent workbench",
-            "--json",
-            "--tex",
-            str(destination),
-            "--index",
-            str(paths.index),
-            "--shards",
-            str(paths.shards),
-            "--snapshots",
-            str(paths.snapshots),
-        ]
+    exit_code = _run_related_work_cli(
+        paths,
+        "--json",
+        "--tex",
+        str(destination),
     )
     captured = capsys.readouterr()
 
@@ -418,22 +390,13 @@ def test_cli_rejects_aliased_export_destinations(tmp_path: Path, capsys) -> None
     destination.write_text("existing artifact", encoding="utf-8")
     alias = output_dir / "sub" / ".." / destination.name
 
-    exit_code = run_query_cli(
-        [
-            "related-work",
-            "Agent benchmarks=agent workbench",
-            "--json",
-            "--tex",
-            str(destination),
-            "--bib",
-            str(alias),
-            "--index",
-            str(paths.index),
-            "--shards",
-            str(paths.shards),
-            "--snapshots",
-            str(paths.snapshots),
-        ]
+    exit_code = _run_related_work_cli(
+        paths,
+        "--json",
+        "--tex",
+        str(destination),
+        "--bib",
+        str(alias),
     )
     captured = capsys.readouterr()
 
@@ -450,20 +413,11 @@ def test_cli_preserves_existing_export_permissions(tmp_path: Path, capsys) -> No
     tex_path.write_text("existing tex", encoding="utf-8")
     tex_path.chmod(0o644)
 
-    exit_code = run_query_cli(
-        [
-            "related-work",
-            "Agent benchmarks=agent workbench",
-            "--json",
-            "--tex",
-            str(tex_path),
-            "--index",
-            str(paths.index),
-            "--shards",
-            str(paths.shards),
-            "--snapshots",
-            str(paths.snapshots),
-        ]
+    exit_code = _run_related_work_cli(
+        paths,
+        "--json",
+        "--tex",
+        str(tex_path),
     )
     capsys.readouterr()
 
@@ -494,22 +448,13 @@ def test_cli_restores_existing_exports_when_a_later_replace_fails(
 
     monkeypatch.setattr("benchmark_radar.query_cli.os.replace", fail_second_staged_replace)
 
-    exit_code = run_query_cli(
-        [
-            "related-work",
-            "Agent benchmarks=agent workbench",
-            "--json",
-            "--tex",
-            str(tex_path),
-            "--bib",
-            str(bib_path),
-            "--index",
-            str(paths.index),
-            "--shards",
-            str(paths.shards),
-            "--snapshots",
-            str(paths.snapshots),
-        ]
+    exit_code = _run_related_work_cli(
+        paths,
+        "--json",
+        "--tex",
+        str(tex_path),
+        "--bib",
+        str(bib_path),
     )
     captured = capsys.readouterr()
 
@@ -549,20 +494,11 @@ def test_cli_reports_committed_outputs_when_backup_cleanup_fails(
     monkeypatch.setattr("benchmark_radar.query_cli.os.replace", capture_backup)
     monkeypatch.setattr(Path, "unlink", fail_backup_cleanup)
 
-    exit_code = run_query_cli(
-        [
-            "related-work",
-            "Agent benchmarks=agent workbench",
-            "--json",
-            "--tex",
-            str(tex_path),
-            "--index",
-            str(paths.index),
-            "--shards",
-            str(paths.shards),
-            "--snapshots",
-            str(paths.snapshots),
-        ]
+    exit_code = _run_related_work_cli(
+        paths,
+        "--json",
+        "--tex",
+        str(tex_path),
     )
     captured = capsys.readouterr()
 
@@ -610,22 +546,13 @@ def test_cli_reports_incomplete_rollback_and_preserves_backup(
 
     monkeypatch.setattr("benchmark_radar.query_cli.os.replace", fail_commit_and_restore)
 
-    exit_code = run_query_cli(
-        [
-            "related-work",
-            "Agent benchmarks=agent workbench",
-            "--json",
-            "--tex",
-            str(tex_path),
-            "--bib",
-            str(bib_path),
-            "--index",
-            str(paths.index),
-            "--shards",
-            str(paths.shards),
-            "--snapshots",
-            str(paths.snapshots),
-        ]
+    exit_code = _run_related_work_cli(
+        paths,
+        "--json",
+        "--tex",
+        str(tex_path),
+        "--bib",
+        str(bib_path),
     )
     captured = capsys.readouterr()
 
@@ -646,23 +573,14 @@ def test_cli_reports_incomplete_rollback_and_preserves_backup(
 def test_cli_and_http_return_the_same_related_work_contract(tmp_path: Path, capsys) -> None:
     paths = _paths(tmp_path)
     tex_path, bib_path = tmp_path / "out" / "related.tex", tmp_path / "out" / "related.bib"
-    exit_code = run_query_cli(
-        [
-            "related-work",
-            "Agent benchmarks=agent workbench",
-            "science discovery",
-            "--json",
-            "--tex",
-            str(tex_path),
-            "--bib",
-            str(bib_path),
-            "--index",
-            str(paths.index),
-            "--shards",
-            str(paths.shards),
-            "--snapshots",
-            str(paths.snapshots),
-        ]
+    exit_code = _run_related_work_cli(
+        paths,
+        "science discovery",
+        "--json",
+        "--tex",
+        str(tex_path),
+        "--bib",
+        str(bib_path),
     )
     cli_payload = json.loads(capsys.readouterr().out)
 
