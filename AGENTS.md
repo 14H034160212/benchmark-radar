@@ -108,10 +108,11 @@ Applies to `README*`, `docs/**`, `.github/ISSUE_TEMPLATE/**`, `site/**`,
 - Do not squash-merge pull requests.
 - Merge pull requests with a merge commit so Git preserves branch ancestry and recognizes the branch as merged.
 - If you are an agent, say so on every pull request you open. Post a comment on
-  the PR containing the marker `330226` and your model series (`GPT`, `Claude`,
-  `Kimi`, and so on) as an annotation. The marker makes agent-authored PRs
-  searchable in one query, and the model series tells a reviewer what produced
-  the diff before they start reading it. A human opening a PR adds neither.
+  the PR containing the marker `330226` and your exact model ID (for example
+  `claude-opus-5-5`, not only `Claude` or `GPT`) as an annotation.
+  The marker makes agent-authored PRs searchable in one query, and the model ID
+  tells a reviewer which model and version produced the diff before they start
+  reading it. A human opening a PR adds neither.
 
 ## Before opening a pull request
 
