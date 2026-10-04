@@ -374,6 +374,11 @@ const I18N = {
     "Shown / corpus": "显示数／目录总数",
     "source document": "份来源文档",
     "Document publication date": "文档发布日期",
+    "Model release": "模型发布日期",
+    "Document published": "文档发布日期",
+    "Model with a reported score": "已有报告成绩的模型",
+    "Filter by model, e.g. GPT-6 Sol": "按模型筛选，例如 GPT-6 Sol",
+    "Searching all benchmarks (score cutoff paused)": "搜索全部 benchmark（暂不按分数筛选）",
     "Reporting organization color key": "报告机构颜色图例",
     "Distinct cited documents, including model reports and registry pages": "按引用的独立文档去重，包括模型报告和登记页面",
     "Each source document counts once per benchmark record.": "每份来源文档对同一条 benchmark 记录只计一次。",
@@ -4711,6 +4716,7 @@ function saturationRows() {
   const named = matches ? rows.filter((row) => matches.has(row.id)) : rows;
   if (!state.benchmarkModel) return named;
   const needle = foldName(state.benchmarkModel);
+  if (!needle) return [];
   const index = new Map((state.benchmarkIndex || []).map((record) => [record.slug, record]));
   return named.filter((row) => (index.get(row.id)?.scored_models || [])
     .some((model) => foldName(model.name).includes(needle)))

@@ -59,7 +59,13 @@ state.benchmarkModel = 'gpt-5.6-sol';
 assert.deepEqual(scores.saturationRows().map(r=>r.id), ['external','curated'], 'model filtering searches every source beyond the score cutoff and orders by recorded date');
 state.benchmarkModel = 'gpt-6-sol';
 assert.deepEqual(scores.saturationRows(), [], 'an unrecorded model does not imply a benchmark result');
+for (const query of ['-', '---', '()']) {
+  state.benchmarkModel = query;
+  assert.deepEqual(scores.saturationRows(), [], 'punctuation-only queries have no model match');
+}
+assert.equal(state.lscore, 70, 'unmatched model lookup preserves the cutoff');
 state.benchmarkModel = '';
+assert.deepEqual(scores.saturationRows().map(r=>r.id), ['external','curated','missing'], 'clearing the model restores cutoff browsing');
 assert.equal(scores.frontierDefaultEntry(state.data.model_card_leaderboard).id,'external');
 assert.equal(scores.matchesScoreFilter(summary(69.999)),true);
 assert.equal(scores.matchesScoreFilter(summary(70)),false);
