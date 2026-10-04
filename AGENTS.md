@@ -57,6 +57,8 @@ Applies to `README*`, `docs/**`, `.github/ISSUE_TEMPLATE/**`, `site/**`,
 - Show the insight before the pipeline. Crawling, normalization, scoring, and
   data-cleaning details matter, but they should support the takeaway instead of
   becoming the takeaway.
+- A report is not a dashboard. Answer a question with cited evidence and
+  state what remains uncertain; a list of counts is not a report.
 - Use bilingual guidance when it helps contributors or readers provide better
   signal. Avoid jargon-heavy summaries that only say what changed; explain why
   the change matters to someone reading, reviewing, or sharing the project.
@@ -94,6 +96,10 @@ Applies to `README*`, `docs/**`, `.github/ISSUE_TEMPLATE/**`, `site/**`,
 
 - Run the full CI sequence locally and get it passing before opening a PR. Do
   not open one against a red local run.
+- Skip it for a docs-only PR, when this prints nothing:
+
+      git diff --name-only origin/main... | xargs -n1 basename \
+        | xargs -I{} git grep -lF {} -- tests src site
 - A PR that adds a model card must also add every numeric score that card
   reports and that can be read with certainty to `data/benchmark_scores.yml`.
   Follow [`docs/sop-add-model-cards.md`](docs/sop-add-model-cards.md); a card
