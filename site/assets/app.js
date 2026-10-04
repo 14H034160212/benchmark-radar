@@ -6041,7 +6041,7 @@ function catalogScoreResults(source, rows) {
     String(a.model_name || "").localeCompare(String(b.model_name || "")) ||
     String(a.obs_id || "").localeCompare(String(b.obs_id || "")));
   return element("section", { className: "catalog-result-section" }, [
-    element("h3", { text: `${t("Reported results")} · ${meta.name} (${ordered.length.toLocaleString()})` }),
+    element("h3", { text: `${t("Reported benchmark scores")} · ${t(meta.name)} (${ordered.length.toLocaleString()})` }),
     element("ol", { className: "catalog-result-list" }, ordered.map((row) =>
       element("li", { className: "catalog-result" }, [
         element("div", { className: "catalog-result-main" }, [
@@ -6050,10 +6050,10 @@ function catalogScoreResults(source, rows) {
         ]),
         element("p", { className: "catalog-result-meta", text: [
           row.organization,
-          row.reported_date ? `${t(row.date_precision === "model_announcement" ? "Model release" : "Document published")} ${formatDate(row.reported_date, { dateStyle: "medium" })}` : t("Date unknown"),
+          row.reported_date ? `${t(row.date_precision === "model_announcement" ? "model release date" : "Document publication date")} ${formatDate(row.reported_date, { dateStyle: "medium" })}` : t("Date unknown"),
         ].filter(Boolean).join(" · ") }),
         row.instrument || row.protocol ? element("p", { className: "catalog-result-meta", text: [row.instrument, row.protocol].filter(Boolean).join(" · ") }) : null,
-        safeHttpUrl(row.source_url) ? element("a", { className: "catalog-result-source", text: t("Source ↗"), attrs: {
+        safeHttpUrl(row.source_url) ? element("a", { className: "catalog-result-source", text: t("Open source record ↗"), attrs: {
           href: safeHttpUrl(row.source_url), target: "_blank", rel: "noopener noreferrer",
         } }) : null,
       ]))),
