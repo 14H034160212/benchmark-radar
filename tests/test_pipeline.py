@@ -288,6 +288,64 @@ def test_distinct_and_empty_summaries_are_allowed():
     assert_no_boilerplate_summaries(varied)
 
 
+def test_same_owner_upstream_card_bodies_are_allowed():
+    from unittest.mock import patch
+
+    from benchmark_radar.sources import fetch_huggingface
+
+    description = (
+        "Model-comparison table for this task: one row per evaluated model, written by\n"
+        "push_results_table in src/eval/utilities.py. Per-sample predictions are in\n"
+        "per_sample/.\n"
+    )
+    rows = [
+        {
+            "id": f"bdatm-project/evaluation-results-task{task}",
+            "createdAt": "2026-09-06T21:21:35Z",
+            "lastModified": "2026-10-04T10:00:00Z",
+            "description": description,
+        }
+        for task in (1, 2, 3)
+    ]
+    with patch("benchmark_radar.sources.get_json", return_value=rows):
+        records = fetch_huggingface(
+            {"kinds": ["datasets"], "searches": ["evaluation"]},
+            datetime(2026, 10, 3, tzinfo=UTC),
+            10,
+        )
+
+    assert len(records) == 3
+    assert all(record.summary for record in records)
+    assert_no_boilerplate_summaries(records)
+
+
+@pytest.mark.parametrize("invalid_evidence", ["missing", "rewritten", "short", "owner", "source"])
+def test_repeated_summaries_still_require_same_owner_card_bodies(invalid_evidence):
+    summary = "Measurements for three evaluation tasks."
+    records = [
+        item(
+            source="Hugging Face",
+            source_id=f"lab/task-{task}",
+            summary=summary,
+            raw={"description": summary},
+        )
+        for task in range(3)
+    ]
+    if invalid_evidence == "missing":
+        records[0].raw = {}
+    elif invalid_evidence == "rewritten":
+        records[0].raw = {"description": "Different upstream prose."}
+    elif invalid_evidence == "short":
+        records[0].raw = {"cardData": {"short_description": summary}}
+    elif invalid_evidence == "owner":
+        records[0].source_id = "other-lab/task-0"
+    else:
+        records[0].source = "GitHub"
+
+    with pytest.raises(RuntimeError, match="templated descriptions"):
+        assert_no_boilerplate_summaries(records)
+
+
 def test_boilerplate_summary_cannot_earn_relevance():
     """The old template contained taxonomy words, so every Hugging Face record
     scored a free `dataset` category regardless of its content."""
