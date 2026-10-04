@@ -411,27 +411,31 @@ def apply_watchlist(
 BOILERPLATE_THRESHOLD = 3
 
 
-def _same_owner_card_bodies(items: list[RadarItem]) -> bool:
-    owners = set()
+def _same_task_result_card_bodies(items: list[RadarItem]) -> bool:
+    suites = set()
     for item in items:
         owner, separator, repo = item.source_id.partition("/")
         if item.source != "Hugging Face" or not owner or not separator or not repo:
+            return False
+        task = re.fullmatch(r"(.+[-_]results?[-_]task)[-_]?\d+", repo, re.IGNORECASE)
+        if task is None:
             return False
         body = strip_title_echo(
             clean_card_text((item.raw or {}).get("description")), item.source_id
         )
         if not body or body != item.summary:
             return False
-        owners.add(owner.casefold())
-    return len(owners) == 1
+        suites.add((owner.casefold(), task.group(1).casefold()))
+    return len(suites) == 1
 
 
 def assert_no_boilerplate_summaries(items: list[RadarItem]) -> None:
     """Fail the run when a fetcher emits one summary for many different records.
 
     Repetition alone cannot distinguish a generated template from one owner's
-    task-result cards. Allow that owner's repeated prose only when every
-    summary matches its upstream card body. Short-description placeholders
+    task-result cards. Allow repeated prose only for numbered task-result repos
+    in one owner's suite, with every summary matching its upstream card body.
+    Short-description placeholders
     and unverified text still fail, because they can inflate relevance.
     This is a hard error rather than a warning: a silently boilerplated report
     looks successful, which is how the defect survived unnoticed before.
@@ -443,7 +447,7 @@ def assert_no_boilerplate_summaries(items: list[RadarItem]) -> None:
     repeated = {
         text: len(group)
         for text, group in groups.items()
-        if len(group) >= BOILERPLATE_THRESHOLD and not _same_owner_card_bodies(group)
+        if len(group) >= BOILERPLATE_THRESHOLD and not _same_task_result_card_bodies(group)
     }
     if repeated:
         worst = max(repeated.items(), key=lambda pair: pair[1])

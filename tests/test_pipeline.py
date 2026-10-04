@@ -319,13 +319,15 @@ def test_same_owner_upstream_card_bodies_are_allowed():
     assert_no_boilerplate_summaries(records)
 
 
-@pytest.mark.parametrize("invalid_evidence", ["missing", "rewritten", "short", "owner", "source"])
+@pytest.mark.parametrize(
+    "invalid_evidence", ["missing", "rewritten", "short", "owner", "source", "suite", "unnumbered"]
+)
 def test_repeated_summaries_still_require_same_owner_card_bodies(invalid_evidence):
     summary = "Measurements for three evaluation tasks."
     records = [
         item(
             source="Hugging Face",
-            source_id=f"lab/task-{task}",
+            source_id=f"lab/evaluation-results-task{task}",
             summary=summary,
             raw={"description": summary},
         )
@@ -338,9 +340,14 @@ def test_repeated_summaries_still_require_same_owner_card_bodies(invalid_evidenc
     elif invalid_evidence == "short":
         records[0].raw = {"cardData": {"short_description": summary}}
     elif invalid_evidence == "owner":
-        records[0].source_id = "other-lab/task-0"
-    else:
+        records[0].source_id = "other-lab/evaluation-results-task0"
+    elif invalid_evidence == "source":
         records[0].source = "GitHub"
+    elif invalid_evidence == "suite":
+        records[0].source_id = "lab/other-results-task0"
+    else:
+        for task, record in enumerate(records):
+            record.source_id = f"lab/unrelated-repo-{task}"
 
     with pytest.raises(RuntimeError, match="templated descriptions"):
         assert_no_boilerplate_summaries(records)
