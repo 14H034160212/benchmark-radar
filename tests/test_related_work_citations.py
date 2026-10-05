@@ -68,10 +68,10 @@ def test_missing_sections_and_no_manuscript_have_honest_locations() -> None:
 def test_bibtex_append_preserves_bytes_and_skips_only_active_keys(delimiter: str) -> None:
     opening, closing = ("{", "}") if delimiter == "brace" else ("(", ")")
     original = (
-        f"% @misc{{{BIBTEX_KEY}, title={{Commented key}}}}\r\n"
+        "% Original bibliography\r\n"
         '@string{publisher = "Example"}\r\n'
         '@preamble{"\\newcommand{\\example}{Example}"}\r\n'
-        f"@comment{{Ignore @misc{{{BIBTEX_KEY}, title={{Fake}}}}}}\r\n"
+        '@comment{Ignore unmatched " quote}\r\n'
         f'@misc{opening}existing, title="Quoted @misc{{{BIBTEX_KEY}, title={{Fake}}}}", '
         f'note={{Nested {{values, commas}} and escaped \\%}}, year="2025"{closing}\r\n'
     ).encode()
@@ -81,6 +81,58 @@ def test_bibtex_append_preserves_bytes_and_skips_only_active_keys(delimiter: str
     assert b"Do not replace" not in merged
     assert merged.endswith((bibtex_citation() + "\n").encode())
     assert append_missing_bibtex(merged, generated) == merged
+
+
+@pytest.mark.parametrize(
+    "original",
+    [
+        b"@misc{existing, title={Title}, url={https://example.com/a%20b}}\n",
+        b'@misc(existing, title="Title 20% with comma, okay", year={2025})\n',
+    ],
+)
+def test_literal_percent_values_survive_append(original: bytes) -> None:
+    generated = "@misc{existing, title={Do not replace}}\n\n" + bibtex_citation()
+    merged = append_missing_bibtex(original, generated)
+    assert merged.startswith(original)
+    assert b"Do not replace" not in merged
+    assert append_missing_bibtex(merged, generated) == merged
+
+
+@pytest.mark.parametrize("prefix", ["% ", "@comment{Ignore "])
+def test_bibtex_entries_in_top_level_text_are_not_duplicated(prefix: str) -> None:
+    original = (prefix + bibtex_citation() + "\n").encode()
+    assert append_missing_bibtex(original, bibtex_citation()) == original
+
+
+def test_related_work_descendant_paragraph_is_available() -> None:
+    text = (
+        "\\section{Related Work}\n"
+        "\\subsection{Agent evaluation}\n"
+        "\\label{sec:agents}\n"
+        "Actual related paragraph.\n"
+        "\\section{Methods}\n"
+        "Setup paragraph.\n"
+    )
+    placements = citation_placements(ManuscriptContext("main.tex", text))
+    assert placements[0]["line"] == 4
+    assert placements[1]["line"] == 6
+    assert placements[2]["line"] == 1
+
+
+def test_verbatim_commands_do_not_supply_sections_or_packages() -> None:
+    text = (
+        "\\begin{verbatim}\n"
+        "\\usepackage{natbib}\n"
+        "\\section{Related Work}\n"
+        "Example paragraph.\n"
+        "\\end{verbatim}\n"
+        "\\section{Related Work}\n"
+        "Actual paragraph.\n"
+    )
+    placements = citation_placements(ManuscriptContext("main.tex", text))
+    assert placements[0]["line"] == 7
+    assert placements[2]["line"] == 6
+    assert all(f"\\cite{{{BIBTEX_KEY}}}" in item["sentence"] for item in placements)
 
 
 def test_existing_radar_key_is_preserved_without_rewriting() -> None:

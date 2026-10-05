@@ -392,8 +392,6 @@ def run_query_cli(argv: Sequence[str] | None = None) -> int:
 
     args = _parser().parse_args(argv)
     try:
-        # Related-work has its own citation-choice footer; other commands share
-        # the reminder, and serve prints it once at startup.
         printer: Callable[[dict[str, Any]], None] | None = None
         payload: dict[str, Any]
         if args.command == "init":

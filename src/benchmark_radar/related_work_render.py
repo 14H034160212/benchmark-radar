@@ -1,5 +1,3 @@
-"""Render related-work candidates as a LaTeX section and Markdown table."""
-
 from __future__ import annotations
 
 import re

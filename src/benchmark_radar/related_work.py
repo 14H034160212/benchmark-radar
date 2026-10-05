@@ -302,12 +302,22 @@ class ManuscriptContext:
     text: str
 
 
+def _manuscript_source(manuscript: ManuscriptContext) -> str:
+    value = re.sub(
+        r"\\begin\{(verbatim\*?|lstlisting|minted)\}.*?\\end\{\1\}",
+        lambda match: re.sub(r"[^\n]", " ", match.group()),
+        manuscript.text,
+        flags=re.DOTALL,
+    )
+    return _without_comments(value)
+
+
 def _has_natbib(manuscript: ManuscriptContext | None) -> bool:
     if manuscript is None:
         return False
     packages = re.finditer(
         r"(?<!\\)\\(?:usepackage|RequirePackage)\s*(?:\[[^\]]*\]\s*)?\{([^{}]*)\}",
-        _without_comments(manuscript.text),
+        _manuscript_source(manuscript),
     )
     return any(
         "natbib" in [name.strip() for name in match.group(1).split(",")] for match in packages
@@ -325,15 +335,16 @@ def citation_placements(manuscript: ManuscriptContext | None) -> list[dict[str, 
     anchors: list[int | None] = [None, None, None]
     reasons = ["Supply --main to locate this citation in your paper."] * 3
     if manuscript is not None:
-        text = _without_comments(manuscript.text)
+        text = _manuscript_source(manuscript)
         sections = list(
             re.finditer(
-                r"(?<!\\)\\(?:sub)*section\*?\s*(?:\[[^\]]*\]\s*)?\{([^{}]*)\}",
+                r"(?<!\\)\\((?:sub)*)section\*?\s*(?:\[[^\]]*\]\s*)?\{([^{}]*)\}",
                 text,
             )
         )
         for index, section in enumerate(sections):
-            title = " ".join(section.group(1).casefold().split())
+            level = len(section.group(1)) // 3 + 1
+            title = " ".join(section.group(2).casefold().split())
             if title == "related work":
                 option = 0
             elif title in {"method", "methods", "methodology", "experimental setup", "experiments"}:
@@ -345,14 +356,21 @@ def citation_placements(manuscript: ManuscriptContext | None) -> list[dict[str, 
             heading_line = text.count("\n", 0, section.end()) + 1
             if option == 0:
                 anchors[2] = heading_line
-            end = sections[index + 1].start() if index + 1 < len(sections) else len(text)
+            end = next(
+                (
+                    following.start()
+                    for following in sections[index + 1 :]
+                    if len(following.group(1)) // 3 + 1 <= level
+                ),
+                len(text),
+            )
             for line_offset, line in enumerate(text[section.end() : end].splitlines()):
                 content = re.sub(r"\\label\s*\{[^{}]*\}", "", line).strip()
                 if not content or content.startswith(
-                    (r"\end{", r"\bibliography", r"\input", r"\include")
+                    (r"\end{", r"\bibliography", r"\input", r"\include", r"\begin{")
                 ):
                     continue
-                if re.fullmatch(r"\\paragraph.*", content):
+                if re.match(r"\\(?:paragraph|(?:sub)*section)\b", content):
                     continue
                 anchors[option] = text.count("\n", 0, section.end()) + 1 + line_offset
                 break
@@ -411,16 +429,16 @@ def _bibtex_entries(bibtex: str) -> list[_BibtexEntry]:
     cursor = 0
     header = re.compile(r"@(\w+)\s*([({])")
     while cursor < len(bibtex):
-        if bibtex[cursor] == "%":
-            newline = bibtex.find("\n", cursor)
-            cursor = len(bibtex) if newline < 0 else newline + 1
-            continue
         if bibtex[cursor] != "@":
             cursor += 1
             continue
         match = header.match(bibtex, cursor)
         if match is None:
             cursor += 1
+            continue
+        kind = match.group(1).casefold()
+        if kind == "comment":
+            cursor = match.end()
             continue
         closing = "}" if match.group(2) == "{" else ")"
         braces = 0
@@ -435,11 +453,6 @@ def _bibtex_entries(bibtex: str) -> list[_BibtexEntry]:
             elif char == "\\":
                 clean.append(char)
                 escaped = True
-            elif char == "%":
-                newline = bibtex.find("\n", index)
-                index = len(bibtex) if newline < 0 else newline
-                clean.append("\n")
-                continue
             elif char == '"' and braces == 0:
                 quoted = not quoted
                 clean.append(char)
@@ -456,8 +469,7 @@ def _bibtex_entries(bibtex: str) -> list[_BibtexEntry]:
             index += 1
         if index == len(bibtex):
             raise ValueError(f"unterminated BibTeX entry at character {match.start()}")
-        kind = match.group(1).casefold()
-        if kind not in {"comment", "string", "preamble"}:
+        if kind not in {"string", "preamble"}:
             parts = _split_bibtex_fields("".join(clean))
             key = parts[0].strip()
             if len(parts) < 2 or not key or re.search(r"[\s{}(),=]", key):
@@ -467,7 +479,7 @@ def _bibtex_entries(bibtex: str) -> list[_BibtexEntry]:
                 if not part.strip():
                     continue
                 name, separator, value = part.partition("=")
-                if not separator:
+                if not separator or not re.fullmatch(r"[\w:-]+", name.strip()):
                     raise ValueError(f"invalid BibTeX field in {key}")
                 value = value.strip()
                 if (value.startswith("{") and value.endswith("}")) or (
