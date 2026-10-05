@@ -306,10 +306,10 @@ def _manuscript_source(manuscript: ManuscriptContext) -> str:
     value = re.sub(
         r"\\begin\{(verbatim\*?|lstlisting|minted)\}.*?\\end\{\1\}",
         lambda match: re.sub(r"[^\n]", " ", match.group()),
-        manuscript.text,
+        _without_comments(manuscript.text),
         flags=re.DOTALL,
     )
-    return _without_comments(value)
+    return value
 
 
 def _has_natbib(manuscript: ManuscriptContext | None) -> bool:
@@ -364,7 +364,14 @@ def citation_placements(manuscript: ManuscriptContext | None) -> list[dict[str, 
                 ),
                 len(text),
             )
-            for line_offset, line in enumerate(text[section.end() : end].splitlines()):
+            body = text[section.end() : end]
+            for descendant in reversed(sections[index + 1 :]):
+                if descendant.start() >= end:
+                    continue
+                start = descendant.start() - section.end()
+                finish = descendant.end() - section.end()
+                body = body[:start] + re.sub(r"[^\n]", " ", body[start:finish]) + body[finish:]
+            for line_offset, line in enumerate(body.splitlines()):
                 content = re.sub(r"\\label\s*\{[^{}]*\}", "", line).strip()
                 if not content or content.startswith(
                     (r"\end{", r"\bibliography", r"\input", r"\include", r"\begin{")

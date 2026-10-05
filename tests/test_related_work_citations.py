@@ -135,6 +135,22 @@ def test_verbatim_commands_do_not_supply_sections_or_packages() -> None:
     assert all(f"\\cite{{{BIBTEX_KEY}}}" in item["sentence"] for item in placements)
 
 
+@pytest.mark.parametrize(
+    "heading", ["\\subsection{Agent evaluation}", "\\subsection{\nAgent evaluation\n}"]
+)
+def test_multiline_descendant_heading_is_not_a_paragraph(heading: str) -> None:
+    text = "\\section{Related Work}\n" + heading + "\nActual paragraph.\n"
+    placements = citation_placements(ManuscriptContext("main.tex", text))
+    assert text.splitlines()[placements[0]["line"] - 1] == "Actual paragraph."
+
+
+def test_commented_verbatim_delimiters_do_not_hide_active_sections() -> None:
+    text = "% \\begin{verbatim}\n\\section{Related Work}\nActual paragraph.\n% \\end{verbatim}\n"
+    placements = citation_placements(ManuscriptContext("main.tex", text))
+    assert placements[0]["line"] == 3
+    assert placements[2]["line"] == 2
+
+
 def test_existing_radar_key_is_preserved_without_rewriting() -> None:
     existing = f"@misc({BIBTEX_KEY}, title={{User's existing reference}})\r\n".encode()
     assert append_missing_bibtex(existing, bibtex_citation()) == existing
