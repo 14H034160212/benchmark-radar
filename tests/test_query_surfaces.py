@@ -442,7 +442,10 @@ def test_research_payloads_carry_required_citation_contract(tmp_path: Path) -> N
             {
                 "id": "benchmark-radar",
                 "key": "wu2026benchmarkradarlivingdatabase",
-                "reason": ("Benchmark Radar was used to retrieve or generate research material."),
+                "reason": (
+                    "You used Benchmark Radar for this material. "
+                    "Please cite it; we can add it for you."
+                ),
                 "bibtex": bibtex_citation(),
             }
         ]

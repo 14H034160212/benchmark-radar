@@ -10,11 +10,14 @@ import unicodedata
 from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from .citation import citation_block, required_citations
 from .science_domains import science_domains_for_record
 from .snapshots import REQUIRED_SOURCES, load_snapshots
+
+if TYPE_CHECKING:
+    from .related_work import ManuscriptContext
 
 QUERY_SCHEMA_VERSION = 7
 DEFAULT_INDEX_PATH = Path("site/data/benchmark-index.json")
@@ -172,6 +175,9 @@ def _matches_filter(record: dict[str, Any], filters: dict[str, Any]) -> bool:
         expected = filters.get(field)
         if expected is not None and _filter_value(record.get(field)) != _filter_value(expected):
             return False
+    sources = filters.get("sources")
+    if sources is not None and _filter_value(record.get("source")) not in sources:
+        return False
     return True
 
 
@@ -500,6 +506,7 @@ class QueryService:
                     "source": source,
                     "source_id": source_id,
                     "url": item.get("url"),
+                    "artifact_urls": list(item.get("artifact_urls") or []),
                     "published_at": item.get("published_at"),
                     "updated_at": item.get("updated_at"),
                     "score": item.get("total_score"),
@@ -562,6 +569,7 @@ class QueryService:
         openness: str | None = None,
         modality: str | None = None,
         source: str | None = None,
+        sources: frozenset[str] | None = None,
     ) -> dict[str, Any]:
         query = " ".join(str(query).split())
         query_tokens = tuple(dict.fromkeys(_tokens(query)))
@@ -595,6 +603,8 @@ class QueryService:
             }.items()
             if value is not None
         }
+        if sources is not None:
+            filters["sources"] = sorted(_filter_value(value) for value in sources)
         candidates: list[dict[str, Any]] = []
         if scope in {"catalog", "all"}:
             candidates.extend(self._catalog_candidates())
@@ -670,6 +680,7 @@ class QueryService:
         per_topic: int = 6,
         include_partial: bool = False,
         include_radar: bool = True,
+        manuscript: ManuscriptContext | None = None,
     ) -> dict[str, Any]:
         """Draft a cited related-work section from topic queries (issues #549, #650)."""
         from .related_work import build_related_work
@@ -680,6 +691,7 @@ class QueryService:
             per_topic=per_topic,
             include_partial=include_partial,
             include_radar=include_radar,
+            manuscript=manuscript,
         )
 
     def show(self, identifier: str) -> dict[str, Any]:

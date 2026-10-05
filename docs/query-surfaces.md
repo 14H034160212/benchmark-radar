@@ -34,12 +34,17 @@ health, across the CLI, the HTTP surface, and the public consumer Skill.
 - `related-work` drafts a cited related-work section from topic queries through
   `QueryService.related_work`, over the same offline artifacts as `search` and
   `show`. It keeps full lexical matches unless partial matches are requested,
-  admits only scholarly Radar sources, and cites every retained entry. Its final
-  paragraph states that the candidates were retrieved using Benchmark Radar and
-  tells the author to verify them against their primary sources. The exporter adds
-  the required in-text citation and the matching final BibTeX entry, then verifies
-  both before returning a payload or writing a file. A citation-incomplete artifact
-  fails with the machine-readable `citation_contract_failed` error. Authors come
+  admits only scholarly Radar sources before limiting search results, and cites
+  every retained entry. The payload includes the final Benchmark Radar BibTeX
+  entry and three `citation_placements` for the user to choose. With manuscript
+  text, placements identify the filename, one-based line, and insertion sentence.
+  Missing sections have a null line and an explanation. Without manuscript text,
+  placements are templates with null locations. The service never opens manuscript
+  paths. The CLI reads `--main` and appends missing keys to `--bib` while preserving
+  existing bytes. Generated LaTeX and BibTeX contain no citation notices or agent
+  instructions. Before export, the service checks the canonical bibliography entry
+  and nonempty placements. An incomplete contract fails with the machine-readable
+  `citation_contract_failed` error. Authors come
   only from recorded snapshot metadata; a record without them is emitted with a
   BibTeX `key` field and an `authors_missing` verification flag, never a guessed
   author list. Every payload carries a coverage statement naming the corpus window.

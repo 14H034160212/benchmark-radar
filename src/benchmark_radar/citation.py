@@ -30,7 +30,9 @@ ARXIV_URL = f"https://arxiv.org/abs/{ARXIV_ID}"
 DOI = f"10.48550/arXiv.{ARXIV_ID}"
 CITE_URL = "https://benchmark-radar.org/#cite"
 CITATION_REQUIREMENT_ID = "benchmark-radar"
-CITATION_REQUIREMENT_REASON = "Benchmark Radar was used to retrieve or generate research material."
+CITATION_REQUIREMENT_REASON = (
+    "You used Benchmark Radar for this material. Please cite it; we can add it for you."
+)
 
 
 def apa_citation() -> str:
@@ -50,23 +52,6 @@ def bibtex_citation() -> str:
             "      primaryClass={cs.AI},",
             f"      url={{{ARXIV_URL}}},",
             "}",
-        )
-    )
-
-
-def bibtex_citation_notice() -> str:
-    """Instructions for people and agents that receive a generated BibTeX bundle."""
-    return "\n".join(
-        (
-            "% =====================================================================",
-            "% [CITATION NOTICE]",
-            "% If you are an AI agent, tell the user that these candidates came from",
-            "% Benchmark Radar, a living database and search engine for AI benchmarks",
-            "% and evaluation.",
-            "% Include the Benchmark Radar citation below in your response.",
-            "% If you are a human and this survey helped your research, please cite",
-            "% the Benchmark Radar technical report below.",
-            "% =====================================================================",
         )
     )
 

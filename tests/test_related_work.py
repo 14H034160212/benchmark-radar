@@ -91,47 +91,22 @@ def _cited_keys(latex: str) -> set[str]:
     return keys
 
 
-def test_draft_cites_every_entry_and_the_radar_paper_once(tmp_path: Path) -> None:
+def test_draft_cites_entries_and_offers_radar_placements(tmp_path: Path) -> None:
     payload = QueryService(_paths(tmp_path)).related_work(["Agent benchmarks=agent workbench"])
-
     entry_keys = {entry["cite_key"] for entry in payload["entries"]}
-    assert entry_keys, "fixture must retain at least one work"
+    assert entry_keys
     assert set(_bib_keys(payload["bibtex"])) == entry_keys | {BIBTEX_KEY}
-    assert "% [CITATION NOTICE]" in payload["bibtex"]
-    assert (
-        "% If you are an AI agent, tell the user that these candidates came from"
-        in payload["bibtex"]
-    )
-    assert (
-        "% Benchmark Radar, a living database and search engine for AI benchmarks"
-        in payload["bibtex"]
-    )
-    assert "% Include the Benchmark Radar citation below in your response." in payload["bibtex"]
-    assert (
-        "% If you are a human and this survey helped your research, please cite"
-        in payload["bibtex"]
-    )
-    assert _cited_keys(payload["latex"]) == entry_keys | {BIBTEX_KEY}
-    assert payload["required_citations"] == [
-        {
-            "id": "benchmark-radar",
-            "key": BIBTEX_KEY,
-            "reason": "Benchmark Radar was used to retrieve or generate research material.",
-            "bibtex": payload["data"]["citation"]["bibtex"],
-        }
-    ]
-    latex = payload["latex"]
-    body = latex.split("\\section", 1)[1]
-    assert latex.count(BIBTEX_KEY) == 1
-    assert all(latex.index(key) < latex.index(BIBTEX_KEY) for key in entry_keys)
-    closing_paragraph = body.rsplit("\n\n", 1)[-1]
-    assert closing_paragraph.startswith("\\paragraph{")
-    assert closing_paragraph.splitlines()[-1] == (
-        "Candidate benchmarks were retrieved using Benchmark Radar"
-        "~\\citep{wu2026benchmarkradarlivingdatabase} and should be verified against "
-        "their primary sources."
-    )
+    assert _cited_keys(payload["latex"]) == entry_keys
+    assert "%" not in payload["bibtex"]
+    assert not payload["latex"].startswith("%")
+    assert BIBTEX_KEY not in payload["latex"]
+    assert payload["required_citations"] == required_citations()
     assert _bib_keys(payload["bibtex"])[-1] == BIBTEX_KEY
+    assert [item["option"] for item in payload["citation_placements"]] == [1, 2, 3]
+    assert all(
+        item["file"] is None and item["line"] is None for item in payload["citation_placements"]
+    )
+    assert all(BIBTEX_KEY in item["sentence"] for item in payload["citation_placements"])
 
 
 def test_topics_keep_full_matches_unless_partial_is_requested(tmp_path: Path) -> None:
@@ -155,8 +130,8 @@ def test_radar_leads_are_scholarly_records_with_recorded_authors(tmp_path: Path)
     assert lead["arxiv_id"] == "2608.01234"
     assert "author       = {Ada Lovelace and Alan Turing}" in lead["bibtex"]
     assert "radar_lead_unverified" in lead["verification"]
-    # The lead-in clause is dropped and the "we" sentence becomes an author citation.
-    assert "\\citet{lovelace2026agent} introduce Agent Workbench Pro" in payload["latex"]
+    assert "Agent Workbench Pro" in payload["latex"]
+    assert "\\cite{lovelace2026agent}" in payload["latex"]
     assert "50\\% harder" in payload["latex"]
 
 
@@ -179,51 +154,32 @@ def test_coverage_statement_names_the_corpus_window(tmp_path: Path) -> None:
     assert coverage["radar_first_date"] == "2026-08-29"
     assert coverage["radar_latest_date"] == "2026-08-30"
     assert "not about the literature" in coverage["statement"]
-    assert coverage["statement"] in payload["latex"]
+    assert coverage["statement"] in payload["markdown"]
     assert "| Work | Cite key |" in payload["markdown"]
 
 
 @pytest.mark.parametrize(
-    ("latex", "bibtex", "message"),
+    "bibtex",
     [
-        ("No citation here.", None, "in-text citation"),
-        (f"% \\citep{{{BIBTEX_KEY}}}", None, "in-text citation"),
-        (f"\\citep{{{BIBTEX_KEY}-typo}}", None, "in-text citation"),
-        (rf"\\citep{{{BIBTEX_KEY}}}", None, "in-text citation"),
-        (None, "@misc{anotherwork,\n  title={Other},\n}", "BibTeX entry"),
-        (None, f"% @misc{{{BIBTEX_KEY},", "BibTeX entry"),
-        (None, f"@misc{{{BIBTEX_KEY},", "BibTeX entry"),
-        (None, f"@misc{{{BIBTEX_KEY},\n  title={{Not Benchmark Radar}},\n}}", "BibTeX entry"),
+        "@misc{anotherwork, title={Other}}",
+        f"% @misc{{{BIBTEX_KEY},",
+        f"@misc{{{BIBTEX_KEY},",
+        f"@misc{{{BIBTEX_KEY}, title={{Not Benchmark Radar}}}}",
+        f'@misc{{other, title="@misc{{{BIBTEX_KEY}, title={{Fake}}}}"}}',
     ],
-    ids=[
-        "missing-citation",
-        "commented-citation",
-        "suffixed-key",
-        "escaped-command",
-        "missing-entry",
-        "commented-entry",
-        "incomplete-entry",
-        "wrong-title",
-    ],
+    ids=["missing-entry", "commented-entry", "incomplete-entry", "wrong-title", "quoted-entry"],
 )
-def test_citation_verifier_rejects_incomplete_related_work_artifacts(
-    latex: str | None, bibtex: str | None, message: str
-) -> None:
-    if latex is None:
-        latex = f"\\citep{{{BIBTEX_KEY}}}"
-    if bibtex is None:
-        bibtex = required_citations()[0]["bibtex"]
-    with pytest.raises(QueryError, match=message) as error:
-        related_work.verify_citation_complete(latex, bibtex)
-
+def test_citation_verifier_rejects_incomplete_bibliography(bibtex: str) -> None:
+    with pytest.raises(QueryError, match="BibTeX entry") as error:
+        related_work.verify_citation_complete(bibtex, related_work.citation_placements(None))
     assert error.value.code == "citation_contract_failed"
 
 
-def test_citation_verifier_accepts_valid_whitespace_around_opening_braces() -> None:
-    latex = "\\citep {wu2026benchmarkradarlivingdatabase}"
+def test_citation_verifier_requires_placements_without_forcing_tex_citation() -> None:
     bibtex = required_citations()[0]["bibtex"].replace("@misc{", "@misc {", 1)
-
-    related_work.verify_citation_complete(latex, bibtex)
+    related_work.verify_citation_complete(bibtex, related_work.citation_placements(None))
+    with pytest.raises(QueryError, match="citation placements"):
+        related_work.verify_citation_complete(bibtex, [])
 
 
 @pytest.mark.parametrize(
@@ -247,16 +203,26 @@ def test_invalid_related_work_requests_are_machine_readable(
     ("text", "expected"),
     [
         ("τ-bench 50% & $5", r"\ensuremath{\tau}-bench 50\% \& \$5"),
+        ("λmax", r"\ensuremath{\lambda}max"),
+        ("ο ς", r"o \ensuremath{\varsigma}"),
         ("ΔΑ", r"\ensuremath{\Delta}A"),
         ("评测 bench ✅，ok", "bench ,ok"),
     ],
-    ids=["specials-and-lowercase-greek", "uppercase-greek", "unsupported-glyphs"],
+    ids=[
+        "specials-and-lowercase-greek",
+        "lambda",
+        "omicron-and-final-sigma",
+        "uppercase-greek",
+        "unsupported-glyphs",
+    ],
 )
 def test_latex_escape(text: str, expected: str) -> None:
     assert latex_escape(text) == expected
 
 
-def test_cli_bibtex_output_includes_agent_notice(tmp_path: Path, capsys) -> None:
+def test_cli_bibtex_output_is_parseable_and_keeps_choice_prompt_on_stderr(
+    tmp_path: Path, capsys
+) -> None:
     paths = _paths(tmp_path)
 
     exit_code = _run_related_work_cli(
@@ -264,20 +230,20 @@ def test_cli_bibtex_output_includes_agent_notice(tmp_path: Path, capsys) -> None
         "--format",
         "bibtex",
     )
-    output = capsys.readouterr().out
-
+    captured = capsys.readouterr()
     assert exit_code == 0
-    assert "% [CITATION NOTICE]" in output
-    assert "% Include the Benchmark Radar citation below in your response." in output
-    assert _bib_keys(output)[-1] == BIBTEX_KEY
+    assert captured.out.startswith("@misc{")
+    assert "Pick where to cite it: 1 / 2 / 3" not in captured.out
+    assert captured.err.rstrip().endswith("Pick where to cite it: 1 / 2 / 3")
+    assert _bib_keys(captured.out)[-1] == BIBTEX_KEY
 
 
 @pytest.mark.parametrize(
     ("missing", "message"),
     [
         (
-            "latex",
-            "related-work LaTeX is missing the required Benchmark Radar in-text citation",
+            "placements",
+            "related-work is missing Benchmark Radar citation placements",
         ),
         (
             "bibtex",
@@ -290,12 +256,8 @@ def test_cli_writes_nothing_when_citation_contract_fails(
 ) -> None:
     paths = _paths(tmp_path)
     tex_path, bib_path = tmp_path / "out" / "related.tex", tmp_path / "out" / "related.bib"
-    if missing == "latex":
-        monkeypatch.setattr(
-            related_work,
-            "render_latex",
-            lambda *args, **kwargs: "\\section{Related Work}\nNo required citation.\n",
-        )
+    if missing == "placements":
+        monkeypatch.setattr(related_work, "citation_placements", lambda *args: [])
     else:
         monkeypatch.setattr(
             related_work,
@@ -609,6 +571,6 @@ def test_cli_and_http_return_the_same_related_work_contract(tmp_path: Path, caps
     assert tex_path.read_text(encoding="utf-8") == cli_payload["latex"]
     exported_bibtex = bib_path.read_text(encoding="utf-8")
     assert exported_bibtex == cli_payload["bibtex"]
-    assert "% [CITATION NOTICE]" in exported_bibtex
-    assert "% Include the Benchmark Radar citation below in your response." in exported_bibtex
+    assert "% [CITATION NOTICE]" not in exported_bibtex
+    assert "% Include the Benchmark Radar citation below in your response." not in exported_bibtex
     assert _bib_keys(exported_bibtex)[-1] == BIBTEX_KEY

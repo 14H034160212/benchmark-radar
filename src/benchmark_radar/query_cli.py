@@ -24,6 +24,7 @@ from .query import (
     error_payload,
 )
 from .query_http import serve_query_api
+from .related_work import ManuscriptContext, append_missing_bibtex
 
 QUERY_COMMANDS = frozenset(
     {"init", "sync", "search", "show", "recent", "status", "serve", "related-work"}
@@ -106,7 +107,8 @@ def _parser() -> argparse.ArgumentParser:
     related.add_argument("--no-radar", dest="include_radar", action="store_false")
     related.add_argument("--format", choices=RELATED_WORK_FORMATS, default="latex")
     related.add_argument("--tex", type=Path, help="Write the LaTeX section to this file.")
-    related.add_argument("--bib", type=Path, help="Write the BibTeX entries to this file.")
+    related.add_argument("--bib", type=Path, help="Append missing BibTeX entries to this file.")
+    related.add_argument("--main", type=Path, help="Locate citation options in this manuscript.")
     related.add_argument("--json", action="store_true")
 
     status = subparsers.add_parser(
@@ -197,13 +199,13 @@ def _print_show(payload: dict[str, Any]) -> None:
             print(f"  {artifact.get('kind')}: {artifact.get('url')}")
 
 
-def _stage_related_work_file(path: Path, content: str, mode: int | None) -> Path:
+def _stage_related_work_file(path: Path, content: bytes, mode: int | None) -> Path:
     temporary = path.parent / f".{path.name}.{uuid.uuid4().hex}.tmp"
     descriptor = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o666)
     try:
         if mode is not None:
             os.fchmod(descriptor, mode)
-        with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
+        with os.fdopen(descriptor, "wb") as handle:
             descriptor = -1
             handle.write(content)
     except Exception:
@@ -216,20 +218,37 @@ def _stage_related_work_file(path: Path, content: str, mode: int | None) -> Path
 
 def _write_related_work_files(
     outputs: list[tuple[Path, str, str]],
-) -> None:
+) -> set[Path]:
     staged: list[tuple[Path, Path]] = []
+    changed: set[Path] = set()
     backups: list[tuple[Path, Path | None]] = []
     try:
         destinations = [path for path, _, _ in outputs]
         canonical_destinations = [path.resolve(strict=False) for path in destinations]
-        if len(set(canonical_destinations)) != len(canonical_destinations):
+        if len(set(canonical_destinations)) != len(canonical_destinations) or any(
+            left.exists() and right.exists() and left.samefile(right)
+            for index, left in enumerate(destinations)
+            for right in destinations[index + 1 :]
+        ):
             raise OSError("related-work export destinations must be distinct")
         modes: dict[Path, int | None] = {}
         for path in destinations:
             if path.is_symlink() or (path.exists() and not path.is_file()):
                 raise OSError(f"related-work export destination is not a regular file: {path}")
             modes[path] = stat.S_IMODE(path.stat().st_mode) if path.exists() else None
-        for path, _, content in outputs:
+        planned = []
+        for path, field, content in outputs:
+            existing = path.read_bytes() if path.exists() else b""
+            merged = (
+                append_missing_bibtex(existing, content)
+                if field == "bibtex"
+                else content.encode("utf-8")
+            )
+            if path.exists() and existing == merged:
+                continue
+            planned.append((path, merged))
+            changed.add(path)
+        for path, content in planned:
             path.parent.mkdir(parents=True, exist_ok=True)
             staged.append((_stage_related_work_file(path, content, modes[path]), path))
         for temporary, path in staged:
@@ -245,7 +264,7 @@ def _write_related_work_files(
                     raise
             backups.append((path, backup))
             os.replace(temporary, path)
-    except OSError as error:
+    except (OSError, ValueError) as error:
         rollback_errors = []
         for path, backup in reversed(backups):
             try:
@@ -278,6 +297,30 @@ def _write_related_work_files(
             + "; ".join(cleanup_errors),
             code="artifact_cleanup_failed",
         )
+    return changed
+
+
+def _read_manuscript(args: argparse.Namespace) -> ManuscriptContext | None:
+    if args.main is None:
+        return None
+    try:
+        for path in (args.tex, args.bib):
+            if path is not None and (
+                path.resolve(strict=False) == args.main.resolve(strict=False)
+                or (path.exists() and args.main.exists() and path.samefile(args.main))
+            ):
+                raise QueryError(
+                    "the manuscript must not be an export destination",
+                    code="invalid_paths",
+                    status=400,
+                )
+        return ManuscriptContext(file=str(args.main), text=args.main.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError) as error:
+        raise QueryError(
+            f"could not read manuscript {args.main}: {error}",
+            code="manuscript_read_failed",
+            status=400,
+        ) from error
 
 
 def _related_work_printer(args: argparse.Namespace) -> Callable[[dict[str, Any]], None]:
@@ -289,13 +332,14 @@ def _related_work_printer(args: argparse.Namespace) -> Callable[[dict[str, Any]]
             for path, field in ((args.tex, "latex"), (args.bib, "bibtex"))
             if path is not None
         ]
-        _write_related_work_files(outputs)
+        changed = _write_related_work_files(outputs)
         for path, field, _ in outputs:
-            print(f"wrote {field} to {path}", file=sys.stderr)
+            if field != "bibtex":
+                print(f"wrote {field} to {path}", file=sys.stderr)
         if args.json:
             _print_json(payload)
-            return
-        print(payload[args.format], end="")
+        else:
+            print(payload[args.format], end="")
         flagged = [
             entry for entry in payload["entries"] if "authors_missing" in entry["verification"]
         ]
@@ -305,6 +349,22 @@ def _related_work_printer(args: argparse.Namespace) -> Callable[[dict[str, Any]]
                 "complete them before citing.",
                 file=sys.stderr,
             )
+        stream = sys.stderr if args.json or args.format in {"latex", "bibtex"} else sys.stdout
+        for placement in payload["citation_placements"]:
+            location = (
+                f"{placement['file']}:{placement['line']}"
+                if placement["available"]
+                else placement["reason"]
+            )
+            print(f"{placement['option']}. {location}\n   {placement['sentence']}", file=stream)
+        prefix = ""
+        if args.bib is not None:
+            prefix = (
+                f"Added missing references to {args.bib}. Benchmark Radar is available there. "
+                if args.bib in changed
+                else f"Benchmark Radar and these references are already in {args.bib}. "
+            )
+        print(prefix + "Pick where to cite it: 1 / 2 / 3", file=stream)
 
     return printer
 
@@ -332,10 +392,8 @@ def run_query_cli(argv: Sequence[str] | None = None) -> int:
 
     args = _parser().parse_args(argv)
     try:
-        # Every payload command collects (payload, printer) and falls through
-        # to one shared tail that prints both, so a new command cannot forget
-        # the citation reminder (issue #483 review); `serve` is the lone
-        # long-lived exception and prints it once at startup.
+        # Related-work has its own citation-choice footer; other commands share
+        # the reminder, and serve prints it once at startup.
         printer: Callable[[dict[str, Any]], None] | None = None
         payload: dict[str, Any]
         if args.command == "init":
@@ -376,6 +434,7 @@ def run_query_cli(argv: Sequence[str] | None = None) -> int:
                     per_topic=args.per_topic,
                     include_partial=args.include_partial,
                     include_radar=args.include_radar,
+                    manuscript=_read_manuscript(args),
                 )
                 printer = _related_work_printer(args)
             elif args.command == "status":
@@ -396,7 +455,8 @@ def run_query_cli(argv: Sequence[str] | None = None) -> int:
                 return 0
         assert printer is not None  # every non-serve command above sets it
         printer(payload)
-        _print_cite_reminder(args)
+        if args.command != "related-work":
+            _print_cite_reminder(args)
         return 0
     except QueryError as error:
         print(json.dumps(error_payload(error), ensure_ascii=False, sort_keys=True), file=sys.stderr)

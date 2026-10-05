@@ -20,7 +20,7 @@ import unicodedata
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
-from .citation import BIBTEX_KEY, bibtex_citation, bibtex_citation_notice, required_citations
+from .citation import BIBTEX_KEY, bibtex_citation, required_citations
 from .related_work_render import latex_escape, render_latex, render_markdown
 
 if TYPE_CHECKING:
@@ -174,7 +174,7 @@ def _catalog_entry(service: QueryService, result: dict[str, Any]) -> dict[str, A
 
 
 def _radar_entry(result: dict[str, Any]) -> dict[str, Any]:
-    arxiv_id = _arxiv_id(result, [])
+    arxiv_id = _arxiv_id(result, result.get("artifact_urls") or [])
     return {
         "kind": "radar",
         "key": result["key"],
@@ -207,10 +207,7 @@ def _merge(existing: dict[str, Any], incoming: dict[str, Any]) -> None:
 
 
 def _bibtex(entry: dict[str, Any]) -> str:
-    lines = []
-    if not entry["authors"]:
-        lines.append("% Benchmark Radar has no author list for this record; add it before citing.")
-    lines.append(f"@misc{{{entry['cite_key']},")
+    lines = [f"@misc{{{entry['cite_key']},"]
     lines.append(f"  title        = {{{{{latex_escape(entry['name'])}}}}},")
     if entry["authors"]:
         authors = " and ".join(latex_escape(name) for name in entry["authors"])
@@ -299,97 +296,243 @@ def _without_comments(value: str) -> str:
     return "\n".join(lines)
 
 
-def _citation_keys(latex: str) -> set[str]:
-    keys: set[str] = set()
-    pattern = r"(?<!\\)(?:\\\\)*\\cite(?:p|t)?\s*\{([^{}]*)\}"
-    for match in re.finditer(pattern, _without_comments(latex)):
-        keys.update(key.strip() for key in match.group(1).split(",") if key.strip())
-    return keys
+@dataclass(frozen=True, slots=True)
+class ManuscriptContext:
+    file: str
+    text: str
+
+
+def _has_natbib(manuscript: ManuscriptContext | None) -> bool:
+    if manuscript is None:
+        return False
+    packages = re.finditer(
+        r"(?<!\\)\\(?:usepackage|RequirePackage)\s*(?:\[[^\]]*\]\s*)?\{([^{}]*)\}",
+        _without_comments(manuscript.text),
+    )
+    return any(
+        "natbib" in [name.strip() for name in match.group(1).split(",")] for match in packages
+    )
+
+
+def citation_placements(manuscript: ManuscriptContext | None) -> list[dict[str, Any]]:
+    cite = "citep" if _has_natbib(manuscript) else "cite"
+    citation = f"Benchmark Radar~\\{cite}{{{BIBTEX_KEY}}}"
+    templates = (
+        f"We identified related benchmarks with {citation}.",
+        f"Benchmarks and datasets were located via {citation}.",
+        f"\\footnote{{Related work was collected with {citation}.}}",
+    )
+    anchors: list[int | None] = [None, None, None]
+    reasons = ["Supply --main to locate this citation in your paper."] * 3
+    if manuscript is not None:
+        text = _without_comments(manuscript.text)
+        sections = list(
+            re.finditer(
+                r"(?<!\\)\\(?:sub)*section\*?\s*(?:\[[^\]]*\]\s*)?\{([^{}]*)\}",
+                text,
+            )
+        )
+        for index, section in enumerate(sections):
+            title = " ".join(section.group(1).casefold().split())
+            if title == "related work":
+                option = 0
+            elif title in {"method", "methods", "methodology", "experimental setup", "experiments"}:
+                option = 1
+            else:
+                continue
+            if anchors[option] is not None:
+                continue
+            heading_line = text.count("\n", 0, section.end()) + 1
+            if option == 0:
+                anchors[2] = heading_line
+            end = sections[index + 1].start() if index + 1 < len(sections) else len(text)
+            for line_offset, line in enumerate(text[section.end() : end].splitlines()):
+                content = re.sub(r"\\label\s*\{[^{}]*\}", "", line).strip()
+                if not content or content.startswith(
+                    (r"\end{", r"\bibliography", r"\input", r"\include")
+                ):
+                    continue
+                if re.fullmatch(r"\\paragraph.*", content):
+                    continue
+                anchors[option] = text.count("\n", 0, section.end()) + 1 + line_offset
+                break
+        reasons = [
+            "No Related Work paragraph was found in the supplied manuscript.",
+            "No Method or Experimental Setup paragraph was found in the supplied manuscript.",
+            "No Related Work heading was found in the supplied manuscript.",
+        ]
+    return [
+        {
+            "option": index + 1,
+            "file": manuscript.file if manuscript else None,
+            "line": anchor,
+            "sentence": templates[index],
+            "available": anchor is not None,
+            **({"reason": reasons[index]} if anchor is None else {}),
+        }
+        for index, anchor in enumerate(anchors)
+    ]
+
+
+@dataclass(frozen=True, slots=True)
+class _BibtexEntry:
+    key: str
+    kind: str
+    fields: dict[str, str]
+    start: int
+    end: int
 
 
 def _split_bibtex_fields(body: str) -> list[str]:
     fields = []
-    start = 0
-    depth = 0
+    start = depth = 0
+    quoted = escaped = False
     for index, char in enumerate(body):
-        if char == "{" and (index == 0 or body[index - 1] != "\\"):
+        if escaped:
+            escaped = False
+            continue
+        if char == "\\":
+            escaped = True
+        elif char == '"' and depth == 0:
+            quoted = not quoted
+        elif char == "{" and not quoted:
             depth += 1
-        elif char == "}" and (index == 0 or body[index - 1] != "\\"):
+        elif char == "}" and not quoted:
             depth -= 1
-        elif char == "," and depth == 0:
+        elif char == "," and depth == 0 and not quoted:
             fields.append(body[start:index])
             start = index + 1
     fields.append(body[start:])
     return fields
 
 
-def _bibtex_entries(bibtex: str) -> dict[str, tuple[str, dict[str, str]]]:
-    value = _without_comments(bibtex)
-    entries: dict[str, tuple[str, dict[str, str]]] = {}
-    header = re.compile(r"@(\w+)\s*\{")
+def _bibtex_entries(bibtex: str) -> list[_BibtexEntry]:
+    entries = []
     cursor = 0
-    while match := header.search(value, cursor):
-        depth = 1
+    header = re.compile(r"@(\w+)\s*([({])")
+    while cursor < len(bibtex):
+        if bibtex[cursor] == "%":
+            newline = bibtex.find("\n", cursor)
+            cursor = len(bibtex) if newline < 0 else newline + 1
+            continue
+        if bibtex[cursor] != "@":
+            cursor += 1
+            continue
+        match = header.match(bibtex, cursor)
+        if match is None:
+            cursor += 1
+            continue
+        closing = "}" if match.group(2) == "{" else ")"
+        braces = 0
+        quoted = escaped = False
         index = match.end()
-        while index < len(value) and depth:
-            char = value[index]
-            if char == "{" and value[index - 1] != "\\":
-                depth += 1
-            elif char == "}" and value[index - 1] != "\\":
-                depth -= 1
-            index += 1
-        if depth:
-            break
-        parts = _split_bibtex_fields(value[match.end() : index - 1])
-        key = parts[0].strip()
-        fields: dict[str, str] = {}
-        for part in parts[1:]:
-            if "=" not in part:
+        clean = []
+        while index < len(bibtex):
+            char = bibtex[index]
+            if escaped:
+                clean.append(char)
+                escaped = False
+            elif char == "\\":
+                clean.append(char)
+                escaped = True
+            elif char == "%":
+                newline = bibtex.find("\n", index)
+                index = len(bibtex) if newline < 0 else newline
+                clean.append("\n")
                 continue
-            name, field_value = part.split("=", 1)
-            field_value = field_value.strip()
-            if field_value.startswith("{") and field_value.endswith("}"):
-                field_value = field_value[1:-1]
-            fields[name.strip().casefold()] = " ".join(field_value.split())
-        if key:
-            entries[key] = (match.group(1).casefold(), fields)
-        cursor = index
+            elif char == '"' and braces == 0:
+                quoted = not quoted
+                clean.append(char)
+            elif char == "{" and not quoted:
+                braces += 1
+                clean.append(char)
+            elif char == "}" and braces and not quoted:
+                braces -= 1
+                clean.append(char)
+            elif char == closing and not braces and not quoted:
+                break
+            else:
+                clean.append(char)
+            index += 1
+        if index == len(bibtex):
+            raise ValueError(f"unterminated BibTeX entry at character {match.start()}")
+        kind = match.group(1).casefold()
+        if kind not in {"comment", "string", "preamble"}:
+            parts = _split_bibtex_fields("".join(clean))
+            key = parts[0].strip()
+            if len(parts) < 2 or not key or re.search(r"[\s{}(),=]", key):
+                raise ValueError(f"invalid BibTeX citation key at character {match.end()}")
+            fields = {}
+            for part in parts[1:]:
+                if not part.strip():
+                    continue
+                name, separator, value = part.partition("=")
+                if not separator:
+                    raise ValueError(f"invalid BibTeX field in {key}")
+                value = value.strip()
+                if (value.startswith("{") and value.endswith("}")) or (
+                    value.startswith('"') and value.endswith('"')
+                ):
+                    value = value[1:-1]
+                fields[name.strip().casefold()] = " ".join(value.split())
+            entries.append(_BibtexEntry(key, kind, fields, match.start(), index + 1))
+        cursor = index + 1
     return entries
 
 
+def append_missing_bibtex(existing: bytes, generated: str) -> bytes:
+    text = existing.decode("utf-8")
+    keys = {entry.key for entry in _bibtex_entries(text)}
+    missing = []
+    for entry in _bibtex_entries(generated):
+        if entry.key not in keys:
+            missing.append(generated[entry.start : entry.end])
+            keys.add(entry.key)
+    if not missing:
+        return existing
+    if not existing:
+        return generated.encode("utf-8")
+    separator = b"\n\n" if not existing.endswith(b"\n") else b"\n"
+    return existing + separator + ("\n\n".join(missing) + "\n").encode("utf-8")
+
+
 def verify_citation_complete(
-    latex: str, bibtex: str, requirements: list[dict[str, str]] | None = None
+    bibtex: str,
+    placements: list[dict[str, Any]],
+    requirements: list[dict[str, str]] | None = None,
 ) -> None:
-    """Reject a related-work artifact that drops a required citation dependency."""
+    """Check required bibliography entries and user-selectable citation placements."""
     from .query import QueryError
 
+    if not placements:
+        raise QueryError(
+            "related-work is missing Benchmark Radar citation placements",
+            code="citation_contract_failed",
+        )
     if requirements is None:
         requirements = required_citations()
-    cited_keys = _citation_keys(latex)
-    actual_entries = _bibtex_entries(bibtex)
-    for requirement in requirements:
-        key = requirement["key"]
-        if key not in cited_keys:
-            raise QueryError(
-                "related-work LaTeX is missing the required Benchmark Radar in-text citation",
-                code="citation_contract_failed",
+    try:
+        actual_entries = {entry.key: entry for entry in _bibtex_entries(bibtex)}
+        for requirement in requirements:
+            key = requirement["key"]
+            required_entry = next(
+                entry for entry in _bibtex_entries(requirement["bibtex"]) if entry.key == key
             )
-        required_entry = _bibtex_entries(requirement["bibtex"]).get(key)
-        actual_entry = actual_entries.get(key)
-        if required_entry is None or actual_entry is None:
-            raise QueryError(
-                "related-work BibTeX is missing the required Benchmark Radar BibTeX entry",
-                code="citation_contract_failed",
-            )
-        required_type, required_fields = required_entry
-        actual_type, actual_fields = actual_entry
-        if actual_type != required_type or any(
-            actual_fields.get(name) != value for name, value in required_fields.items()
-        ):
-            raise QueryError(
-                "related-work BibTeX is missing the required Benchmark Radar BibTeX entry",
-                code="citation_contract_failed",
-            )
+            actual_entry = actual_entries.get(key)
+            if (
+                actual_entry is None
+                or actual_entry.kind != required_entry.kind
+                or any(
+                    actual_entry.fields.get(name) != value
+                    for name, value in required_entry.fields.items()
+                )
+            ):
+                raise ValueError("missing canonical entry")
+    except (ValueError, StopIteration) as error:
+        raise QueryError(
+            "related-work BibTeX is missing the required Benchmark Radar BibTeX entry",
+            code="citation_contract_failed",
+        ) from error
 
 
 def build_related_work(
@@ -399,6 +542,7 @@ def build_related_work(
     per_topic: int = 6,
     include_partial: bool = False,
     include_radar: bool = True,
+    manuscript: ManuscriptContext | None = None,
 ) -> dict[str, Any]:
     from .query import QUERY_SCHEMA_VERSION, QueryError
 
@@ -419,26 +563,26 @@ def build_related_work(
     for topic in parsed:
         row: dict[str, Any] = {"label": topic.label, "query": topic.query, "search_status": {}}
         kept: list[dict[str, Any]] = []
+        taken = 0
         for scope in scopes:
-            payload = service.search(topic.query, scope=scope, limit=_SEARCH_WINDOW)
+            payload = service.search(
+                topic.query,
+                scope=scope,
+                limit=_SEARCH_WINDOW,
+                sources=SCHOLARLY_RADAR_SOURCES if scope == "radar" else None,
+            )
             row["search_status"][scope] = payload["search_status"]
-            taken = 0
             for result in payload["results"]:
-                if taken >= per_topic:
-                    break
                 if result["match"]["missing_tokens"] and not include_partial:
-                    continue
-                if (
-                    scope == "radar"
-                    and str(result.get("source") or "").casefold() not in SCHOLARLY_RADAR_SOURCES
-                ):
                     continue
                 entry = (
                     _catalog_entry(service, result) if scope == "catalog" else _radar_entry(result)
                 )
                 identity = f"arxiv:{entry['arxiv_id']}" if entry["arxiv_id"] else entry["key"]
-                if identity in by_identity:
-                    target = by_identity[identity]
+                target = by_identity.get(identity)
+                if taken >= per_topic and not any(item is target for item in kept):
+                    continue
+                if target is not None:
                     if entry["key"] not in {target["key"], *target["merged_keys"]}:
                         _merge(target, entry)
                 else:
@@ -464,23 +608,10 @@ def build_related_work(
     coverage = _coverage(service, include_radar=include_radar)
     requirements = required_citations()
     by_key = {entry["cite_key"]: entry for entry in entries}
-    latex = render_latex(
-        topic_rows,
-        by_key,
-        coverage=coverage,
-        required_citation_key=requirements[0]["key"],
-    )
-    bibtex = (
-        "\n\n".join(
-            [
-                bibtex_citation_notice(),
-                *(entry["bibtex"] for entry in entries),
-                bibtex_citation(),
-            ]
-        )
-        + "\n"
-    )
-    verify_citation_complete(latex, bibtex, requirements)
+    placements = citation_placements(manuscript)
+    latex = render_latex(topic_rows, by_key, natbib=_has_natbib(manuscript))
+    bibtex = "\n\n".join([*(entry["bibtex"] for entry in entries), bibtex_citation()]) + "\n"
+    verify_citation_complete(bibtex, placements, requirements)
     return {
         "schema_version": QUERY_SCHEMA_VERSION,
         "retrieval_mode": "related_work",
@@ -498,4 +629,5 @@ def build_related_work(
         "markdown": render_markdown(topic_rows, by_key, coverage=coverage),
         "data": service._data_summary(scope="all" if include_radar else "catalog"),
         "required_citations": requirements,
+        "citation_placements": placements,
     }
