@@ -1163,6 +1163,15 @@ const I18N = {
     "The latest releases ranking is not available in this build.": "此版本未提供最新发布排行。",
     "{ranked} of {total} releases in this window are ranked; the rest are listed with limited signals.":
       "该时间窗口内 {total} 个发布中有 {ranked} 个进入排名；其余因信号有限仅列出。",
+    "Data through {through} · average signal coverage {coverage}.":
+      "数据截至 {through} · 平均信号覆盖率 {coverage}。",
+    "Find in this window": "在该时间窗口内查找",
+    "Benchmark name": "benchmark 名称",
+    "No release in this window matches “{query}”.": "该时间窗口内没有与“{query}”匹配的发布。",
+    "Clear the search": "清除搜索",
+    "Showing {shown} that match “{query}”.": "显示与“{query}”匹配的 {shown} 个。",
+    normalized: "归一化",
+    "not scored": "未计分",
     "Ranking {method}: {signals}, each normalized as log1p(value) / log1p(window maximum) and summed to a 0 to 100 score. A release is ranked only when enough of its weight comes from fresh, durable signals; the rest are listed with limited signals. Dataset downloads are a rolling 30-day figure, never a cumulative total. Stars come from the benchmark's own repository, never a parent framework. Window {start} to {end}, UTC.":
       "排名方法 {method}：{signals}，各信号按 log1p(值) / log1p(窗口最大值) 归一化后加权求和为 0 到 100 的得分。只有当足够权重来自新鲜且持久的信号时才纳入排名，其余因信号有限仅列出。数据集下载量为滚动 30 天数字，绝非累计总量。star 数来自该benchmark自己的仓库，绝非上级框架。时间窗口 {start} 至 {end}（UTC）。",
     "scale. Every number below is read from the same definition the pipeline applies.":
@@ -1277,6 +1286,7 @@ const state = {
   // adoption view is one click, or one legacy permalink, away. An empty
   // window means "the payload's default".
   lmode: "latest",
+  lrq: "",
   lwindow: "",
   todayResultsKey: "",
   todayRenderedDate: "",
@@ -1507,6 +1517,7 @@ function readUrl() {
   state.todayPage = Math.max(1, Number.parseInt(params.get("page") || "1", 10) || 1);
   state.entity = params.get("entity") || "";
   state.lq = params.get("lq") || "";
+  state.lrq = params.get("lrq") || "";
   state.ldomain = params.get("ldomain") || "";
   state.lorg = params.get("lorg") || "";
   state.lera = params.get("lera") || "";
@@ -1602,8 +1613,14 @@ function writeUrl(mode = "replace") {
       if (state.ldomain) params.set("ldomain", state.ldomain);
       if (state.lorg) params.set("lorg", state.lorg);
       if (state.lera) params.set("lera", state.lera);
-    } else if (state.lwindow && state.lwindow !== latestReleasesDefaultWindow()) {
-      params.set("lwindow", state.lwindow);
+    } else {
+      if (state.lwindow && state.lwindow !== latestReleasesDefaultWindow()) {
+        params.set("lwindow", state.lwindow);
+      }
+      // Written in the latest branch and kept out of
+      // LEADERBOARD_ADOPTION_PARAMS: a marker there would make a shared
+      // latest-releases search address reload into the adoption view.
+      if (state.lrq) params.set("lrq", state.lrq);
     }
   }
   if (!utility && state.view === "saturation") {
@@ -7909,6 +7926,30 @@ function latestSignalText(component) {
   return number;
 }
 
+// The normalized contribution the engine published for one component, which is
+// what the rank was actually computed from: log1p(value) / log1p(window max).
+// It is null whenever the raw value is absent or every reading in the window is
+// zero, and that is a state the row has to name. Printing nothing there would
+// leave a reader unable to tell a component that contributed zero from one the
+// engine never scored -- the same absent-is-not-zero rule the readings follow.
+function latestNormalizedText(component) {
+  const normalized = component?.normalized;
+  if (normalized === null || normalized === undefined) return t("not scored");
+  return Number(normalized).toFixed(2);
+}
+
+// Filtering the cohort the reader is looking at, by the names the row shows.
+// It narrows what is already loaded and never refetches: the window decides
+// which releases exist, the query only decides which of them are listed, so an
+// empty result is "nothing here matches", not "nothing was released".
+function latestReleasesMatches(entries, query) {
+  const needle = String(query || "").trim().toLowerCase();
+  if (!needle) return entries;
+  return entries.filter((entry) =>
+    `${entry.name || ""} ${entry.canonical_artifact_id || ""}`.toLowerCase().includes(needle),
+  );
+}
+
 // A window with nothing in it is a real state, not a broken page: say so and
 // point at a wider window (issue #530). A wider window the loaded payload does
 // not carry yet is still offered, since choosing it fetches the full corpus;
@@ -8006,6 +8047,10 @@ function latestReleaseRow(entry, maxScore, open = new Set()) {
         element("dt", { text: t(label) }),
         element("dd", {}, [
           element("span", { text: latestSignalText(component) }),
+          element("small", {
+            className: "latest-release-normalized",
+            text: `${t("normalized")} ${latestNormalizedText(component)}`,
+          }),
           url
             ? element("a", {
                 className: "latest-release-source",
@@ -8057,6 +8102,8 @@ function renderLatestReleases() {
   });
   const windowLabel = byId("latest-releases-window");
   if (windowLabel) windowLabel.textContent = `· ${latestWindowLabel(windowKey)}`;
+  const search = byId("latest-releases-search");
+  if (search && search.value !== state.lrq) search.value = state.lrq;
   const empty = byId("latest-releases-empty");
   const note = byId("latest-releases-note");
   const info = byId("latest-releases-info");
@@ -8115,7 +8162,28 @@ function renderLatestReleases() {
       windowData.window_start ? [infoDisclosure(latestReleasesMethodNote(payload, windowData))] : [],
     );
   }
-  const entries = windowData.entries || [];
+  const cohort = windowData.entries || [];
+  const entries = latestReleasesMatches(cohort, state.lrq);
+  if (cohort.length && !entries.length) {
+    // The window has releases; the query is what hid them. Offering a wider
+    // window here would be wrong, so the way out is clearing the search.
+    replaceChildren(host, []);
+    if (note) note.textContent = "";
+    if (empty) {
+      empty.hidden = false;
+      replaceChildren(empty, [
+        document.createTextNode(
+          `${t("No release in this window matches “{query}”.", { query: state.lrq.trim() })} `,
+        ),
+        element("button", {
+          className: "latest-releases-empty-action",
+          text: t("Clear the search"),
+          attrs: { type: "button", "data-lrq-clear": "" },
+        }),
+      ]);
+    }
+    return;
+  }
   if (!entries.length) {
     const suggestion = latestReleasesEmptyState(windowKey, payload);
     replaceChildren(host, []);
@@ -8155,13 +8223,27 @@ function renderLatestReleases() {
     entries.map((entry) => latestReleaseRow(entry, maxScore, open)),
   );
   if (note) {
-    note.textContent = t(
+    // Two facts a reader needs before trusting a rank and which the payload
+    // already published without showing: how current the data is, and how much
+    // of the ranking weight was actually observed across the cohort. Without
+    // them the note says how many rows are ranked but not how well.
+    note.textContent = `${t(
       "{ranked} of {total} releases in this window are ranked; the rest are listed with limited signals.",
       {
         ranked: Number(windowData.ranked_count || 0).toLocaleString(),
         total: Number(windowData.total_cohort_count || 0).toLocaleString(),
       },
-    );
+    )}${
+      entries.length === cohort.length
+        ? ""
+        : ` ${t("Showing {shown} that match “{query}”.", {
+            shown: Number(entries.length).toLocaleString(),
+            query: state.lrq.trim(),
+          })}`
+    } ${t("Data through {through} · average signal coverage {coverage}.", {
+      through: formatDate(windowData.window_end, { dateStyle: "medium" }),
+      coverage: `${Math.round(Number(windowData.signal_coverage || 0) * 100)}%`,
+    })}`;
   }
 }
 
@@ -8191,6 +8273,14 @@ function setLeaderboardMode(mode) {
 function setLatestWindow(windowKey) {
   if (!LATEST_WINDOWS.includes(windowKey)) return;
   state.lwindow = windowKey;
+  renderLatestReleases();
+  writeUrl();
+}
+
+function setLatestQuery(query) {
+  const next = String(query || "");
+  if (next === state.lrq) return;
+  state.lrq = next;
   renderLatestReleases();
   writeUrl();
 }
@@ -9216,7 +9306,15 @@ function bindEvents() {
   // One delegated listener for the mode and window controls: the empty state
   // renders its own "try a wider window" buttons, which a bind-time
   // querySelectorAll would never see.
+  const latestSearch = byId("latest-releases-search");
+  if (latestSearch) {
+    latestSearch.addEventListener("input", () => setLatestQuery(latestSearch.value));
+  }
   byId("leaderboard-view").addEventListener("click", (event) => {
+    if (event.target.closest("[data-lrq-clear]")) {
+      setLatestQuery("");
+      return;
+    }
     const windowControl = event.target.closest("[data-lwindow]");
     if (windowControl) {
       setLatestWindow(windowControl.dataset.lwindow);

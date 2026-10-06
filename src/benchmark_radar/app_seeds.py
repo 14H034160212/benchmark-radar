@@ -115,6 +115,7 @@ _LATEST_RANKED_NOTE = (
     "{ranked} of {total} releases in this window are ranked; "
     "the rest are listed with limited signals."
 )
+_LATEST_SCOPE_NOTE = "Data through {through} · average signal coverage {coverage}."
 _LATEST_METHOD_NOTE = (
     "Ranking {method}: {signals}, each normalized as log1p(value) / log1p(window maximum) "
     "and summed to a 0 to 100 score. A release is ranked only when enough of its weight "
@@ -190,6 +191,14 @@ def _latest_signal_text(component: dict[str, Any]) -> str:
     return number
 
 
+def _latest_normalized_text(component: dict[str, Any]) -> str:
+    """The contribution latestNormalizedText prints for one component."""
+    normalized = component.get("normalized")
+    if normalized is None:
+        return "not scored"
+    return f"{float(normalized):.2f}"
+
+
 def _latest_method_note(payload: dict[str, Any], window: dict[str, Any]) -> str:
     """The (i) text latestReleasesMethodNote composes from the published weights."""
     entries = window.get("entries") or []
@@ -256,7 +265,10 @@ def _latest_release_row(entry: dict[str, Any], top: float) -> str:
         )
         signals.append(
             f'<div class="latest-release-signal"><dt>{esc(label)}</dt>'
-            f"<dd><span>{esc(_latest_signal_text(component))}</span>{link}{weight_text}</dd></div>"
+            f"<dd><span>{esc(_latest_signal_text(component))}</span>"
+            f'<small class="latest-release-normalized">'
+            f"normalized {esc(_latest_normalized_text(component))}</small>"
+            f"{link}{weight_text}</dd></div>"
         )
     meta = " · ".join(
         part
@@ -352,9 +364,13 @@ def _latest_releases_seed(dashboard: dict[str, Any]) -> dict[str, str]:
     )
     ranked = _num(window.get("ranked_count") or 0)
     total = _num(window.get("total_cohort_count") or 0)
+    scope = _LATEST_SCOPE_NOTE.format(
+        through=_utc_medium_date(window.get("window_end")),
+        coverage=_percent(window.get("signal_coverage") or 0),
+    )
     seeds[_LATEST_NOTE_ANCHOR] = (
         '<p class="section-note" id="latest-releases-note" aria-live="polite" data-seed>'
-        f"{esc(_LATEST_RANKED_NOTE.format(ranked=ranked, total=total))}</p>"
+        f"{esc(_LATEST_RANKED_NOTE.format(ranked=ranked, total=total))} {esc(scope)}</p>"
     )
     return seeds
 

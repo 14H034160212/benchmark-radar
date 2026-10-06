@@ -293,9 +293,59 @@ R.setLang("en");
 
 // The bootstrap trims a window the engine did not publish to an empty stub
 // (snapshots.py): no bounds, so no method note, and the empty state's way out.
+const stub90d = payload.windows["90d"];
 payload.windows["90d"] = {};
 state.lwindow = "90d";
 R.renderLatestReleases();
 out.stub90d = snapshot();
+
+// Cohort search: the window decides which releases exist, the query only
+// decides which of them are listed, so a query that matches nothing says so
+// and offers to clear itself rather than suggesting a wider window.
+state.lwindow = "30d";
+state.lrq = "";
+R.renderLatestReleases();
+const allRows = byId("latest-releases-list").children.length;
+// A name substring that matches one of the two fixture rows, and whose
+// casing differs from the row's so the match is proven case-insensitive.
+state.lrq = "quiet";
+R.renderLatestReleases();
+out.search = { allRows, ...snapshot() };
+out.search.rows = byId("latest-releases-list").children.length;
+out.search.inputValue = byId("latest-releases-search").value;
+state.lrq = "no-such-benchmark";
+R.renderLatestReleases();
+out.searchMiss = snapshot();
+out.searchMiss.rows = byId("latest-releases-list").children.length;
+// The clear control the empty state writes is reachable and restores the list.
+state.lrq = "";
+R.renderLatestReleases();
+out.searchCleared = { rows: byId("latest-releases-list").children.length };
+
+// A direct non-default-window address lands on a page the generator seeded
+// with the DEFAULT window's rows. Every failure probe above ran straight after
+// an empty render, so the list was already bare and "it clears" proved nothing.
+// Here the 30-day rows are really on the page first, as a reader arriving at a
+// 90-day URL would find them, and then the corpus fetch fails.
+payload.windows["90d"] = stub90d;
+state.fullDataLoaded = false;
+state.fullDataPromise = null;
+state.lwindow = "30d";
+R.renderLatestReleases();
+const seededRows = byId("latest-releases-list").children.length;
+const seededNote = byId("latest-releases-note").textContent;
+delete payload.windows["90d"];
+state.lwindow = "90d";
+fetchBehaviour = () => Promise.reject(new Error("HTTP 404"));
+R.renderLatestReleases();
+await tick();
+await tick();
+out.seededThenFailed90d = {
+  seededRows,
+  seededNote,
+  rowsAfter: byId("latest-releases-list").children.length,
+  ...snapshot(),
+};
+errors.splice(0);
 
 console.log(JSON.stringify(out));

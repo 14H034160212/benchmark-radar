@@ -553,6 +553,18 @@
             <button type="button" class="latest-releases-window-button" data-lwindow="30d" aria-pressed="true" data-i18n="30 days">30 days</button>
             <button type="button" class="latest-releases-window-button" data-lwindow="90d" aria-pressed="false" data-i18n="90 days">90 days</button>
           </div>
+          <label class="search-field latest-releases-search">
+            <span data-i18n="Find in this window">Find in this window</span>
+            <input
+              id="latest-releases-search"
+              name="lrq"
+              type="search"
+              autocomplete="off"
+              placeholder="Benchmark name"
+              data-i18n-placeholder="Benchmark name"
+              aria-controls="latest-releases-list"
+            >
+          </label>
           <div class="leaderboard-top-columns" aria-hidden="true">
             <span class="leaderboard-top-columns-rank" data-i18n="Rank">Rank</span>
             <span class="leaderboard-top-columns-name" data-i18n="Benchmark">Benchmark</span>

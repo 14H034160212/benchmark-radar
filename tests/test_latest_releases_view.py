@@ -226,6 +226,9 @@ def test_every_visible_latest_releases_string_is_translated():
         "Loading this window…",
         "This window could not be loaded. Refresh to try again.",
         "The {window} window is not in this build.",
+        "Data through {through} · average signal coverage {coverage}.",
+        "normalized",
+        "not scored",
     ):
         assert has(key), f"missing zh translation for {key!r}"
     # The feature adds no second entry for a key the table already had: a
@@ -306,8 +309,13 @@ def test_seeds_are_what_the_renderer_draws():
     assert _inner(seed[NOTE_ANCHOR]) == drawn["default"]["note"]
     assert drawn["default"]["window"] == "· 30 days"
     assert drawn["default"]["emptyHidden"] is True
+    # The note also carries how current the data is and how much of the ranking
+    # weight was observed across the cohort, both already in the payload and
+    # neither previously shown: a reader could see how many rows ranked but not
+    # how well, nor whether the numbers were from today or a stalled run.
     assert drawn["default"]["note"] == (
-        "1 of 2 releases in this window are ranked; the rest are listed with limited signals."
+        "1 of 2 releases in this window are ranked; the rest are listed with limited signals. "
+        "Data through Sep 11, 2026 · average signal coverage 50%."
     )
     assert drawn["default"]["pressedWindows"] == ["30d"]
     assert drawn["default"]["pressedModes"] == ["latest"]
@@ -320,6 +328,13 @@ def test_seeds_are_what_the_renderer_draws():
     # fresh observation, which is the imputation issue #530 rules out.
     assert "420 · unverified since 2026-08-30" in drawn["default"]["list"]
     assert "420<" not in drawn["default"]["list"]
+    # Each component also shows the normalized contribution the rank was
+    # computed from, and names the state when the engine scored nothing: a
+    # component that contributed zero and one that was never scored are
+    # different facts, and a blank would read as the first.
+    assert "normalized 1.00" in drawn["default"]["list"]
+    assert "normalized 0.90" in drawn["default"]["list"]
+    assert drawn["default"]["list"].count("normalized not scored") == 4
     week = _latest_releases_seed(
         {"latest_releases_leaderboard": {**payload, "default_window": "7d"}}
     )
@@ -371,6 +386,41 @@ def test_the_renderer_keeps_open_rows_loads_wider_windows_and_reports_failure():
     assert drawn["stub90d"]["info"] == ""
     assert drawn["stub90d"]["empty"].startswith("No benchmark released in the last 90 days")
     assert 'data-lmode="adoption"' in drawn["stub90d"]["empty"]
+    # Search was only ever inside the hidden adoption view, so a reader looking
+    # at the latest cohort had no way to find a row in it. The query narrows
+    # what is already loaded: the window still decides which releases exist.
+    assert drawn["search"]["allRows"] == 2 and drawn["search"]["rows"] == 1
+    assert "Quiet" in drawn["search"]["list"] and "Bench " not in drawn["search"]["list"]
+    assert drawn["search"]["inputValue"] == "quiet"
+    # The note says how many of the cohort the reader is being shown, so a
+    # filtered list cannot be mistaken for the whole window.
+    assert "Showing 1 that match “quiet”." in drawn["search"]["note"]
+    # A query that matches nothing is not an empty window, so the way out is
+    # clearing the search rather than the wider-window suggestion.
+    assert drawn["searchMiss"]["rows"] == 0
+    assert drawn["searchMiss"]["empty"].startswith(
+        "No release in this window matches “no-such-benchmark”."
+    )
+    assert "data-lrq-clear" in drawn["searchMiss"]["empty"]
+    assert "data-lwindow=" not in drawn["searchMiss"]["empty"]
+    assert drawn["searchCleared"]["rows"] == 2
+
+    # A direct non-default-window address lands on a page the generator seeded
+    # with the DEFAULT window's rows, and the concern is that those rows stay
+    # put when the corpus fetch fails -- 30-day data sitting under a 90-day
+    # URL. Every other failure probe here runs straight after an empty render,
+    # so "the list is empty" proved nothing about clearing. This one puts the
+    # 30-day rows on the page first and then fails the fetch.
+    seeded = drawn["seededThenFailed90d"]
+    assert seeded["seededRows"] == 2 and seeded["seededNote"]
+    assert seeded["rowsAfter"] == 0 and seeded["list"] == ""
+    # The note and method disclosure describe the window that is gone, so they
+    # go with it rather than being left to describe rows nobody can see.
+    assert seeded["note"] == "" and seeded["info"] == ""
+    # And the heading names the window actually requested, not the seeded one.
+    assert seeded["window"] == "· 90 days"
+    assert seeded["empty"] == "This window could not be loaded. Refresh to try again."
+
     # The Chinese interface draws the same rows in its own words.
     assert drawn["zh"]["window"] == "· 30 天"
     assert "发布于" in drawn["zh"]["list"] and "released" not in drawn["zh"]["list"]

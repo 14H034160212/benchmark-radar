@@ -5616,6 +5616,11 @@ dialog {
   color: var(--blue-deep);
 }
 
+.latest-releases-search {
+  margin: 0 0 0.75rem;
+}
+
+.latest-release-normalized,
 .latest-release-weight,
 .latest-release-meta {
   color: var(--muted);

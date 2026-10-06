@@ -59,8 +59,8 @@ const payload = {
   },
 };
 
-const state = { data: { latest_releases_leaderboard: payload }, lwindow: '', lmode: 'latest', fullDataLoaded: false };
-const names = ['leaderboardModeFromParams', 'latestReleasesPayload', 'latestReleasesDefaultWindow', 'latestReleasesWindowKey', 'latestWindowLabel', 'latestSignalText', 'latestReleasesEmptyState', 'latestReleasesWeights', 'latestReleasesMethodNote'];
+const state = { data: { latest_releases_leaderboard: payload }, lwindow: '', lrq: '', lmode: 'latest', fullDataLoaded: false };
+const names = ['leaderboardModeFromParams', 'latestReleasesPayload', 'latestReleasesDefaultWindow', 'latestReleasesWindowKey', 'latestWindowLabel', 'latestSignalText', 'latestReleasesMatches', 'latestReleasesEmptyState', 'latestReleasesWeights', 'latestReleasesMethodNote'];
 const latest = new Function('state', 't', 'formatDate', `${section('const LATEST_WINDOWS =', 'function leaderboardModeFromParams(')}\n${names.map(fn).join('\n')}\nreturn {${names.join(',')}};`)(state, t, formatDate);
 
 // Mode: the page opens on the latest releases; a permalink carrying any of the
@@ -68,6 +68,10 @@ const latest = new Function('state', 't', 'formatDate', `${section('const LATEST
 // the adoption view; an explicit lmode wins either way.
 assert.equal(latest.leaderboardModeFromParams(new URLSearchParams('')), 'latest');
 assert.equal(latest.leaderboardModeFromParams(new URLSearchParams('lwindow=7d')), 'latest');
+// The latest cohort's own search is not one of the adoption markers: a shared
+// `?lrq=` link must open the view that wrote it, not the adoption one.
+assert.equal(latest.leaderboardModeFromParams(new URLSearchParams('lrq=agent')), 'latest');
+assert.equal(latest.leaderboardModeFromParams(new URLSearchParams('lrq=agent&lwindow=90d')), 'latest');
 for (const legacy of ['lscore=70', 'lq=agent', 'ldomain=code', 'lorg=OpenAI', 'lera=2025', 'lheight=documents']) {
   assert.equal(latest.leaderboardModeFromParams(new URLSearchParams(legacy)), 'adoption', legacy);
 }
@@ -103,6 +107,22 @@ assert.equal(latest.latestSignalText({ value: 5, status: 'stale' }), '5 · stale
 assert.equal(latest.latestSignalText({ value: 0, status: 'fresh' }), '0');
 assert.equal(latest.latestSignalText({ value: null, status: 'unknown' }), 'not observed');
 assert.equal(latest.latestSignalText(undefined), 'not observed');
+
+// Cohort search: a substring of the name or the artifact id, case-insensitive,
+// over the entries already loaded. An empty query is not a filter.
+const cohort30 = payload.windows['30d'].entries;
+assert.equal(latest.latestReleasesMatches(cohort30, '').length, cohort30.length);
+assert.equal(latest.latestReleasesMatches(cohort30, '   ').length, cohort30.length);
+assert.deepEqual(
+  latest.latestReleasesMatches(cohort30, 'BENCH').map((entry) => entry.name),
+  cohort30.filter((entry) => entry.name.toLowerCase().includes('bench')).map((entry) => entry.name),
+);
+assert.deepEqual(latest.latestReleasesMatches(cohort30, 'no-such-benchmark'), []);
+// The id is searchable too, so a reader pasting an artifact id finds its row.
+assert.equal(
+  latest.latestReleasesMatches(cohort30, cohort30[0].canonical_artifact_id)[0].name,
+  cohort30[0].name,
+);
 
 // Empty state: the 7-day window is empty, so it points at the 30-day window,
 // which has entries; the 90-day window is not loaded yet and is still
@@ -165,6 +185,17 @@ state.lwindow = '30d';
 routes.writeUrl('replace');
 assert.equal(routes.current(), '/leaderboard/', 'the default window is not written');
 
+routes.install('/leaderboard/?lrq=vbench&lwindow=90d');
+routes.readUrl();
+assert.equal(state.lmode, 'latest', 'a cohort search address stays on the latest view');
+assert.equal(state.lrq, 'vbench');
+routes.writeUrl('replace');
+assert.equal(routes.current(), '/leaderboard/?lwindow=90d&lrq=vbench');
+state.lwindow = '30d';
+routes.writeUrl('replace');
+assert.equal(routes.current(), '/leaderboard/?lrq=vbench', 'the search survives the default window');
+state.lrq = '';
+
 routes.install('/leaderboard/?lscore=70&lq=agent');
 routes.readUrl();
 assert.equal(state.lmode, 'adoption', 'a pre-mode permalink opens the view it filtered');
@@ -180,6 +211,13 @@ state.lmode = 'latest';
 state.lwindow = '7d';
 routes.writeUrl('replace');
 assert.equal(routes.current(), '/leaderboard/?lwindow=7d', 'switching back to latest drops the adoption filters');
+state.lrq = 'vbench';
+state.lmode = 'adoption';
+routes.writeUrl('replace');
+assert(!routes.current().includes('lrq='), 'the adoption view does not carry the cohort search');
+state.lmode = 'latest';
+state.lrq = '';
+state.lwindow = '';
 
 // Back from Saturation restores an address with the shared cutoff; opening
 // the leaderboard from there must not land on a mode the reader never chose.
