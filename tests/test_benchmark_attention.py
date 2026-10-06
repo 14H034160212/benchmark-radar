@@ -388,7 +388,7 @@ def test_a_source_is_paused_after_consecutive_failures():
     assert by_url[repos[7]]["status"] == "stale"
     stars_health = next(row for row in block["health"] if row["metric"] == "stars")
     assert stars_health["ok"] is False
-    assert "github paused after 3 consecutive failures" in stars_health["error"]
+    assert "GitHub stars paused after 3 consecutive failures" in stars_health["error"]
     assert "5 resources not read, 1 carried forward as stale" in stars_health["error"]
     # A success resets the streak: three failures spread across successes do
     # not pause the source.
@@ -707,3 +707,85 @@ def test_leaderboard_ranks_a_release_from_the_collected_block():
         [_snapshot(NOW, evidence_items=evidence)], as_of=NOW, reviewed_benchmark_ids=set()
     )
     assert bare["windows"]["30d"]["entries"] == []
+
+
+def test_failing_paper_pages_do_not_pause_dataset_downloads():
+    """The breaker is per signal, so one Hugging Face endpoint cannot mute the other.
+
+    Reported in review of the collector: five paper-page failures paused
+    dataset-download collection too, the dataset's value was carried forward as
+    stale, and its health row still read `ok: true` because the signal was never
+    attempted. Both signals are `source: huggingface`, so a breaker keyed by
+    source treats an outage on one endpoint as evidence about the other.
+    """
+    # Six papers against a five-failure breaker, so the sixth is the read the
+    # pause suppresses and the health note has something to report.
+    papers = [f"https://huggingface.co/papers/2609.0{index}" for index in range(6)]
+    api = FakeApi(
+        {
+            **{
+                f"https://huggingface.co/api/papers/2609.0{index}": RequestError("HTTP 503 from hf")
+                for index in range(6)
+            },
+            DATASET_API: {"downloads": 4242},
+        }
+    )
+    items = [
+        *(
+            _item(url, days_ago=index + 1, source="Hugging Face")
+            for index, url in enumerate(papers)
+        ),
+        # Oldest, so the newest-first order spends every paper request first and
+        # the dataset is the one read that a source-keyed pause would swallow.
+        _item(DATASET, days_ago=30, source="Hugging Face"),
+    ]
+    config = {**CONFIG, "max_consecutive_failures": 5}
+
+    block, _ = collect_benchmark_attention(config, items, observed_at=NOW, get_json=api)
+
+    # The dataset endpoint is still asked, and its reading is fresh.
+    assert DATASET_API in api.calls
+    downloads = next(
+        observation
+        for observation in block["observations"]
+        if observation["metric"] == "downloads_30d"
+    )
+    assert downloads["value"] == 4242
+    assert downloads["status"] == "fresh"
+
+    # Exactly five paper requests are spent: the sixth is behind the pause.
+    assert len([call for call in api.calls if "/api/papers/" in call]) == 5
+
+    # The paused signal is the one that failed, and it says so.
+    upvotes_health = next(row for row in block["health"] if row["metric"] == "upvotes")
+    assert upvotes_health["ok"] is False
+    assert (
+        "Hugging Face paper upvotes paused after 5 consecutive failures"
+        in (upvotes_health["error"])
+    )
+
+    # The sibling signal reports its own success rather than inheriting a pause.
+    downloads_health = next(row for row in block["health"] if row["metric"] == "downloads_30d")
+    assert downloads_health["ok"] is True
+    assert downloads_health["item_count"] == 1
+    assert downloads_health["error"] is None
+
+
+def test_a_fractional_counter_is_not_a_reading():
+    """Stars, upvotes and downloads are whole numbers; a float is another field.
+
+    A fractional payload means the response is not the counter this reads, so
+    accepting it would publish a rate or a score as a ranking signal. The
+    request-shaped failure path applies: no reading, and the resource keeps
+    whatever it last had.
+    """
+    api = FakeApi({GITHUB_API: {"stargazers_count": 12.5}})
+
+    block, _ = collect_benchmark_attention(
+        CONFIG, [_item(REPO, days_ago=2)], observed_at=NOW, get_json=api
+    )
+
+    assert block["observations"] == []
+    stars_health = next(row for row in block["health"] if row["metric"] == "stars")
+    assert stars_health["ok"] is False
+    assert "whole-number counter" in stars_health["error"]

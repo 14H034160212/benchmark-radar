@@ -31,10 +31,13 @@ Each rule below prevents a specific failure:
   windows the leaderboard shows by default are refreshed before the 90-day
   tail, and a budget smaller than the eligible cohort degrades to stale
   readings on the oldest releases rather than to nothing.
-- A source that fails several times in a row is not asked again this run.
+- A signal that fails several times in a row is not asked again this run.
   A rate limit or outage answers every request the same way, and a run that
   waits out the timeout for each of a thousand resources would outlive the
-  daily workflow; the resources not asked keep their stale readings.
+  daily workflow; the resources not asked keep their stale readings. The
+  breaker is per signal, not per source: the two Hugging Face signals read
+  different endpoints, so failing paper pages must not stop dataset reads.
+  The request budget stays per source, because that is the host's rate limit.
 """
 
 from __future__ import annotations
@@ -190,9 +193,14 @@ def _counter(payload: Any, field_name: str, *, label: str) -> int | float:
         raise ConnectorPayloadError(f"{label} {field_name} is not a number") from error
     if not math.isfinite(value) or value < 0:
         raise ConnectorPayloadError(f"{label} {field_name} is not a non-negative number")
-    # Counters are whole numbers; keep them so in the snapshot and the
-    # dashboard rather than serialising 150 as 150.0.
-    return int(value) if value.is_integer() else value
+    # These APIs count stars, upvotes and downloads, so a whole number is the
+    # only shape the counter can honestly take. A fractional payload means the
+    # field is not the counter this reads -- a rate, a score, a truncated
+    # response -- and accepting it would publish that as a ranking signal.
+    if not value.is_integer():
+        raise ConnectorPayloadError(f"{label} {field_name} is not a whole-number counter")
+    # Keep it an int so the snapshot and dashboard carry 150, not 150.0.
+    return int(value)
 
 
 def _fetch_counter(
@@ -335,9 +343,14 @@ def collect_benchmark_attention(
             ),
         )
 
+    # The budget is per source, because it is the host's rate limit being
+    # spent. The breaker is per signal: the two Hugging Face signals read
+    # different endpoints, so a run of paper-page failures says nothing about
+    # whether dataset metadata answers, and keying the pause by source stopped
+    # dataset collection on the strength of the papers' failures.
     requests_made: dict[str, int] = dict.fromkeys(budgets, 0)
-    failure_streaks: dict[str, int] = dict.fromkeys(budgets, 0)
-    paused: dict[str, bool] = dict.fromkeys(budgets, False)
+    failure_streaks: dict[str, int] = dict.fromkeys(SIGNALS, 0)
+    paused: dict[str, bool] = dict.fromkeys(SIGNALS, False)
     stats: dict[str, _SignalStats] = {signal: _SignalStats() for signal in SIGNALS}
     previous = _previous_readings(previous_block)
     observations: list[dict[str, Any]] = []
@@ -349,7 +362,7 @@ def collect_benchmark_attention(
             source = spec["source"]
             signal_stats = stats[signal]
             reading = None
-            if paused[source] or requests_made[source] >= budgets[source]:
+            if paused[signal] or requests_made[source] >= budgets[source]:
                 signal_stats.skipped += 1
             else:
                 if requests_made[source] and delays[source]:
@@ -359,10 +372,10 @@ def collect_benchmark_attention(
                     signal, url, options=options, get_json=get_json, stats=signal_stats
                 )
                 if reading is None:
-                    failure_streaks[source] += 1
-                    paused[source] = failure_streaks[source] >= max_consecutive_failures
+                    failure_streaks[signal] += 1
+                    paused[signal] = failure_streaks[signal] >= max_consecutive_failures
                 else:
-                    failure_streaks[source] = 0
+                    failure_streaks[signal] = 0
             observation = {
                 "canonical_artifact_id": target.canonical_id,
                 "source": source,
@@ -402,8 +415,10 @@ def collect_benchmark_attention(
                 f"{signal_stats.failed} of {signal_stats.attempted} requests failed; "
                 f"last: {signal_stats.last_error}"
             )
-        if paused[source] and signal_stats.skipped:
-            notes.append(f"{source} paused after {max_consecutive_failures} consecutive failures")
+        if paused[signal] and signal_stats.skipped:
+            notes.append(
+                f"{spec['label']} paused after {max_consecutive_failures} consecutive failures"
+            )
         if signal_stats.skipped:
             notes.append(
                 f"{signal_stats.skipped} resources not read, "
