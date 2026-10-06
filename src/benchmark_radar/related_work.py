@@ -516,6 +516,12 @@ def _bibtex_identity(entry: _BibtexEntry) -> dict[str, str]:
         eprint = re.sub(r"^/(?:abs|pdf)/", "", url.path).removesuffix(".pdf")
     eprint = re.sub(r"^arxiv:\s*", "", eprint, flags=re.IGNORECASE)
     eprint = re.sub(r"v\d+$", "", eprint)
+    arxiv_doi = re.fullmatch(r"10\.48550/arxiv\.(.+)", doi, flags=re.IGNORECASE)
+    if arxiv_doi:
+        doi_eprint = re.sub(r"v\d+$", "", arxiv_doi.group(1), flags=re.IGNORECASE)
+        if eprint and eprint.casefold() != doi_eprint.casefold():
+            raise ValueError(f"inconsistent arXiv identity in BibTeX key {entry.key!r}")
+        eprint = doi_eprint
     return {
         "doi": doi.casefold(),
         "eprint": eprint.casefold(),
@@ -539,7 +545,7 @@ def _same_bibtex_work(existing: _BibtexEntry, generated: _BibtexEntry) -> bool:
         left[field] and right[field] and left[field] != right[field] for field in ("doi", "eprint")
     ):
         return False
-    if any(left[field] and left[field] == right[field] for field in ("doi", "eprint", "url")):
+    if any(left[field] and left[field] == right[field] for field in ("doi", "eprint")):
         return True
     return bool(left["title"] and left["title"] == right["title"]) and not (
         left["year"] and right["year"] and left["year"] != right["year"]

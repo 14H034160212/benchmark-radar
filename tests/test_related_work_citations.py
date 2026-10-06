@@ -174,7 +174,11 @@ def test_existing_radar_key_is_preserved_without_rewriting() -> None:
         ("doi={https://doi.org/10.1234/TEST}", "title={Full title}, doi={10.1234/test}"),
         ("url={https://doi.org/10.1234/test}", "doi={10.1234/test}"),
         ("url={https://arxiv.org/pdf/2301.12345v3.pdf}", "eprint={2301.12345}"),
-        ("url={https://example.com/paper}", r"howpublished={\url{https://example.com/paper}}"),
+        ("doi={10.48550/arXiv.2301.12345}", "eprint={2301.12345}"),
+        (
+            "title={GPQA}, url={https://example.com/paper}",
+            r"title={GPQA}, howpublished={\url{https://example.com/paper}}",
+        ),
     ],
     ids=[
         "title-braces-case",
@@ -183,6 +187,7 @@ def test_existing_radar_key_is_preserved_without_rewriting() -> None:
         "doi-prefix",
         "doi-url",
         "arxiv-url",
+        "arxiv-doi",
         "howpublished-url",
     ],
 )
@@ -205,6 +210,14 @@ def test_matching_bibliography_identity_is_reused(
             "title={GPQA}, eprint={2301.12345}, url={https://example.com/paper}",
             "title={GPQA}, eprint={2302.12345}, url={https://example.com/paper}",
         ),
+        (
+            "title={GPQA}, doi={10.48550/arXiv.2301.00001}",
+            "title={GPQA}, eprint={2311.12022}",
+        ),
+        (
+            "title={SEED-Bench}, url={https://github.com/AILab-CVC/SEED-Bench}",
+            r"title={SEED-Bench-2}, howpublished={\url{https://github.com/AILab-CVC/SEED-Bench}}",
+        ),
         ("author={Nobody}", "title={GPQA}"),
     ],
     ids=[
@@ -213,6 +226,8 @@ def test_matching_bibliography_identity_is_reused(
         "different-arxiv",
         "different-doi",
         "identifier-conflict-with-shared-url",
+        "arxiv-doi-conflict",
+        "shared-repository-different-work",
         "missing-identity",
     ],
 )
@@ -221,13 +236,15 @@ def test_conflicting_or_unverified_key_is_rejected(
 ) -> None:
     existing = f"@misc{{conflict, {existing_fields}}}".encode()
     generated = f"@misc{{conflict, {generated_fields}}}"
-    with pytest.raises(ValueError, match="BibTeX key 'conflict'.*different or unverified"):
+    with pytest.raises(
+        ValueError, match="BibTeX key collision: 'conflict'.*different or unverified"
+    ):
         append_missing_bibtex(existing, generated)
 
 
 def test_duplicate_existing_key_cannot_hide_conflicting_work() -> None:
     existing = b"@misc{same, title={Other work}}\n@misc{same, title={GPQA}}\n"
-    with pytest.raises(ValueError, match="BibTeX key 'same'"):
+    with pytest.raises(ValueError, match="BibTeX key collision: 'same'"):
         append_missing_bibtex(existing, "@misc{same, title={GPQA}}")
 
 
