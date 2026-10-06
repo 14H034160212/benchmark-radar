@@ -41,7 +41,9 @@ health, across the CLI, the HTTP surface, and the public consumer Skill.
   Missing sections have a null line and an explanation. Without manuscript text,
   placements are templates with null locations. The service never opens manuscript
   paths. The CLI reads `--main` and appends missing keys to `--bib` while preserving
-  existing bytes. Generated LaTeX and BibTeX contain no citation notices or agent
+  existing bytes. An existing key is reused only when its citation identity matches;
+  conflicting or unverified identities fail before any export file is staged.
+  Generated LaTeX and BibTeX contain no citation notices or agent
   instructions. Before export, the service checks the canonical bibliography entry
   and nonempty placements. An incomplete contract fails with the machine-readable
   `citation_contract_failed` error. Authors come

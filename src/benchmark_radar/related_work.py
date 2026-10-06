@@ -556,7 +556,7 @@ def append_missing_bibtex(existing: bytes, generated: str) -> bytes:
         if entry.key in entries:
             if not all(_same_bibtex_work(prior, entry) for prior in entries[entry.key]):
                 raise ValueError(
-                    f"BibTeX key {entry.key!r} already refers to a different or "
+                    f"BibTeX key collision: {entry.key!r} already refers to a different or "
                     "unverified work; rename that key before exporting"
                 )
         else:
