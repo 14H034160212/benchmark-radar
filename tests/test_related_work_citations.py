@@ -75,7 +75,11 @@ def test_bibtex_append_preserves_bytes_and_skips_only_active_keys(delimiter: str
         f'@misc{opening}existing, title="Quoted @misc{{{BIBTEX_KEY}, title={{Fake}}}}", '
         f'note={{Nested {{values, commas}} and escaped \\%}}, year="2025"{closing}\r\n'
     ).encode()
-    generated = "@misc{existing, title={Do not replace}}\n\n" + bibtex_citation() + "\n"
+    generated = (
+        f"@misc{{existing, title={{Quoted @misc{{{BIBTEX_KEY}, title={{Fake}}}}}}}}\n\n"
+        + bibtex_citation()
+        + "\n"
+    )
     merged = append_missing_bibtex(original, generated)
     assert merged.startswith(original)
     assert b"Do not replace" not in merged
@@ -91,7 +95,7 @@ def test_bibtex_append_preserves_bytes_and_skips_only_active_keys(delimiter: str
     ],
 )
 def test_literal_percent_values_survive_append(original: bytes) -> None:
-    generated = "@misc{existing, title={Do not replace}}\n\n" + bibtex_citation()
+    generated = original.decode() + "\n" + bibtex_citation()
     merged = append_missing_bibtex(original, generated)
     assert merged.startswith(original)
     assert b"Do not replace" not in merged
@@ -152,8 +156,111 @@ def test_commented_verbatim_delimiters_do_not_hide_active_sections() -> None:
 
 
 def test_existing_radar_key_is_preserved_without_rewriting() -> None:
-    existing = f"@misc({BIBTEX_KEY}, title={{User's existing reference}})\r\n".encode()
+    existing = (
+        f"@misc({BIBTEX_KEY}, title={{Benchmark Radar}}, eprint={{2609.11115v2}})\r\n"
+    ).encode()
     assert append_missing_bibtex(existing, bibtex_citation()) == existing
+
+
+@pytest.mark.parametrize(
+    ("existing_fields", "generated_fields"),
+    [
+        ("title={{GPQA}}, year={2023}", 'title="gpqa", year={2023}'),
+        ("title={  GPQA   benchmark }", "title={GPQA benchmark}, author={New metadata}"),
+        (
+            "title={Abbreviated}, eprint={2301.12345v2}, year={2024}",
+            "title={Full title}, eprint={2301.12345}, year={2023}",
+        ),
+        ("doi={https://doi.org/10.1234/TEST}", "title={Full title}, doi={10.1234/test}"),
+        ("url={https://doi.org/10.1234/test}", "doi={10.1234/test}"),
+        ("url={https://arxiv.org/pdf/2301.12345v3.pdf}", "eprint={2301.12345}"),
+        ("url={https://example.com/paper}", r"howpublished={\url{https://example.com/paper}}"),
+    ],
+    ids=[
+        "title-braces-case",
+        "title-space-enrichment",
+        "arxiv-version-year",
+        "doi-prefix",
+        "doi-url",
+        "arxiv-url",
+        "howpublished-url",
+    ],
+)
+def test_matching_bibliography_identity_is_reused(
+    existing_fields: str, generated_fields: str
+) -> None:
+    existing = f"@article(same, {existing_fields})\r\n".encode()
+    generated = f"@misc{{same, {generated_fields}}}\n"
+    assert append_missing_bibtex(existing, generated) == existing
+
+
+@pytest.mark.parametrize(
+    ("existing_fields", "generated_fields"),
+    [
+        ("title={Unrelated}, year={2000}", "title={GPQA}, year={2023}"),
+        ("title={GPQA}, year={2000}", "title={GPQA}, year={2023}"),
+        ("title={GPQA}, eprint={2301.12345}", "title={GPQA}, eprint={2302.12345}"),
+        ("title={GPQA}, doi={10.1234/first}", "title={GPQA}, doi={10.1234/second}"),
+        (
+            "title={GPQA}, eprint={2301.12345}, url={https://example.com/paper}",
+            "title={GPQA}, eprint={2302.12345}, url={https://example.com/paper}",
+        ),
+        ("author={Nobody}", "title={GPQA}"),
+    ],
+    ids=[
+        "different-title",
+        "different-year",
+        "different-arxiv",
+        "different-doi",
+        "identifier-conflict-with-shared-url",
+        "missing-identity",
+    ],
+)
+def test_conflicting_or_unverified_key_is_rejected(
+    existing_fields: str, generated_fields: str
+) -> None:
+    existing = f"@misc{{conflict, {existing_fields}}}".encode()
+    generated = f"@misc{{conflict, {generated_fields}}}"
+    with pytest.raises(ValueError, match="BibTeX key 'conflict'.*different or unverified"):
+        append_missing_bibtex(existing, generated)
+
+
+def test_duplicate_existing_key_cannot_hide_conflicting_work() -> None:
+    existing = b"@misc{same, title={Other work}}\n@misc{same, title={GPQA}}\n"
+    with pytest.raises(ValueError, match="BibTeX key 'same'"):
+        append_missing_bibtex(existing, "@misc{same, title={GPQA}}")
+
+
+def test_existing_radar_key_for_another_work_is_rejected() -> None:
+    existing = f"@misc{{{BIBTEX_KEY}, title={{Other work}}}}".encode()
+    with pytest.raises(ValueError, match=BIBTEX_KEY):
+        append_missing_bibtex(existing, bibtex_citation())
+
+
+@pytest.mark.parametrize("collision", ["candidate", "radar"])
+def test_cli_key_conflict_preserves_every_destination(
+    tmp_path: Path, capsys, collision: str
+) -> None:
+    paths = _paths(tmp_path)
+    assert _run_related_work_cli(paths, "--json") == 0
+    payload = json.loads(capsys.readouterr().out)
+    key = payload["entries"][0]["cite_key"] if collision == "candidate" else BIBTEX_KEY
+    tex, bib = tmp_path / "related.tex", tmp_path / "refs.bib"
+    original_bib = f"@misc{{{key}, title={{Existing unrelated work}}, year={{2000}}}}\r\n".encode()
+    bib.write_bytes(original_bib)
+    tex.write_bytes(b"Original manuscript draft\r\n")
+    assert _run_related_work_cli(paths, "--tex", str(tex), "--bib", str(bib), "--json") == 1
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    error = json.loads(captured.err)["error"]
+    assert error["code"] == "artifact_write_failed"
+    assert key in error["message"] and "different or unverified work" in error["message"]
+    assert bib.read_bytes() == original_bib
+    assert tex.read_bytes() == b"Original manuscript draft\r\n"
+    assert sorted(path.name for path in tmp_path.iterdir() if path.is_file()) == [
+        "refs.bib",
+        "related.tex",
+    ]
 
 
 def test_cli_append_is_idempotent_and_preserves_permissions(tmp_path: Path, capsys) -> None:

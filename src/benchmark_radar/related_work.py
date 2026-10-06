@@ -19,6 +19,7 @@ import re
 import unicodedata
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
+from urllib.parse import urlsplit
 
 from .citation import BIBTEX_KEY, bibtex_citation, required_citations
 from .related_work_render import latex_escape, render_latex, render_markdown
@@ -499,14 +500,68 @@ def _bibtex_entries(bibtex: str) -> list[_BibtexEntry]:
     return entries
 
 
+def _bibtex_identity(entry: _BibtexEntry) -> dict[str, str]:
+    fields = entry.fields
+    url_value = fields.get("url", "")
+    if not url_value:
+        howpublished = re.fullmatch(r"\\url\{([^{}]+)\}", fields.get("howpublished", ""))
+        url_value = howpublished.group(1) if howpublished else ""
+    url = urlsplit(url_value)
+    doi = fields.get("doi", "")
+    if not doi and url.hostname in {"doi.org", "dx.doi.org"}:
+        doi = url.path.lstrip("/")
+    doi = re.sub(r"^(?:https?://(?:dx\.)?doi\.org/|doi:\s*)", "", doi, flags=re.IGNORECASE)
+    eprint = fields.get("eprint", "")
+    if not eprint and url.hostname in {"arxiv.org", "www.arxiv.org"}:
+        eprint = re.sub(r"^/(?:abs|pdf)/", "", url.path).removesuffix(".pdf")
+    eprint = re.sub(r"^arxiv:\s*", "", eprint, flags=re.IGNORECASE)
+    eprint = re.sub(r"v\d+$", "", eprint)
+    return {
+        "doi": doi.casefold(),
+        "eprint": eprint.casefold(),
+        "url": url._replace(scheme=url.scheme.casefold(), netloc=url.netloc.casefold())
+        .geturl()
+        .rstrip("/"),
+        "title": " ".join(
+            unicodedata.normalize("NFKC", fields.get("title", ""))
+            .replace("{", "")
+            .replace("}", "")
+            .casefold()
+            .split()
+        ),
+        "year": fields.get("year", ""),
+    }
+
+
+def _same_bibtex_work(existing: _BibtexEntry, generated: _BibtexEntry) -> bool:
+    left, right = _bibtex_identity(existing), _bibtex_identity(generated)
+    if any(
+        left[field] and right[field] and left[field] != right[field] for field in ("doi", "eprint")
+    ):
+        return False
+    if any(left[field] and left[field] == right[field] for field in ("doi", "eprint", "url")):
+        return True
+    return bool(left["title"] and left["title"] == right["title"]) and not (
+        left["year"] and right["year"] and left["year"] != right["year"]
+    )
+
+
 def append_missing_bibtex(existing: bytes, generated: str) -> bytes:
     text = existing.decode("utf-8")
-    keys = {entry.key for entry in _bibtex_entries(text)}
+    entries: dict[str, list[_BibtexEntry]] = {}
+    for entry in _bibtex_entries(text):
+        entries.setdefault(entry.key, []).append(entry)
     missing = []
     for entry in _bibtex_entries(generated):
-        if entry.key not in keys:
+        if entry.key in entries:
+            if not all(_same_bibtex_work(prior, entry) for prior in entries[entry.key]):
+                raise ValueError(
+                    f"BibTeX key {entry.key!r} already refers to a different or "
+                    "unverified work; rename that key before exporting"
+                )
+        else:
             missing.append(generated[entry.start : entry.end])
-            keys.add(entry.key)
+            entries[entry.key] = [entry]
     if not missing:
         return existing
     if not existing:
