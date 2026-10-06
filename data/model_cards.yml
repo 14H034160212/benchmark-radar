@@ -53,17 +53,6 @@ source_documents:
     benchmarks: [frontier_challenge]
     retrieved_at: 2026-09-02
 
-  # The benchmark's own leaderboard, so it registers as evidence without
-  # counting as vendor adoption: nobody shipping a model chose to report
-  # VBench by publishing this page.
-  - id: vbench_leaderboard
-    name: VBench Leaderboard
-    publisher: Vchitect
-    document_type: benchmark_leaderboard
-    url: https://huggingface.co/spaces/Vchitect/VBench_Leaderboard
-    benchmarks: [vbench]
-    retrieved_at: 2026-09-09
-
   # The four documents below are the benchmarks' own arXiv papers, treated as
   # the leaderboard each benchmark's authors publish. Each reports a results
   # table read directly out of the paper (no model card passes through it), so
