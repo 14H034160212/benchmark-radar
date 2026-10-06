@@ -151,43 +151,141 @@ def test_the_page_opens_on_latest_releases_and_keeps_the_adoption_view():
 
 
 def test_browser_mode_window_signal_and_url_contracts():
-    node = shutil.which("node")
-    assert node, "Node.js is required for the site behavior tests"
-    subprocess.run(
-        [node, "tests/latest_releases_harness.mjs"], check=True, capture_output=True, text=True
+    # These contracts used to run in a second harness that rebuilt each
+    # function by slicing app.js between literal start and end markers, so a
+    # rename or a reorder broke the test without changing any behaviour. They
+    # now run against the real evaluated module in the render harness, through
+    # the same readUrl/writeUrl the browser calls.
+    drawn = _render(json.loads(FIXTURE.read_text(encoding="utf-8")))
+
+    # The page opens on the latest releases. A permalink written before the
+    # view had modes carries one of the adoption view's own filters, and still
+    # opens the view it filtered; an explicit lmode wins either way. The
+    # cohort search is not such a marker, or a shared search link would flip.
+    assert drawn["modes"] == {
+        "(none)": "latest",
+        "lwindow=7d": "latest",
+        "lrq=agent": "latest",
+        "lrq=agent&lwindow=90d": "latest",
+        "lscore=70": "adoption",
+        "lq=agent": "adoption",
+        "ldomain=code": "adoption",
+        "lorg=OpenAI": "adoption",
+        "lera=2025": "adoption",
+        "lheight=documents": "adoption",
+        "lmode=latest&lscore=70": "latest",
+        "lmode=adoption": "adoption",
+        "lmode=bogus": "latest",
+        # Saturation writes the shared cutoff on every address, so on its own
+        # it is no choice of a leaderboard mode; the adoption filters still are.
+        "saturation:lscore=60": "latest",
+        "saturation:lscore=60&lq=agent": "adoption",
+    }
+
+    # The payload's default window unless the reader picked a valid one.
+    assert drawn["windows"] == {
+        "default": "30d",
+        "explicit7d": "7d",
+        "unknown": "30d",
+        "keyDefault": "30d",
+        "key90d": "90d",
+        "keyInvalid": "30d",
+        "label7d": "7 days",
+    }
+
+    # Null is "no signal", never zero; a stale reading carries the day it was
+    # read; a gone resource says so; a real zero stays a zero.
+    assert drawn["signalText"] == {
+        "stars": "1,204",
+        "staleUpvotes": "33 · stale since 2026-09-08",
+        "goneDataset": "unavailable",
+        "staleNoDate": "5 · stale",
+        "freshZero": "0",
+        "unknownNull": "not observed",
+        "absent": "not observed",
+    }
+    # And the normalized contribution names its own absence.
+    assert drawn["normalizedText"] == {
+        "fresh": "1.00",
+        "stale": "0.90",
+        "unscored": "not scored",
+        "absent": "not scored",
+    }
+
+    # The cohort search matches a substring of the name or the artifact id,
+    # case-insensitively, over what is already loaded. A blank query is not a
+    # filter.
+    assert drawn["matcher"] == {
+        "emptyQuery": 2,
+        "blankQuery": 2,
+        "caseInsensitive": ["Quiet"],
+        "byId": ['Bench <Agents> & "Tools"'],
+        "miss": 0,
+    }
+
+    # An empty window points at a wider one that has entries, or at the
+    # cumulative adoption view once there is no wider window left.
+    assert drawn["emptyState"] == {
+        "message7d": (
+            "No benchmark released in the last 7 days has a measurable attention signal yet."
+        ),
+        "wider7d": ["30d", "90d"],
+        "adoption7d": False,
+        "widerWhenLoadedEmpty": [],
+        "adoptionWhenLoadedEmpty": True,
+        "adoption90d": True,
+    }
+
+    # Weights come from the published components, never a number restated in
+    # the browser, and a payload without them names the signals plainly.
+    assert drawn["weights"] == {
+        "github_stars": 0.55,
+        "hf_paper_upvotes": 0.3,
+        "hf_dataset_downloads": 0.15,
+    }
+    assert drawn["methodNote"].startswith(
+        "Ranking attention-ranking-v1: 55% GitHub stars, 30% Hugging Face paper upvotes, "
+        "15% Hugging Face dataset downloads, last 30 days,"
+    )
+    assert "never a cumulative total" in drawn["methodNote"]
+    # The bounds are formatted the way the page formats them, in UTC as the
+    # sentence says. The retired harness stubbed formatDate and asserted the
+    # raw ISO prefix, so it passed on "2026-09-10" for a window ending
+    # 2026-09-10T23:30-05:00 -- the local day, one off from the UTC day the
+    # reader is shown. Running the real formatter is what makes that visible.
+    assert "Window Aug 11, 2026 to Sep 11, 2026, UTC." in drawn["methodNote"]
+    assert drawn["methodNoteBare"].startswith(
+        "Ranking v9: GitHub stars, Hugging Face paper upvotes, "
+        "Hugging Face dataset downloads, last 30 days,"
     )
 
-
-def test_adoption_filters_are_written_only_in_adoption_mode():
-    # A latest-releases address that carried the adoption filters would flip
-    # to the adoption view on reload, because those filters are what marks a
-    # pre-mode permalink as an adoption one.
-    script = (SITE / "assets" / "app.js").read_text(encoding="utf-8")
-    body = script.split('function writeUrl(mode = "replace")', 1)[1].split("\nfunction ", 1)[0]
-    leaderboard = body.split('if (!utility && state.view === "leaderboard")', 1)[1].split(
-        'if (!utility && state.view === "saturation")', 1
-    )[0]
-    gate = leaderboard.index('if (state.lmode === "adoption")')
-    for key in ("lscore", "lheight", "lq", "ldomain", "lorg", "lera"):
-        assert leaderboard.index(f'params.set("{key}"') > gate, key
-    assert 'params.set("lwindow"' in leaderboard
-    # The adoption filters are the mode's own marker, so the address keeps the
-    # shape pre-mode permalinks had (test_clean_route_model... holds it).
-    assert 'params.set("lmode"' not in leaderboard
-    # Resolved for the view the address names, after a legacy benchmark
-    # permalink has been redirected to Saturation, so the shared cutoff on a
-    # Saturation address cannot pick the adoption mode (harness covers it).
-    redirect = script.index('if (state.view === "leaderboard" && state.lfrontierExplicit)')
-    assert script.index("state.lmode = leaderboardModeFromParams(params, state.view);") > redirect
-    # The renderer is reached from every path that redraws the leaderboard.
-    head = "function renderLeaderboard() {\n  syncLeaderboardMode();\n  renderLatestReleases();"
-    assert head in script
-    # A mode is a different ranking, so switching is a navigation Back undoes;
-    # a window is a facet of the same one and refines the entry in place.
-    mode_switch = script.split("function setLeaderboardMode(", 1)[1].split("\n}\n", 1)[0]
-    assert 'writeUrl("push")' in mode_switch
-    window_switch = script.split("function setLatestWindow(", 1)[1].split("\n}\n", 1)[0]
-    assert "writeUrl()" in window_switch
+    # URL round trip through the real readUrl and writeUrl: the latest mode
+    # writes only a non-default window and its own search, the adoption mode
+    # writes its filters and so names itself, and neither carries the other's.
+    routes = drawn["routes"]
+    assert routes["cleanMode"] == "latest" and routes["cleanWindow"] == ""
+    assert routes["clean"] == "/leaderboard/"
+    assert routes["read90d"] == "90d"
+    assert routes["write90d"] == "/leaderboard/?lwindow=90d"
+    assert routes["defaultWindowOmitted"] == "/leaderboard/"
+    assert routes["searchMode"] == "latest" and routes["searchQuery"] == "vbench"
+    assert routes["searchAddress"] == "/leaderboard/?lwindow=90d&lrq=vbench"
+    assert routes["searchSurvivesDefaultWindow"] == "/leaderboard/?lrq=vbench"
+    assert routes["legacyMode"] == "adoption" and routes["legacyQuery"] == "agent"
+    assert routes["legacyAddress"] == "/leaderboard/?lscore=70&lq=agent"
+    assert routes["backToLatest"] == "/leaderboard/?lwindow=7d"
+    # The adoption view writes no cohort search, so switching cannot leave a
+    # latest-mode filter in an adoption address.
+    assert "lrq=" not in routes["adoptionDropsSearch"]
+    # Back from Saturation must not land on a mode the reader never chose.
+    assert routes["saturationView"] == "saturation" and routes["saturationMode"] == "latest"
+    assert routes["fromSaturation"] == "/leaderboard/"
+    assert routes["legacyFrontierView"] == "saturation"
+    assert routes["legacyFrontierMode"] == "latest"
+    assert routes["saturationAdoptionMode"] == "adoption"
+    assert routes["saturationAdoptionAddress"] == (
+        "/leaderboard/?lscore=40&lheight=documents&lq=agent"
+    )
 
 
 def test_every_visible_latest_releases_string_is_translated():

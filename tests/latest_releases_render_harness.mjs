@@ -132,7 +132,21 @@ globalThis.document = {
 globalThis.window = {
   addEventListener: () => {},
   location: { origin: "https://benchmark-radar.org", pathname: "/", search: "", hash: "" },
-  history: { state: null, pushState() {}, replaceState() {} },
+  history: {
+    state: null,
+    // Real enough for the URL round trip: writeUrl's address becomes the
+    // location readUrl then parses, so the two are checked against each other
+    // rather than against a copy of their source.
+    pushState(_s, _t, url) {
+      const next = new URL(url, "https://benchmark-radar.org");
+      window.location.pathname = next.pathname;
+      window.location.search = next.search;
+      window.location.hash = next.hash;
+    },
+    replaceState(s, t, url) {
+      this.pushState(s, t, url);
+    },
+  },
   matchMedia: () => ({ matches: false, addEventListener() {} }),
 };
 const fetchCalls = [];
@@ -158,7 +172,7 @@ const modeControls = ["latest", "adoption"].map((key) => control("data-lmode", k
 // Bootstrapping runs on load and stalls on the never-settling fetch above.
 // The export follows the source so `const state` is initialised by then.
 new Function(
-  `${source}\nglobalThis.__render = { state, renderLatestReleases, syncLeaderboardMode, stateNeedsFullData, setLang };`,
+  `${source}\nglobalThis.__render = { state, renderLatestReleases, syncLeaderboardMode, stateNeedsFullData, setLang, leaderboardModeFromParams, latestReleasesDefaultWindow, latestReleasesWindowKey, latestWindowLabel, latestSignalText, latestNormalizedText, latestReleasesMatches, latestReleasesEmptyState, latestReleasesWeights, latestReleasesMethodNote, readUrl, writeUrl, setLatestWindow, setLeaderboardMode };`,
 )();
 const R = globalThis.__render;
 
@@ -347,5 +361,166 @@ out.seededThenFailed90d = {
   ...snapshot(),
 };
 errors.splice(0);
+
+// Mode, window, signal-text, matcher, empty-state, method-note and URL
+// contracts, previously in a second harness that rebuilt these functions by
+// slicing app.js between literal start and end markers -- which broke whenever
+// one was renamed or moved. Here they run against the real evaluated module,
+// so a refactor that keeps the behaviour keeps the test passing.
+state.lmode = "latest";
+state.lwindow = "";
+state.lrq = "";
+state.view = "leaderboard";
+state.fullDataLoaded = false;
+state.fullDataPromise = null;
+payload.windows["90d"] = stub90d;
+
+const params = (query) => new URLSearchParams(query);
+const modes = {};
+for (const query of ["", "lwindow=7d", "lrq=agent", "lrq=agent&lwindow=90d"]) {
+  modes[query || "(none)"] = R.leaderboardModeFromParams(params(query));
+}
+for (const legacy of ["lscore=70", "lq=agent", "ldomain=code", "lorg=OpenAI", "lera=2025", "lheight=documents"]) {
+  modes[legacy] = R.leaderboardModeFromParams(params(legacy));
+}
+modes["lmode=latest&lscore=70"] = R.leaderboardModeFromParams(params("lmode=latest&lscore=70"));
+modes["lmode=adoption"] = R.leaderboardModeFromParams(params("lmode=adoption"));
+modes["lmode=bogus"] = R.leaderboardModeFromParams(params("lmode=bogus"));
+modes["saturation:lscore=60"] = R.leaderboardModeFromParams(params("lscore=60"), "saturation");
+modes["saturation:lscore=60&lq=agent"] = R.leaderboardModeFromParams(params("lscore=60&lq=agent"), "saturation");
+out.modes = modes;
+
+const windows = { default: R.latestReleasesDefaultWindow() };
+windows.explicit7d = R.latestReleasesDefaultWindow({ default_window: "7d" });
+windows.unknown = R.latestReleasesDefaultWindow({ default_window: "14d" });
+windows.keyDefault = R.latestReleasesWindowKey();
+state.lwindow = "90d";
+windows.key90d = R.latestReleasesWindowKey();
+state.lwindow = "14d";
+windows.keyInvalid = R.latestReleasesWindowKey();
+state.lwindow = "";
+windows.label7d = R.latestWindowLabel("7d");
+out.windows = windows;
+
+const bench = payload.windows["30d"].entries[0].components;
+out.signalText = {
+  stars: R.latestSignalText(bench.github_stars),
+  staleUpvotes: R.latestSignalText(bench.hf_paper_upvotes),
+  goneDataset: R.latestSignalText(bench.hf_dataset_downloads),
+  staleNoDate: R.latestSignalText({ value: 5, status: "stale" }),
+  freshZero: R.latestSignalText({ value: 0, status: "fresh" }),
+  unknownNull: R.latestSignalText({ value: null, status: "unknown" }),
+  absent: R.latestSignalText(undefined),
+};
+out.normalizedText = {
+  fresh: R.latestNormalizedText(bench.github_stars),
+  stale: R.latestNormalizedText(bench.hf_paper_upvotes),
+  unscored: R.latestNormalizedText(bench.hf_dataset_downloads),
+  absent: R.latestNormalizedText(undefined),
+};
+
+const cohort30 = payload.windows["30d"].entries;
+out.matcher = {
+  emptyQuery: R.latestReleasesMatches(cohort30, "").length,
+  blankQuery: R.latestReleasesMatches(cohort30, "   ").length,
+  caseInsensitive: R.latestReleasesMatches(cohort30, "QUIET").map((entry) => entry.name),
+  byId: R.latestReleasesMatches(cohort30, cohort30[0].canonical_artifact_id).map((e) => e.name),
+  miss: R.latestReleasesMatches(cohort30, "no-such-benchmark").length,
+};
+
+const loadedEmpty = { ...payload, windows: { ...payload.windows, "30d": { entries: [] }, "90d": { entries: [] } } };
+out.emptyState = {
+  message7d: R.latestReleasesEmptyState("7d", payload).message,
+  wider7d: R.latestReleasesEmptyState("7d", payload).windows,
+  adoption7d: R.latestReleasesEmptyState("7d", payload).adoption,
+  widerWhenLoadedEmpty: R.latestReleasesEmptyState("7d", loadedEmpty).windows,
+  adoptionWhenLoadedEmpty: R.latestReleasesEmptyState("7d", loadedEmpty).adoption,
+  adoption90d: R.latestReleasesEmptyState("90d", payload).adoption,
+};
+
+out.weights = R.latestReleasesWeights(payload.windows["30d"].entries);
+out.methodNote = R.latestReleasesMethodNote(payload, payload.windows["30d"]);
+out.methodNoteBare = R.latestReleasesMethodNote(
+  { method_version: "v9" },
+  { entries: [], window_start: "2026-08-11", window_end: "2026-09-10" },
+);
+
+// URL round trip: writeUrl's address is what readUrl then parses.
+const install = (url) => {
+  const next = new URL(url, "https://benchmark-radar.org");
+  window.location.pathname = next.pathname;
+  window.location.search = next.search;
+  window.location.hash = next.hash;
+};
+const address = () => window.location.pathname + window.location.search;
+const routes = {};
+install("/leaderboard/");
+R.readUrl();
+routes.cleanMode = state.lmode;
+routes.cleanWindow = state.lwindow;
+R.writeUrl("replace");
+routes.clean = address();
+
+install("/leaderboard/?lwindow=90d");
+R.readUrl();
+routes.read90d = state.lwindow;
+R.writeUrl("replace");
+routes.write90d = address();
+state.lwindow = "30d";
+R.writeUrl("replace");
+routes.defaultWindowOmitted = address();
+
+install("/leaderboard/?lrq=vbench&lwindow=90d");
+R.readUrl();
+routes.searchMode = state.lmode;
+routes.searchQuery = state.lrq;
+R.writeUrl("replace");
+routes.searchAddress = address();
+state.lwindow = "30d";
+R.writeUrl("replace");
+routes.searchSurvivesDefaultWindow = address();
+state.lrq = "";
+
+install("/leaderboard/?lscore=70&lq=agent");
+R.readUrl();
+routes.legacyMode = state.lmode;
+routes.legacyQuery = state.lq;
+R.writeUrl("replace");
+routes.legacyAddress = address();
+
+install("/leaderboard/?lmode=adoption");
+R.readUrl();
+state.lmode = "latest";
+state.lwindow = "7d";
+R.writeUrl("replace");
+routes.backToLatest = address();
+state.lrq = "vbench";
+state.lmode = "adoption";
+R.writeUrl("replace");
+routes.adoptionDropsSearch = address();
+state.lmode = "latest";
+state.lrq = "";
+state.lwindow = "";
+
+install("/saturation/?lscore=60");
+R.readUrl();
+routes.saturationView = state.view;
+routes.saturationMode = state.lmode;
+state.view = "leaderboard";
+R.writeUrl("push");
+routes.fromSaturation = address();
+
+install("/leaderboard/?lfrontier=bench-95&lscore=70");
+R.readUrl();
+routes.legacyFrontierView = state.view;
+routes.legacyFrontierMode = state.lmode;
+
+install("/saturation/?lscore=40&lq=agent&lheight=documents");
+R.readUrl();
+routes.saturationAdoptionMode = state.lmode;
+state.view = "leaderboard";
+R.writeUrl("push");
+routes.saturationAdoptionAddress = address();
+out.routes = routes;
 
 console.log(JSON.stringify(out));
