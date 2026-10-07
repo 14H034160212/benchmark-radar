@@ -103,7 +103,8 @@ def build_row(items, y_bottom):
     out = []
     x = 0
     for inner, w, h in items:
-        out.append(f'<g transform="translate({x},{y_bottom - H - BOTTOM_PAD + (H - h) / 2:.2f})">{inner}</g>')
+        y = y_bottom - H - BOTTOM_PAD + (H - h) / 2
+        out.append(f'<g transform="translate({x},{y:.2f})">{inner}</g>')
         x += w + GAP
     return "".join(out), total
 
