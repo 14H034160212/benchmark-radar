@@ -4,7 +4,9 @@ import hashlib
 import json
 import math
 import re
+import time
 from collections import defaultdict
+from concurrent.futures import ThreadPoolExecutor
 from copy import deepcopy
 from datetime import UTC, datetime, timedelta
 from typing import Any
@@ -845,6 +847,75 @@ def simulate_backfill(
     return runs
 
 
+# Sources sharing one host or token run in one lane so their per-host rate
+# limits and request delays behave exactly as they did sequentially. Every other
+# source gets its own lane. Fetching was the bulk of the daily run (about five
+# minutes for sixteen sequential sources), almost all of it waiting on the
+# network.
+SOURCE_LANES = {
+    "github": "github",
+    "github_organizations": "github",
+    "github_releases": "github",
+    "huggingface": "huggingface",
+    "huggingface_papers": "huggingface",
+}
+MAX_FETCH_WORKERS = 8
+
+
+def _fetch_one(
+    source_name: str,
+    source_config: dict[str, Any],
+    *,
+    since: datetime,
+    limit: int,
+    now: datetime,
+) -> tuple[list[RadarItem], dict[str, Any], Exception | None]:
+    fetcher = SOURCE_FETCHERS[source_name]
+    fetch_config = {**source_config, "_collection_now": now}
+    started = time.monotonic()
+    try:
+        if source_name == "openalex":
+            fetched = fetcher(fetch_config, since, limit, now=now)
+        else:
+            fetched = fetcher(fetch_config, since, limit)
+    except Exception as error:  # reported through SourceHealth by the caller
+        return [], fetch_config, error
+    finally:
+        print(f"Fetched {source_name} in {time.monotonic() - started:.1f}s")
+    return fetched, fetch_config, None
+
+
+def _fetch_sources_concurrently(
+    sources: list[tuple[str, dict[str, Any]]],
+    *,
+    since: datetime,
+    limit: int,
+    now: datetime,
+) -> dict[str, tuple[list[RadarItem], dict[str, Any], Exception | None]]:
+    """Fetch every source, one thread per lane, and key the results by source.
+
+    The caller still processes results in config order, so the run's records,
+    health list and discovery state are identical to a sequential fetch.
+    """
+    lanes: dict[str, list[tuple[str, dict[str, Any]]]] = defaultdict(list)
+    for name, source_config in sources:
+        lanes[SOURCE_LANES.get(name, name)].append((name, source_config))
+
+    def run_lane(lane: list[tuple[str, dict[str, Any]]]):
+        return [
+            (name, _fetch_one(name, source_config, since=since, limit=limit, now=now))
+            for name, source_config in lane
+        ]
+
+    results: dict[str, tuple[list[RadarItem], dict[str, Any], Exception | None]] = {}
+    if not lanes:
+        return results
+    with ThreadPoolExecutor(max_workers=min(MAX_FETCH_WORKERS, len(lanes))) as pool:
+        for lane_results in pool.map(run_lane, lanes.values()):
+            results.update(lane_results)
+    return results
+
+
 def run_pipeline(
     config: dict[str, Any],
     now: datetime | None = None,
@@ -863,16 +934,17 @@ def run_pipeline(
     suppressed_count = 0
     future_dated_count = 0
     discovery_state = deepcopy((previous_snapshot or {}).get("discovery_state") or {})
-    for source_name, source_config in config["sources"].items():
-        if not source_config.get("enabled", True):
-            continue
-        fetcher = SOURCE_FETCHERS[source_name]
+    enabled = [
+        (name, source_config)
+        for name, source_config in config["sources"].items()
+        if source_config.get("enabled", True)
+    ]
+    fetches = _fetch_sources_concurrently(enabled, since=since, limit=limit, now=now)
+    for source_name, _source_config in enabled:
         try:
-            fetch_config = {**source_config, "_collection_now": now}
-            if source_name == "openalex":
-                fetched = fetcher(fetch_config, since, limit, now=now)
-            else:
-                fetched = fetcher(fetch_config, since, limit)
+            fetched, fetch_config, error = fetches[source_name]
+            if error is not None:
+                raise error
             connector_rejected = int(fetch_config.get("_future_rejections", 0) or 0)
             fetched_count += len(fetched) + connector_rejected
             fetched, rejected_future = _drop_future_dated_items(fetched, now=now)

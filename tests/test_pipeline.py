@@ -1887,3 +1887,60 @@ def test_self_exclusion_survives_a_watchlist_hit():
     # The record really did match the watchlist; suppression still won.
     assert selection["watchlisted"] == 0
     assert retained == []
+
+
+def test_sources_fetch_concurrently_but_shared_hosts_stay_serial(monkeypatch):
+    """Fetching sixteen sources in turn was most of the daily run. Separate
+    hosts now overlap; GitHub's three connectors still share one lane so the
+    token's rate limit sees them one at a time."""
+    import threading
+    import time
+
+    from benchmark_radar import pipeline
+
+    active: dict[str, int] = {"github": 0}
+    overlap = {"github": 0}
+    lock = threading.Lock()
+    started = threading.Barrier(2, timeout=5)
+
+    def github_fetcher(name):
+        def fetch(config, since, limit):
+            with lock:
+                active["github"] += 1
+                overlap["github"] = max(overlap["github"], active["github"])
+            time.sleep(0.05)
+            with lock:
+                active["github"] -= 1
+            return [item(source_id=f"{name}/1", url=f"https://github.com/{name}/1")]
+
+        return fetch
+
+    def barrier_fetcher(name):
+        def fetch(config, since, limit):
+            # Both separate-host sources must be in flight at once to pass.
+            started.wait()
+            return [item(source_id=f"{name}/1", url=f"https://example.test/{name}")]
+
+        return fetch
+
+    names = ["github", "zenodo", "github_releases", "crossref", "github_organizations"]
+    for name in names:
+        fetcher = github_fetcher(name) if name.startswith("github") else barrier_fetcher(name)
+        monkeypatch.setitem(pipeline.SOURCE_FETCHERS, name, fetcher)
+    config = {
+        "radar": {
+            "lookback_hours": 48,
+            "max_items_per_source": 10,
+            "report_limit": 10,
+            "minimum_score": 0,
+        },
+        "taxonomy": {"benchmark": ["benchmark"]},
+        "sources": {name: {"enabled": True} for name in names},
+    }
+
+    run = run_pipeline(config, datetime(2026, 7, 27, tzinfo=UTC))
+
+    assert overlap["github"] == 1
+    # Health stays in config order, exactly as a sequential fetch reported it.
+    assert [source.source for source in run.health] == names
+    assert all(source.ok for source in run.health)
