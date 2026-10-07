@@ -1168,6 +1168,38 @@ def test_record_without_series_or_observations_ships_empty_scores() -> None:
     assert shard["scores_by_source"] == {}
 
 
+def test_index_keeps_declared_scale_summary_for_zero_observation_series() -> None:
+    """#709: the index must not null a summary the shard still publishes.
+
+    A series that declares a scale keeps its summary at zero observations so
+    the index agrees with the shard. A count-only stub without declared
+    evidence still reads as absent.
+    """
+    from benchmark_radar.catalog import build_benchmark_index
+
+    record = {
+        "key": "source:unscored",
+        "slug": "source-unscored",
+        "name": "unscored",
+        "source": "source",
+    }
+    declared = {
+        "key": record["key"],
+        "observation_count": 0,
+        "declared_max": 1.0,
+        "bounds": {"basis": "aggregator_declared"},
+        "direction": "higher_is_better",
+        "direction_basis": "source_rank_descending",
+        "score_summary": {"numeric_count": 0},
+    }
+    index = build_benchmark_index([record], {record["key"]: declared})
+    assert index[0]["score_summary"] == {"numeric_count": 0}
+
+    bare = {"observation_count": 0, "score_summary": {"max": 99}}
+    index = build_benchmark_index([record], {record["key"]: bare})
+    assert index[0]["score_summary"] is None
+
+
 def test_opencompass_shard_has_empty_scores(shard_inputs: dict, tmp_path: Path) -> None:
     """OpenCompass supplies no observations, so absence renders as absence."""
     import json
