@@ -374,6 +374,11 @@ const I18N = {
     "Shown / corpus": "显示数／目录总数",
     "source document": "份来源文档",
     "Document publication date": "文档发布日期",
+    "Model release": "模型发布日期",
+    "Document published": "文档发布日期",
+    "Model with a reported score": "已有报告成绩的模型",
+    "Filter by model, e.g. GPT-6 Sol": "按模型筛选，例如 GPT-6 Sol",
+    "Searching all benchmarks (score cutoff paused)": "搜索全部 benchmark（暂不按分数筛选）",
     "Reporting organization color key": "报告机构颜色图例",
     "Distinct cited documents, including model reports and registry pages": "按引用的独立文档去重，包括模型报告和登记页面",
     "Each source document counts once per benchmark record.": "每份来源文档对同一条 benchmark 记录只计一次。",
@@ -1280,6 +1285,7 @@ const state = {
   // arrived, so "not yet loaded" and "failed to load" must not look alike.
   benchmarkIndexLoaded: false,
   benchmarkQuery: "",
+  benchmarkModel: "",
   leaderboardShowAll: false,
   leaderboardTopExpanded: false,
   // Issue #530: the leaderboard opens on the latest releases; the cumulative
@@ -1526,6 +1532,7 @@ function readUrl() {
   state.lheight = ["cards", "documents"].includes(params.get("lheight")) ? "documents" : "models";
   state.benchmarkVisibleLimit = BENCHMARK_SEARCH_LIMIT;
   state.benchmarkQuery = (params.get("bq") || "").trim();
+  state.benchmarkModel = (params.get("bmodel") || "").trim();
   state.lfrontier = params.get("lfrontier") || "";
   state.lfrontierExplicit = Boolean(state.lfrontier);
   // Existing benchmark permalinks follow the score history to its new tab.
@@ -1626,6 +1633,7 @@ function writeUrl(mode = "replace") {
   if (!utility && state.view === "saturation") {
     params.set("lscore", state.lscore);
     if (state.benchmarkQuery) params.set("bq", state.benchmarkQuery);
+    if (state.benchmarkModel) params.set("bmodel", state.benchmarkModel);
     // A benchmark auto-picked as the default is not the reader's choice, so it
     // stays out of the URL until they select one themselves.
     if (state.lfrontierExplicit && state.lfrontier) {
@@ -4781,8 +4789,22 @@ function saturationRows() {
   const matches = benchmarkQueryIds();
   // Search is a lookup across the whole catalog. It temporarily bypasses the
   // browsing cutoff without changing the shared slider value.
-  const rows = scoreBrowseRows(matches ? 100 : state.lscore);
-  return matches ? rows.filter((row) => matches.has(row.id)) : rows;
+  const rows = scoreBrowseRows(matches || state.benchmarkModel ? 100 : state.lscore);
+  const named = matches ? rows.filter((row) => matches.has(row.id)) : rows;
+  if (!state.benchmarkModel) return named;
+  const needle = foldName(state.benchmarkModel);
+  if (!needle) return [];
+  const index = new Map((state.benchmarkIndex || []).map((record) => [record.slug, record]));
+  return named.filter((row) => (index.get(row.id)?.scored_models || [])
+    .some((model) => foldName(model.name).includes(needle)))
+    .sort((a, b) => (latestMatchingModel(index.get(b.id), needle)?.date || "")
+      .localeCompare(latestMatchingModel(index.get(a.id), needle)?.date || "") || a.name.localeCompare(b.name));
+}
+
+function latestMatchingModel(record, needle) {
+  return (record?.scored_models || [])
+    .filter((model) => foldName(model.name).includes(needle))
+    .sort((a, b) => (b.date || "").localeCompare(a.date || ""))[0];
 }
 
 function scoreRankingRows() {
@@ -4799,6 +4821,9 @@ function scoreSummaryLabel(summary) {
 }
 
 function scoreBrowseResultRow(row) {
+  const record = (state.benchmarkIndex || []).find((item) => item.slug === row.id);
+  const needle = foldName(state.benchmarkModel);
+  const matchedModel = needle ? latestMatchingModel(record, needle) : null;
   const button = element("button", {
     className: "benchmark-result score-browse-result",
     attrs: { type: "button", "aria-pressed": row.id === state.lfrontier ? "true" : "false" },
@@ -4807,6 +4832,7 @@ function scoreBrowseResultRow(row) {
     element("span", { className: "benchmark-result-facts", text: [scoreSourceLabel(row.source),
       row.date ? `${t(benchmarkDateLabel(row))} ${formatDate(row.date, { dateStyle: "medium" })}` : t("Date unknown"),
       matchesScoreCutoff(row.summary, 100) ? "" : t("No score reported"),
+      matchedModel ? `${matchedModel.name}${matchedModel.date ? ` · ${t(matchedModel.date_precision === "model_announcement" ? "Model release" : "Document published")} ${formatDate(matchedModel.date, { dateStyle: "medium" })}` : ""}` : "",
     ].filter(Boolean).join(" · ") }),
   ]);
   button.addEventListener("click", () => {
@@ -4891,6 +4917,7 @@ function renderBenchmarkSearch() {
   const status = byId("benchmark-search-status");
   if (!container || !status || !state.data) return;
   byId("benchmark-search-input").value = state.benchmarkQuery;
+  byId("benchmark-model-input").value = state.benchmarkModel;
   const rows = saturationRows();
   const shown = rows.slice(0, state.benchmarkVisibleLimit);
   replaceChildren(container, shown.map(scoreBrowseResultRow));
@@ -4901,11 +4928,11 @@ function renderBenchmarkSearch() {
   status.textContent = [t("{shown} of {total} matches")
     .replace("{shown}", shown.length.toLocaleString())
     .replace("{total}", rows.length.toLocaleString()),
-    state.benchmarkQuery ? t("Searching all benchmarks (filters paused)") : "", coverage].filter(Boolean).join(" · ");
+    state.benchmarkQuery || state.benchmarkModel ? t("Searching all benchmarks (score cutoff paused)") : "", coverage].filter(Boolean).join(" · ");
   if (!rows.length) {
     container.append(element("p", { className: "empty-state", text: loading
       ? t("Loading benchmark details…") : t("No benchmarks match these filters.") }));
-    if (!state.benchmarkQuery && state.lscore < 100) {
+    if (!state.benchmarkQuery && !state.benchmarkModel && state.lscore < 100) {
       const all = element("button", { className: "clear-button", text: t("All"), attrs: { type: "button" } });
       all.addEventListener("click", () => setScoreFilter(100));
       container.append(all);
@@ -5343,6 +5370,13 @@ function initBenchmarkSearch() {
     writeUrl();
   });
   input.addEventListener("input", onInput);
+  const modelInput = byId("benchmark-model-input");
+  modelInput.addEventListener("input", debounce(() => {
+    state.benchmarkModel = modelInput.value.trim();
+    state.benchmarkVisibleLimit = BENCHMARK_SEARCH_LIMIT;
+    renderSaturation();
+    writeUrl();
+  }));
   loadBenchmarkIndex().then((records) => {
     // Loading and failure remain explicit; no source-specific fallback corpus.
     state.benchmarkIndex = records;
