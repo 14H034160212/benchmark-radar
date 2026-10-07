@@ -762,30 +762,3 @@ def test_a_thin_day_reports_insufficient_volume_rather_than_a_pattern(monkeypatc
     # single day has no baseline. Saying so is the correct output: a quota would
     # be an incentive to manufacture significance.
     assert "Insufficient" in bullets or "No material pattern" in bullets
-
-
-def test_briefing_and_questions_run_concurrently(monkeypatch, tmp_path):
-    import threading
-
-    monkeypatch.setenv("OPENAI_API_KEY", "secret")
-    monkeypatch.setenv("OPENAI_QUESTIONS", "true")
-    _stub_sources(monkeypatch, datetime.now(UTC))
-    monkeypatch.setattr("sys.argv", _briefing_argv(tmp_path))
-    both_in_flight = threading.Barrier(2, timeout=5)
-
-    def fake_briefing(*args, **kwargs):
-        both_in_flight.wait()
-        raise BriefingError("fallback is fine here")
-
-    def fake_questions(*args, **kwargs):
-        both_in_flight.wait()
-        raise BriefingError("skip is fine here")
-
-    monkeypatch.setattr(cli, "generate_daily_briefing", fake_briefing)
-    monkeypatch.setattr(cli, "generate_daily_questions", fake_questions)
-
-    cli.main()
-
-    stored = json.loads(next((tmp_path / "snapshots").glob("*.json")).read_text(encoding="utf-8"))
-    assert "BrokenBarrierError" not in stored["briefing"]["reason"]
-    assert "BrokenBarrierError" not in stored["questions"]["reason"]

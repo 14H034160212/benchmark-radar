@@ -4,7 +4,6 @@ import argparse
 import json
 import os
 import sys
-from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from urllib.parse import urljoin
@@ -793,31 +792,6 @@ def main() -> None:
         "generator": "deterministic-fallback",
         "reason": "OPENAI_API_KEY is not configured",
     }
-    questions_enabled = os.getenv("OPENAI_QUESTIONS", "").lower() in {"1", "true", "yes"}
-    questions_required = os.getenv("OPENAI_QUESTIONS_REQUIRED", "").lower() in {
-        "1",
-        "true",
-        "yes",
-    }
-    # The Q&A does not read the briefing, so it runs beside it. Both spend
-    # nearly all their time waiting on OpenAI, so running them in turn only
-    # added the two waits together.
-    questions_pool = ThreadPoolExecutor(max_workers=1)
-    questions_future = (
-        questions_pool.submit(
-            generate_daily_questions,
-            history,
-            daily_snapshot,
-            deterministic_findings,
-            api_key,
-            model=os.getenv("OPENAI_BRIEFING_MODEL", "").strip() or "gpt-5.6",
-            config=config,
-            translate_zh=questions_zh,
-        )
-        if questions_enabled and api_key
-        else None
-    )
-    questions_pool.shutdown(wait=False)
     if api_key:
         try:
             generated = generate_daily_briefing(
@@ -854,10 +828,24 @@ def main() -> None:
     # default a failure here must never cost the run its briefing or its
     # snapshot, but OPENAI_QUESTIONS_REQUIRED lets production demand it the
     # same way OPENAI_BRIEFING_REQUIRED demands the briefing.
+    questions_enabled = os.getenv("OPENAI_QUESTIONS", "").lower() in {"1", "true", "yes"}
+    questions_required = os.getenv("OPENAI_QUESTIONS_REQUIRED", "").lower() in {
+        "1",
+        "true",
+        "yes",
+    }
     daily_questions: dict | None = None
-    if questions_future is not None:
+    if questions_enabled and api_key:
         try:
-            daily_questions = questions_future.result()
+            daily_questions = generate_daily_questions(
+                history,
+                daily_snapshot,
+                deterministic_findings,
+                api_key,
+                model=os.getenv("OPENAI_BRIEFING_MODEL", "").strip() or "gpt-5.6",
+                config=config,
+                translate_zh=questions_zh,
+            )
         except Exception as error:  # enrichment must never cost the snapshot
             if questions_required:
                 raise RuntimeError(f"required daily questions failed: {error}") from error
