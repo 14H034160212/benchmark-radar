@@ -409,6 +409,11 @@ def apply_watchlist(
 
 
 BOILERPLATE_THRESHOLD = 3
+# Quarantine stays a warning until repeated summaries cover at least this many
+# records and more than this share of all summarized records. The original
+# regression (26 of 30 records on one template) is far past both.
+BOILERPLATE_SYSTEMIC_MIN = 10
+BOILERPLATE_SYSTEMIC_SHARE = 0.25
 
 
 def _same_task_result_card_bodies(items: list[RadarItem]) -> bool:
@@ -429,6 +434,53 @@ def _same_task_result_card_bodies(items: list[RadarItem]) -> bool:
     return len(suites) == 1
 
 
+def _repeated_summary_groups(items: list[RadarItem]) -> dict[str, list[RadarItem]]:
+    groups: dict[str, list[RadarItem]] = defaultdict(list)
+    for item in items:
+        if item.summary.strip():
+            groups[item.summary.strip().lower()].append(item)
+    return {
+        text: group
+        for text, group in groups.items()
+        if len(group) >= BOILERPLATE_THRESHOLD and not _same_task_result_card_bodies(group)
+    }
+
+
+def quarantine_boilerplate_summaries(items: list[RadarItem]) -> int:
+    """Blank repeated summaries before scoring and report how many were blanked.
+
+    A few records sharing one summary is usually an upstream uploader reusing
+    its own card text, for example three datasets described as "original
+    synthetic data for testing ml evaluation assumptions". That aborted two
+    daily runs and lost the whole day's snapshot over three records. Blanking
+    the shared text keeps every record in the corpus and stops the repeated
+    prose from earning taxonomy categories, which is the harm the guard exists
+    to prevent. A GitHub warning names the text so it is not silent.
+
+    A connector emitting one template for most of its records is a code
+    defect, not upstream reuse, so that case still fails the run.
+    """
+    repeated = _repeated_summary_groups(items)
+    quarantined = sum(len(group) for group in repeated.values())
+    if not quarantined:
+        return 0
+    summarized = sum(1 for item in items if item.summary.strip())
+    if (
+        quarantined >= BOILERPLATE_SYSTEMIC_MIN
+        and quarantined > BOILERPLATE_SYSTEMIC_SHARE * summarized
+    ):
+        assert_no_boilerplate_summaries(items)
+    for text, group in repeated.items():
+        for item in group:
+            item.summary = ""
+        message = f"{len(group)} records shared the summary {text!r}; summaries blanked"
+        print(
+            "::warning title=Repeated summaries quarantined::"
+            + message.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
+        )
+    return quarantined
+
+
 def assert_no_boilerplate_summaries(items: list[RadarItem]) -> None:
     """Fail the run when a fetcher emits one summary for many different records.
 
@@ -438,17 +490,12 @@ def assert_no_boilerplate_summaries(items: list[RadarItem]) -> None:
     Short-description placeholders
     and unverified text still fail, because they can inflate relevance.
     This is a hard error rather than a warning: a silently boilerplated report
-    looks successful, which is how the defect survived unnoticed before.
+    looks successful, which is how the defect survived unnoticed before. A live
+    run calls `quarantine_boilerplate_summaries` first, which blanks small
+    upstream clusters with a warning and calls this only for a systemic
+    template, so here it guards the invariant after scoring.
     """
-    groups: dict[str, list[RadarItem]] = defaultdict(list)
-    for item in items:
-        if item.summary.strip():
-            groups[item.summary.strip().lower()].append(item)
-    repeated = {
-        text: len(group)
-        for text, group in groups.items()
-        if len(group) >= BOILERPLATE_THRESHOLD and not _same_task_result_card_bodies(group)
-    }
+    repeated = {text: len(group) for text, group in _repeated_summary_groups(items).items()}
     if repeated:
         worst = max(repeated.items(), key=lambda pair: pair[1])
         raise RuntimeError(
@@ -547,6 +594,7 @@ def _score_and_select(
     titled = [item for item in items if (item.title or "").strip()]
     untitled_count = len(items) - len(titled)
     unique = deduplicate(titled)
+    summaries_quarantined = quarantine_boilerplate_summaries(unique)
     scored = apply_watchlist(
         [
             score_item(
@@ -622,6 +670,9 @@ def _score_and_select(
         # Multiple source observations absorbed into one surviving artifact.
         "merged_as_duplicate": merged_as_duplicate,
         "deduplicated": len(unique),
+        # Records kept with a blank summary because their text repeated across
+        # unrelated records. Not a drop: they remain in every count below.
+        "summaries_quarantined": summaries_quarantined,
         "scored": len(scored),
         "eligible": len(selected),
         # Deprecated compatibility alias for consumers of snapshots written

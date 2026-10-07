@@ -11,6 +11,7 @@ from benchmark_radar.pipeline import (
     canonical_url,
     deduplicate,
     normalized_title,
+    quarantine_boilerplate_summaries,
     run_pipeline,
     score_item,
     simulate_backfill,
@@ -351,6 +352,60 @@ def test_repeated_summaries_still_require_same_owner_card_bodies(invalid_evidenc
 
     with pytest.raises(RuntimeError, match="templated descriptions"):
         assert_no_boilerplate_summaries(records)
+
+
+def test_a_small_upstream_cluster_is_quarantined_not_fatal(capsys):
+    """Regression: the 2026-10-06 and 2026-10-07 daily runs aborted because three
+    unrelated datasets shared the summary 'Original synthetic data for testing
+    ML evaluation assumptions.' Three records must not cost the whole snapshot."""
+    shared = "Original synthetic data for testing ML evaluation assumptions."
+    records = [
+        _fresh(
+            source="Hugging Face",
+            source_id=f"uploader-{n}/synthetic-{n}",
+            title=f"Synthetic Evaluation Dataset {n}",
+            summary=shared,
+        )
+        for n in range(3)
+    ]
+    records.extend(
+        _fresh(source_id=f"distinct-{n}", title=f"Distinct Benchmark {n}", summary=f"Finding {n}.")
+        for n in range(3)
+    )
+
+    published, selection = _score_and_select(
+        records,
+        _funnel_config(),
+        now=FUNNEL_NOW,
+        fetched_count=len(records),
+        suppressed_count=0,
+    )
+
+    assert selection["summaries_quarantined"] == 3
+    assert selection["deduplicated"] == 6
+    quarantined = [record for record in published if record.source == "Hugging Face"]
+    assert len(quarantined) == 3
+    assert all(record.summary == "" for record in quarantined)
+    assert "::warning title=Repeated summaries quarantined::3 records" in capsys.readouterr().out
+
+
+def test_a_systemic_template_still_fails_the_run():
+    templated = [
+        item(source_id=f"org/repo-{n}", summary="Dataset repository updated on Hugging Face.")
+        for n in range(26)
+    ]
+    templated.extend(item(source_id=f"org/real-{n}", summary=f"Finding {n}.") for n in range(4))
+    with pytest.raises(RuntimeError, match="templated descriptions"):
+        quarantine_boilerplate_summaries(templated)
+
+
+def test_a_healthy_run_quarantines_nothing():
+    assert (
+        _select([_fresh(source_id="keep", summary="One distinct finding.")])[
+            "summaries_quarantined"
+        ]
+        == 0
+    )
 
 
 def test_boilerplate_summary_cannot_earn_relevance():
