@@ -811,6 +811,18 @@ def main() -> None:
             print(f"::warning title=GPT briefing fell back::{error}")
     elif briefing_required:
         raise RuntimeError("OPENAI_BRIEFING_REQUIRED is true but OPENAI_API_KEY is missing")
+    # merge_snapshots keeps an earlier pass's GPT briefing over a fallback, so
+    # the report and items.json must show that same briefing for the day.
+    stored_briefing = next(
+        (s.get("briefing") or {} for s in snapshots if s.get("date") == today), {}
+    )
+    if briefing_metadata.get("generator") == "deterministic-fallback" and stored_briefing.get(
+        "generator"
+    ) not in (None, "deterministic-fallback"):
+        daily_briefing = list(stored_briefing.get("bullets") or [])
+        briefing_metadata = {
+            key: value for key, value in stored_briefing.items() if key not in {"date", "bullets"}
+        }
 
     # The daily Q&A is opt-in: it costs one API call per question group. By
     # default a failure here must never cost the run its briefing or its

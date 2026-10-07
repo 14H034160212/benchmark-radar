@@ -460,6 +460,41 @@ def test_a_findings_failure_keeps_the_snapshot(monkeypatch, tmp_path, capsys):
     assert "::warning title=Deterministic findings skipped::" in capsys.readouterr().out
 
 
+def test_a_rerun_fallback_reports_the_days_stored_gpt_briefing(monkeypatch, tmp_path):
+    monkeypatch.setenv("OPENAI_API_KEY", "secret")
+    _stub_sources(monkeypatch, datetime.now(UTC))
+    monkeypatch.setattr("sys.argv", _briefing_argv(tmp_path))
+    monkeypatch.setattr(
+        cli,
+        "generate_daily_briefing",
+        lambda *args, **kwargs: GeneratedBriefing(
+            bullets=["A real GPT synthesis. Evidence: E001."],
+            metadata={
+                "generator": "openai-responses",
+                "model": "gpt-5.6",
+                "response_id": "resp_real",
+                "usage": {"input_tokens": 8000, "output_tokens": 200, "total_tokens": 8200},
+                "input": {"evidence_items": 30},
+                "citations": [],
+            },
+        ),
+    )
+    cli.main()
+    monkeypatch.setattr(
+        cli,
+        "generate_daily_briefing",
+        lambda *args, **kwargs: (_ for _ in ()).throw(BriefingError("429")),
+    )
+
+    cli.main()
+
+    items = json.loads((tmp_path / "items.json").read_text(encoding="utf-8"))
+    stored = json.loads(next((tmp_path / "snapshots").glob("*.json")).read_text(encoding="utf-8"))
+    assert items["briefing"]["generator"] == "openai-responses"
+    assert items["briefing"]["bullets"] == ["A real GPT synthesis. Evidence: E001."]
+    assert stored["briefing"]["bullets"] == items["briefing"]["bullets"]
+
+
 def test_questions_are_skipped_and_marked_disabled_without_the_flag(monkeypatch, tmp_path):
     monkeypatch.setenv("OPENAI_API_KEY", "secret")
     _stub_sources(monkeypatch, datetime.now(UTC))
