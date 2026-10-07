@@ -31,7 +31,7 @@ connector, a first-party feed, or the Hacker News attention source. -->
 Researchers and evaluation engineers from these institutions use Benchmark
 Radar for benchmark discovery and score tracking:
 
-<img src="assets/researchers.svg" alt="Institutions whose researchers use Benchmark Radar: Amazon, AWS, Google, ByteDance, Alibaba, IBM, StepFun, Kuaishou, Zhihu, Tencent, Tencent Hunyuan, Qwen, Carnegie Mellon, Auckland, Tsinghua, SJTU, Harvard, MIT, NUS" />
+<img src="assets/researchers.svg" alt="Institutions whose researchers use Benchmark Radar: Google, Amazon, AWS, IBM, ByteDance, Carnegie Mellon, Harvard, MIT, NUS, Auckland, Alibaba, Tencent, Tencent Hunyuan, Qwen, StepFun, Kuaishou, Zhihu, Tsinghua, SJTU" />
 
 I kept running into new benchmarks while doing benchmark research, so I built a
 crawler that continuously collects benchmark-related signals from across the
