@@ -102,6 +102,18 @@ source_documents:
     published: 2026-09-01
     retrieved_at: 2026-10-07
 
+  # A challenge-winning system report, not the organizers' paper. It records
+  # the MER2026 Track 2 (MER-FG) result that ranked first, 79.3928 EW-F1; the
+  # challenge paper predates the leaderboard. The ACM DOI was not yet resolving
+  # when this was added, so the url is the authors' repository.
+  - id: multimer_mer2026_track2
+    name: "MultiMER: MER2026 Track 2 (MER-FG) result"
+    publisher: MultiMER team (ACM Multimedia 2026 Grand Challenge)
+    document_type: benchmark_leaderboard
+    url: https://github.com/14H034160212/MultiMER
+    benchmarks: [mer2026_mer_fg]
+    retrieved_at: 2026-10-07
+
 # Canonical benchmark records. `aliases` exist so a future extractor can map
 # vendor spellings ("SWE-bench-Verified", "SWE Bench Verified") onto one id
 # without changing the ids the leaderboard is built from.
@@ -1559,6 +1571,21 @@ benchmarks:
       and many residual errors are label noise, so a high score may reflect
       the pairing structure rather than evidence reading. Table and figure
       scores are not interchangeable.
+
+  - id: mer2026_mer_fg
+    name: MER2026 MER-FG
+    aliases: ["MER-FG", "MER2026 Track 2", "MER2026 MER-FG", "MER 2026 fine-grained emotion recognition"]
+    domain: multimodal
+    url: https://arxiv.org/abs/2604.19417
+    released: 2026-04-21
+    caveat: >-
+      Track 2 of the MER2026 challenge: open-vocabulary, fine-grained emotion
+      recognition from video, audio and subtitles, scored by EW-F1 after
+      predictions are mapped onto an emotion wheel. Because free-form labels
+      must land on wheel entries, vocabulary normalization moves the score
+      independently of recognition (the first-place MultiMER system applies a
+      211-rule normalization map before voting). Results are on the
+      challenge's test set, and the dataset licence forbids redistribution.
 
 
 # Model cards, technical reports and release posts.
