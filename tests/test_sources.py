@@ -3375,3 +3375,31 @@ def test_collection_method_falls_back_to_a_static_default_without_items():
     assert collection_method("brave", []) == "API"
     assert collection_method("datacite", []) == "API"
     assert collection_method("openaire", []) == "API"
+
+
+def test_zenodo_keeps_identical_descriptions_with_unknown_creators(monkeypatch):
+    rows = [
+        {
+            "id": number,
+            "created": "2026-08-08T12:00:00Z",
+            "metadata": {
+                "title": f"Archive {number}",
+                "publication_date": "2026-08-08",
+                "description": "This dataset provides evaluation examples.",
+                "creators": [],
+            },
+            "links": {
+                "self_html": f"https://zenodo.org/records/{number}",
+                "doi": f"https://doi.org/10.5281/zenodo.{number}",
+            },
+        }
+        for number in (1, 2)
+    ]
+    monkeypatch.setattr(
+        "benchmark_radar.sources.get_json", lambda *_a, **_k: {"hits": {"hits": rows}}
+    )
+    items = fetch_zenodo_records({"searches": ["benchmark"]}, datetime(2026, 8, 8, tzinfo=UTC), 10)
+    # An empty author list is unknown, not evidence of a common depositor.
+    # Retain both distinct DOI records instead of inventing a shared identity.
+    assert {item.source_id for item in items} == {"1", "2"}
+    assert all(not item.rationale for item in items)
