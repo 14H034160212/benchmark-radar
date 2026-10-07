@@ -1598,8 +1598,9 @@ benchmarks:
       each labelled under four negation semantics (SLDNF, well-founded, and
       credulous and skeptical stable-model reasoning) that can disagree on the
       same instance. A score without the semantics named is not comparable,
-      models are sensitive to rule order, and the hidden test split covers 77
-      programs, so the effective sample is the program, not the 495 prompts.
+      models are sensitive to rule order, and the evaluated instances come
+      from 77 programs, so the effective sample is the program rather than
+      the number of verbalized prompts.
 
   - id: llm_abstract_reasoning
     name: LLM Abstract Reasoning Benchmark
