@@ -409,6 +409,11 @@ def apply_watchlist(
 
 
 BOILERPLATE_THRESHOLD = 3
+# Repetition stays a warning until one repeated summary covers at least this
+# many records and more than this share of all summarized records. The original
+# regression (26 of 30 records on one template) is far past both.
+BOILERPLATE_SYSTEMIC_MIN = 10
+BOILERPLATE_SYSTEMIC_SHARE = 0.25
 
 
 def _same_task_result_card_bodies(items: list[RadarItem]) -> bool:
@@ -429,6 +434,52 @@ def _same_task_result_card_bodies(items: list[RadarItem]) -> bool:
     return len(suites) == 1
 
 
+def _repeated_summary_groups(items: list[RadarItem]) -> dict[str, list[RadarItem]]:
+    groups: dict[str, list[RadarItem]] = defaultdict(list)
+    for item in items:
+        if item.summary.strip():
+            groups[item.summary.strip().lower()].append(item)
+    return {
+        text: group
+        for text, group in groups.items()
+        if len(group) >= BOILERPLATE_THRESHOLD and not _same_task_result_card_bodies(group)
+    }
+
+
+def flag_repeated_summaries(items: list[RadarItem]) -> int:
+    """Warn about repeated summaries and return how many records carry one.
+
+    A few records sharing one summary is usually an upstream uploader reusing
+    its own card text, for example three datasets described as "original
+    synthetic data for testing ml evaluation assumptions". Failing on that
+    aborted seven daily runs between 2026-09-04 and 2026-10-07 and lost each
+    day's snapshot over a handful of records. The text is the source's own, so
+    it stays: blanking it would desynchronize rescoring, science-domain tags,
+    search and briefing evidence from the score it earned. A GitHub warning
+    names the text so the repetition is not silent.
+
+    A connector emitting one template for much of the run is a code defect,
+    not upstream reuse, so that case still fails the run.
+    """
+    repeated = _repeated_summary_groups(items)
+    summarized = sum(1 for item in items if item.summary.strip())
+    # Judged per text: several small unrelated clusters are still upstream
+    # reuse, while one text covering much of the run is a template.
+    if any(
+        len(group) >= BOILERPLATE_SYSTEMIC_MIN
+        and len(group) > BOILERPLATE_SYSTEMIC_SHARE * summarized
+        for group in repeated.values()
+    ):
+        assert_no_boilerplate_summaries(items)
+    for text, group in repeated.items():
+        message = f"{len(group)} records share the summary {text!r}"
+        print(
+            "::warning title=Repeated summaries::"
+            + message.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
+        )
+    return sum(len(group) for group in repeated.values())
+
+
 def assert_no_boilerplate_summaries(items: list[RadarItem]) -> None:
     """Fail the run when a fetcher emits one summary for many different records.
 
@@ -438,17 +489,11 @@ def assert_no_boilerplate_summaries(items: list[RadarItem]) -> None:
     Short-description placeholders
     and unverified text still fail, because they can inflate relevance.
     This is a hard error rather than a warning: a silently boilerplated report
-    looks successful, which is how the defect survived unnoticed before.
+    looks successful, which is how the defect survived unnoticed before. A live
+    run calls it through `flag_repeated_summaries`, which only warns about
+    small clusters and fails on a text repeated across much of the run.
     """
-    groups: dict[str, list[RadarItem]] = defaultdict(list)
-    for item in items:
-        if item.summary.strip():
-            groups[item.summary.strip().lower()].append(item)
-    repeated = {
-        text: len(group)
-        for text, group in groups.items()
-        if len(group) >= BOILERPLATE_THRESHOLD and not _same_task_result_card_bodies(group)
-    }
+    repeated = {text: len(group) for text, group in _repeated_summary_groups(items).items()}
     if repeated:
         worst = max(repeated.items(), key=lambda pair: pair[1])
         raise RuntimeError(
@@ -580,7 +625,7 @@ def _score_and_select(
     # The snapshot is the corpus, not the digest. Retain every eligible record;
     # `issue_item_limit` bounds the Markdown issue separately.
     published = selected
-    assert_no_boilerplate_summaries(published)
+    summaries_repeated = flag_repeated_summaries(published)
     # The dashboard previously showed "228 found" beside 8 published records
     # with nothing to explain the gap. Persist each stage so the drop-off is
     # auditable rather than looking like lost data.
@@ -622,6 +667,9 @@ def _score_and_select(
         # Multiple source observations absorbed into one surviving artifact.
         "merged_as_duplicate": merged_as_duplicate,
         "deduplicated": len(unique),
+        # Published records whose summary is repeated across unrelated records.
+        # A warning, not a drop: they remain in every count and keep the text.
+        "summaries_repeated": summaries_repeated,
         "scored": len(scored),
         "eligible": len(selected),
         # Deprecated compatibility alias for consumers of snapshots written

@@ -725,6 +725,14 @@ def merge_snapshots(existing: dict[str, Any], incoming: dict[str, Any]) -> dict[
     # that describes the merged day. Fall back to the existing briefing only
     # when the incoming pass has none, so a day never loses one it already had.
     briefing = incoming.get("briefing") or existing.get("briefing")
+    # Like the Q&A below, a fallback never replaces a real GPT briefing: a
+    # same-day rerun that hit a rate limit must not discard the earlier pass's
+    # synthesis and its model/usage metadata.
+    existing_briefing = existing.get("briefing") or {}
+    if (briefing or {}).get("generator") == "deterministic-fallback" and existing_briefing.get(
+        "generator"
+    ) not in (None, "deterministic-fallback"):
+        briefing = existing_briefing
     # The Q&A mostly follows the same rule: the incoming pass answered from the
     # union, so it wins. The exception is a day that already has real answers
     # (status "generated") and the incoming pass only disabled/errored, e.g. a
