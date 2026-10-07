@@ -89,6 +89,19 @@ source_documents:
     benchmarks: [swe_bench_science]
     retrieved_at: 2026-09-18
 
+  # A participant report rather than the organizers' own paper. It is listed
+  # because it reports the official blind-test leaderboard for SciClaimEval at
+  # NTCIR-19 across eleven frontier and open models, which the benchmark paper
+  # (run before the shared task) does not.
+  - id: scitrue_ntcir19_sciclaimeval
+    name: "SciTrue: NTCIR-19 SciClaimEval results"
+    publisher: SciTrue team (NTCIR-19 participant)
+    document_type: benchmark_leaderboard
+    url: https://arxiv.org/abs/2609.00654
+    benchmarks: [sciclaimeval]
+    published: 2026-09-01
+    retrieved_at: 2026-10-07
+
 # Canonical benchmark records. `aliases` exist so a future extractor can map
 # vendor spellings ("SWE-bench-Verified", "SWE Bench Verified") onto one id
 # without changing the ids the leaderboard is built from.
@@ -1530,6 +1543,22 @@ benchmarks:
       ReClor-plus. As with its siblings, the drop from the original LogiQA 2.0
       score is the measurement, a single blended number hides which variation
       caused it, and the source questions are public.
+
+  - id: sciclaimeval
+    name: SciClaimEval
+    aliases: ["SciClaimEval", "SciClaim Eval", "NTCIR-19 SciClaimEval"]
+    domain: science
+    url: https://arxiv.org/abs/2602.07621
+    released: 2026-02-07
+    caveat: >-
+      1,664 claims from 180 papers verified against tables and figures, with
+      refuted claims made by editing the evidence. Supported and Refuted
+      claims come in pairs, and the SciTrue NTCIR-19 report shows a pair prior
+      alone lifts Subtask-1 pair accuracy from 72.2 to 93.5, more than any
+      model swap. It also finds the released file ordering can leak the label,
+      and many residual errors are label noise, so a high score may reflect
+      the pairing structure rather than evidence reading. Table and figure
+      scores are not interchangeable.
 
 
 # Model cards, technical reports and release posts.
