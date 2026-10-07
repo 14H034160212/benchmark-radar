@@ -107,6 +107,8 @@ jobs:
       # checkout above feeds the repo-change sentence; a shallow clone would
       # report "no code changes" on most days.
       - name: Render daily social post material
+        # Social copy is non-vital: never let it block the snapshot upload.
+        continue-on-error: true
         run: >
           benchmark-radar social
           --items out/items.json

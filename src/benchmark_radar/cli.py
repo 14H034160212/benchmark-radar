@@ -769,7 +769,11 @@ def main() -> None:
     report_run = daily_report_run(daily_snapshot, run)
     today = run.generated_at.astimezone(UTC).date().isoformat()
     history = [*(s for s in snapshots if s["date"] != today), daily_snapshot]
-    deterministic_findings = daily_findings(history, config)
+    try:
+        deterministic_findings = daily_findings(history, config)
+    except Exception as error:  # a briefing input must never cost the snapshot
+        print(f"::warning title=Deterministic findings skipped::{type(error).__name__}: {error}")
+        deterministic_findings = []
     api_key = os.getenv("OPENAI_API_KEY", "").strip()
     briefing_required = os.getenv("OPENAI_BRIEFING_REQUIRED", "").lower() in {
         "1",
@@ -853,6 +857,12 @@ def main() -> None:
             "reason": "OPENAI_QUESTIONS is not enabled",
         }
     elif not api_key:
+        # Enrichment was asked for but the key is gone: production must not
+        # pass green day after day on fallbacks without saying so.
+        print(
+            "::warning title=OpenAI key missing::OPENAI_QUESTIONS is enabled but "
+            "OPENAI_API_KEY is empty; the briefing fell back and Q&A was skipped"
+        )
         daily_questions = {
             "schema_version": QA_SCHEMA_VERSION,
             "date": today,
@@ -916,14 +926,21 @@ def main() -> None:
         encoding="utf-8",
     )
     snapshot_path = write_snapshot(run, args.snapshot_dir)
-    dashboard = rebuild_dashboard(
-        args.snapshot_dir,
-        args.dashboard_output,
-        feed_output=feed_output,
-        registry_path=args.model_cards,
-        scores_path=args.benchmark_scores,
-        kw_bench_store_path=args.kw_bench_store,
-    )
+    # The snapshot above is the day's record; Deploy Dashboard rebuilds the
+    # site from snapshots on its own, so a failure here must not lose it.
+    try:
+        dashboard = rebuild_dashboard(
+            args.snapshot_dir,
+            args.dashboard_output,
+            feed_output=feed_output,
+            registry_path=args.model_cards,
+            scores_path=args.benchmark_scores,
+            kw_bench_store_path=args.kw_bench_store,
+        )
+    except Exception as error:
+        print(f"::warning title=Dashboard rebuild skipped::{type(error).__name__}: {error}")
+        print(f"Wrote {len(run.items)} items and snapshot {snapshot_path}")
+        return
     print(
         f"Wrote {len(run.items)} items, snapshot {snapshot_path}, and dashboard data "
         f"for {dashboard['snapshot_count']} days"

@@ -10,8 +10,8 @@ from benchmark_radar.pipeline import (
     assert_no_boilerplate_summaries,
     canonical_url,
     deduplicate,
+    flag_repeated_summaries,
     normalized_title,
-    quarantine_boilerplate_summaries,
     run_pipeline,
     score_item,
     simulate_backfill,
@@ -354,7 +354,7 @@ def test_repeated_summaries_still_require_same_owner_card_bodies(invalid_evidenc
         assert_no_boilerplate_summaries(records)
 
 
-def test_a_small_upstream_cluster_is_quarantined_not_fatal(capsys):
+def test_a_small_upstream_cluster_warns_instead_of_failing(capsys):
     """Regression: the 2026-10-06 and 2026-10-07 daily runs aborted because three
     unrelated datasets shared the summary 'Original synthetic data for testing
     ML evaluation assumptions.' Three records must not cost the whole snapshot."""
@@ -381,18 +381,18 @@ def test_a_small_upstream_cluster_is_quarantined_not_fatal(capsys):
         suppressed_count=0,
     )
 
-    assert selection["summaries_quarantined"] == 3
+    assert selection["summaries_repeated"] == 3
     assert selection["deduplicated"] == 6
     assert selection["published"] == 6
-    quarantined = [record for record in published if record.source == "Hugging Face"]
-    assert len(quarantined) == 3
-    assert all(record.summary == "" for record in quarantined)
-    assert "::warning title=Repeated summaries quarantined::3 records" in capsys.readouterr().out
+    repeated = [record for record in published if record.source == "Hugging Face"]
+    assert len(repeated) == 3
+    assert all(record.summary == shared for record in repeated)
+    assert "::warning title=Repeated summaries::3 records" in capsys.readouterr().out
 
 
-def test_quarantine_keeps_categories_earned_by_the_repeated_text():
-    """The shared card text may be a record's only taxonomy signal. Blanking it
-    before scoring would drop the record as uncategorized."""
+def test_repeated_text_keeps_the_categories_it_earned():
+    """The shared card text may be a record's only taxonomy signal. Dropping it
+    would leave the record uncategorized and remove it from the snapshot."""
     records = [
         _fresh(
             source="Hugging Face",
@@ -411,10 +411,9 @@ def test_quarantine_keeps_categories_earned_by_the_repeated_text():
         suppressed_count=0,
     )
 
-    assert selection["summaries_quarantined"] == 3
+    assert selection["summaries_repeated"] == 3
     assert len(published) == 3
     assert all(record.categories == ["benchmark"] for record in published)
-    assert all(record.summary == "" for record in published)
 
 
 def test_a_systemic_template_still_fails_the_run():
@@ -424,7 +423,7 @@ def test_a_systemic_template_still_fails_the_run():
     ]
     templated.extend(item(source_id=f"org/real-{n}", summary=f"Finding {n}.") for n in range(4))
     with pytest.raises(RuntimeError, match="templated descriptions"):
-        quarantine_boilerplate_summaries(templated)
+        flag_repeated_summaries(templated)
 
 
 def test_several_small_clusters_are_not_mistaken_for_a_template():
@@ -435,15 +434,12 @@ def test_several_small_clusters_are_not_mistaken_for_a_template():
     ]
     records.extend(item(source_id=f"org/real-{n}", summary=f"Finding {n}.") for n in range(20))
 
-    assert quarantine_boilerplate_summaries(records) == 10
-    assert sum(1 for record in records if not record.summary) == 10
+    assert flag_repeated_summaries(records) == 10
 
 
-def test_a_healthy_run_quarantines_nothing():
+def test_a_healthy_run_flags_nothing():
     assert (
-        _select([_fresh(source_id="keep", summary="One distinct finding.")])[
-            "summaries_quarantined"
-        ]
+        _select([_fresh(source_id="keep", summary="One distinct finding.")])["summaries_repeated"]
         == 0
     )
 

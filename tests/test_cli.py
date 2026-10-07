@@ -417,6 +417,49 @@ def test_an_unexpected_briefing_error_keeps_the_snapshot(monkeypatch, tmp_path, 
     assert "::warning title=GPT briefing fell back::" in capsys.readouterr().out
 
 
+def test_enrichment_without_a_key_warns(monkeypatch, tmp_path, capsys):
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.setenv("OPENAI_QUESTIONS", "true")
+    _stub_sources(monkeypatch, datetime.now(UTC))
+    monkeypatch.setattr("sys.argv", _briefing_argv(tmp_path))
+
+    cli.main()
+
+    assert "::warning title=OpenAI key missing::" in capsys.readouterr().out
+
+
+def test_a_dashboard_rebuild_failure_keeps_the_snapshot(monkeypatch, tmp_path, capsys):
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    _stub_sources(monkeypatch, datetime.now(UTC))
+    monkeypatch.setattr("sys.argv", _briefing_argv(tmp_path))
+    monkeypatch.setattr(
+        cli,
+        "rebuild_dashboard",
+        lambda *args, **kwargs: (_ for _ in ()).throw(ValueError("bad registry")),
+    )
+
+    cli.main()
+
+    assert list((tmp_path / "snapshots").glob("*.json"))
+    assert "::warning title=Dashboard rebuild skipped::ValueError" in capsys.readouterr().out
+
+
+def test_a_findings_failure_keeps_the_snapshot(monkeypatch, tmp_path, capsys):
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    _stub_sources(monkeypatch, datetime.now(UTC))
+    monkeypatch.setattr("sys.argv", _briefing_argv(tmp_path))
+    monkeypatch.setattr(
+        cli,
+        "daily_findings",
+        lambda *args, **kwargs: (_ for _ in ()).throw(ValueError("bad corpus")),
+    )
+
+    cli.main()
+
+    assert list((tmp_path / "snapshots").glob("*.json"))
+    assert "::warning title=Deterministic findings skipped::" in capsys.readouterr().out
+
+
 def test_questions_are_skipped_and_marked_disabled_without_the_flag(monkeypatch, tmp_path):
     monkeypatch.setenv("OPENAI_API_KEY", "secret")
     _stub_sources(monkeypatch, datetime.now(UTC))
