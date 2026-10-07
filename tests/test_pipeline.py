@@ -399,6 +399,18 @@ def test_a_systemic_template_still_fails_the_run():
         quarantine_boilerplate_summaries(templated)
 
 
+def test_several_small_clusters_are_not_mistaken_for_a_template():
+    records = [
+        item(source_id=f"org/{size}-{n}", summary=f"Shared card text {size}.")
+        for size in (4, 3, 3)
+        for n in range(size)
+    ]
+    records.extend(item(source_id=f"org/real-{n}", summary=f"Finding {n}.") for n in range(20))
+
+    assert quarantine_boilerplate_summaries(records) == 10
+    assert sum(1 for record in records if not record.summary) == 10
+
+
 def test_a_healthy_run_quarantines_nothing():
     assert (
         _select([_fresh(source_id="keep", summary="One distinct finding.")])[

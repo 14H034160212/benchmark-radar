@@ -409,8 +409,8 @@ def apply_watchlist(
 
 
 BOILERPLATE_THRESHOLD = 3
-# Quarantine stays a warning until repeated summaries cover at least this many
-# records and more than this share of all summarized records. The original
+# Quarantine stays a warning until one repeated summary covers at least this
+# many records and more than this share of all summarized records. The original
 # regression (26 of 30 records on one template) is far past both.
 BOILERPLATE_SYSTEMIC_MIN = 10
 BOILERPLATE_SYSTEMIC_SHARE = 0.25
@@ -465,9 +465,12 @@ def quarantine_boilerplate_summaries(items: list[RadarItem]) -> int:
     if not quarantined:
         return 0
     summarized = sum(1 for item in items if item.summary.strip())
-    if (
-        quarantined >= BOILERPLATE_SYSTEMIC_MIN
-        and quarantined > BOILERPLATE_SYSTEMIC_SHARE * summarized
+    # Judged per text: several small unrelated clusters are still upstream
+    # reuse, while one text covering much of the run is a template.
+    if any(
+        len(group) >= BOILERPLATE_SYSTEMIC_MIN
+        and len(group) > BOILERPLATE_SYSTEMIC_SHARE * summarized
+        for group in repeated.values()
     ):
         assert_no_boilerplate_summaries(items)
     for text, group in repeated.items():
