@@ -383,10 +383,38 @@ def test_a_small_upstream_cluster_is_quarantined_not_fatal(capsys):
 
     assert selection["summaries_quarantined"] == 3
     assert selection["deduplicated"] == 6
+    assert selection["published"] == 6
     quarantined = [record for record in published if record.source == "Hugging Face"]
     assert len(quarantined) == 3
     assert all(record.summary == "" for record in quarantined)
     assert "::warning title=Repeated summaries quarantined::3 records" in capsys.readouterr().out
+
+
+def test_quarantine_keeps_categories_earned_by_the_repeated_text():
+    """The shared card text may be a record's only taxonomy signal. Blanking it
+    before scoring would drop the record as uncategorized."""
+    records = [
+        _fresh(
+            source="Hugging Face",
+            source_id=f"lab/opaque-{n}",
+            title=f"Opaque Repo {n}",
+            summary="A benchmark for code agents.",
+        )
+        for n in range(3)
+    ]
+
+    published, selection = _score_and_select(
+        records,
+        _funnel_config(),
+        now=FUNNEL_NOW,
+        fetched_count=len(records),
+        suppressed_count=0,
+    )
+
+    assert selection["summaries_quarantined"] == 3
+    assert len(published) == 3
+    assert all(record.categories == ["benchmark"] for record in published)
+    assert all(record.summary == "" for record in published)
 
 
 def test_a_systemic_template_still_fails_the_run():

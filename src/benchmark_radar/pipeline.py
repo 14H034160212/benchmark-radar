@@ -447,18 +447,18 @@ def _repeated_summary_groups(items: list[RadarItem]) -> dict[str, list[RadarItem
 
 
 def quarantine_boilerplate_summaries(items: list[RadarItem]) -> int:
-    """Blank repeated summaries before scoring and report how many were blanked.
+    """Blank repeated summaries in published records and return how many.
 
     A few records sharing one summary is usually an upstream uploader reusing
     its own card text, for example three datasets described as "original
-    synthetic data for testing ml evaluation assumptions". That aborted two
-    daily runs and lost the whole day's snapshot over three records. Blanking
-    the shared text keeps every record in the corpus and stops the repeated
-    prose from earning taxonomy categories, which is the harm the guard exists
-    to prevent. A GitHub warning names the text so it is not silent.
+    synthetic data for testing ml evaluation assumptions". That aborted daily
+    runs and lost the whole day's snapshot over three records. This runs after
+    scoring, so each record keeps the categories its upstream text earned and
+    stays in the snapshot; only the repeated prose is withheld from display. A
+    GitHub warning names the text so the quarantine is not silent.
 
-    A connector emitting one template for most of its records is a code
-    defect, not upstream reuse, so that case still fails the run.
+    A connector emitting one template for much of the run is a code defect,
+    not upstream reuse, so that case still fails the run.
     """
     repeated = _repeated_summary_groups(items)
     quarantined = sum(len(group) for group in repeated.values())
@@ -494,9 +494,8 @@ def assert_no_boilerplate_summaries(items: list[RadarItem]) -> None:
     and unverified text still fail, because they can inflate relevance.
     This is a hard error rather than a warning: a silently boilerplated report
     looks successful, which is how the defect survived unnoticed before. A live
-    run calls `quarantine_boilerplate_summaries` first, which blanks small
-    upstream clusters with a warning and calls this only for a systemic
-    template, so here it guards the invariant after scoring.
+    run calls it through `quarantine_boilerplate_summaries`, which blanks small
+    upstream clusters with a warning and fails only on a systemic template.
     """
     repeated = {text: len(group) for text, group in _repeated_summary_groups(items).items()}
     if repeated:
@@ -597,7 +596,6 @@ def _score_and_select(
     titled = [item for item in items if (item.title or "").strip()]
     untitled_count = len(items) - len(titled)
     unique = deduplicate(titled)
-    summaries_quarantined = quarantine_boilerplate_summaries(unique)
     scored = apply_watchlist(
         [
             score_item(
@@ -631,7 +629,7 @@ def _score_and_select(
     # The snapshot is the corpus, not the digest. Retain every eligible record;
     # `issue_item_limit` bounds the Markdown issue separately.
     published = selected
-    assert_no_boilerplate_summaries(published)
+    summaries_quarantined = quarantine_boilerplate_summaries(published)
     # The dashboard previously showed "228 found" beside 8 published records
     # with nothing to explain the gap. Persist each stage so the drop-off is
     # auditable rather than looking like lost data.
@@ -673,8 +671,8 @@ def _score_and_select(
         # Multiple source observations absorbed into one surviving artifact.
         "merged_as_duplicate": merged_as_duplicate,
         "deduplicated": len(unique),
-        # Records kept with a blank summary because their text repeated across
-        # unrelated records. Not a drop: they remain in every count below.
+        # Published records whose summary repeated across unrelated records and
+        # was blanked after scoring. Not a drop: they remain in every count.
         "summaries_quarantined": summaries_quarantined,
         "scored": len(scored),
         "eligible": len(selected),
