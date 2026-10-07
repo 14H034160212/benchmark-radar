@@ -755,8 +755,13 @@ def build_benchmark_index(
                     models_by_key.get(record["key"], {}).values(),
                     key=lambda model: model["name"].lower(),
                 ),
+                # Zero observations keep a declared scale's summary so the
+                # index agrees with the shard; a stub without that declared
+                # evidence (direction) still reads as absent (#709).
                 "score_summary": (
-                    series.get("score_summary") if series.get("observation_count", 0) else None
+                    series.get("score_summary")
+                    if series.get("observation_count", 0) or series.get("direction")
+                    else None
                 ),
                 "score_direction": series.get("direction"),
                 "unit": series.get("unit"),
