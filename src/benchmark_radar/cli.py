@@ -12,10 +12,9 @@ import yaml
 
 from .authors import contacts_csv
 from .authors import survey as author_survey
-from .briefing import BriefingError, current_day_snapshot, daily_report_run, generate_daily_briefing
+from .briefing import current_day_snapshot, daily_report_run, generate_daily_briefing
 from .export import DEFAULT_TABLE_LIMIT, write_exports
 from .findings import daily_findings
-from .http import RequestError
 from .kw_bench_store import STORE_FILENAME as KW_BENCH_STORE_FILENAME
 from .kw_bench_tracks import DEFAULT_BATCH_SIZE
 from .kw_bench_tracks import backfill as backfill_classifications
@@ -801,7 +800,7 @@ def main() -> None:
             )
             daily_briefing = generated.bullets
             briefing_metadata = generated.metadata
-        except (BriefingError, RequestError, ValueError) as error:
+        except Exception as error:  # enrichment must never cost the snapshot
             if briefing_required:
                 raise RuntimeError(f"required OpenAI briefing failed: {error}") from error
             briefing_metadata["reason"] = f"{type(error).__name__}: {error}"
@@ -831,7 +830,7 @@ def main() -> None:
                 config=config,
                 translate_zh=questions_zh,
             )
-        except (BriefingError, RequestError, ValueError) as error:
+        except Exception as error:  # enrichment must never cost the snapshot
             if questions_required:
                 raise RuntimeError(f"required daily questions failed: {error}") from error
             print(f"::warning title=Daily questions skipped::{error}")

@@ -6,7 +6,7 @@ import pytest
 import yaml
 
 from benchmark_radar import cli
-from benchmark_radar.briefing import GeneratedBriefing
+from benchmark_radar.briefing import BriefingError, GeneratedBriefing
 from benchmark_radar.models import ProducerHealth, RadarItem, RadarRun
 from benchmark_radar.pipeline import SOURCE_FETCHERS
 from benchmark_radar.snapshots import write_snapshot
@@ -397,6 +397,26 @@ def test_cli_persists_real_gpt_briefing_metadata(monkeypatch, tmp_path):
     assert stored["briefing"]["usage"]["total_tokens"] == 8200
 
 
+def test_an_unexpected_briefing_error_keeps_the_snapshot(monkeypatch, tmp_path, capsys):
+    """2026-09-11 lost the day's evidence to a briefing-side CorpusError. Any
+    briefing failure must fall back with a warning, not abort the run."""
+    monkeypatch.setenv("OPENAI_API_KEY", "secret")
+    _stub_sources(monkeypatch, datetime.now(UTC))
+    monkeypatch.setattr("sys.argv", _briefing_argv(tmp_path))
+    monkeypatch.setattr(
+        cli,
+        "generate_daily_briefing",
+        lambda *args, **kwargs: (_ for _ in ()).throw(KeyError("unexpected")),
+    )
+
+    cli.main()
+
+    stored = json.loads(next((tmp_path / "snapshots").glob("*.json")).read_text(encoding="utf-8"))
+    assert stored["briefing"]["generator"] == "deterministic-fallback"
+    assert "KeyError" in stored["briefing"]["reason"]
+    assert "::warning title=GPT briefing fell back::" in capsys.readouterr().out
+
+
 def test_questions_are_skipped_and_marked_disabled_without_the_flag(monkeypatch, tmp_path):
     monkeypatch.setenv("OPENAI_API_KEY", "secret")
     _stub_sources(monkeypatch, datetime.now(UTC))
@@ -409,10 +429,11 @@ def test_questions_are_skipped_and_marked_disabled_without_the_flag(monkeypatch,
     assert "OPENAI_QUESTIONS" in stored["questions"]["reason"]
 
 
-def test_daily_radar_yml_enables_and_requires_questions_in_production():
+def test_daily_radar_yml_enables_questions_without_risking_the_snapshot():
     """Issue #159: production ran Q&A-eligible days with no Q&A because the
-    workflow set OPENAI_API_KEY and OPENAI_BRIEFING_REQUIRED but never set
-    OPENAI_QUESTIONS, so the CLI skipped question generation by design."""
+    workflow never set OPENAI_QUESTIONS, so the CLI skipped question generation
+    by design. GPT failures must not cost the day's evidence snapshot, so the
+    briefing and Q&A are enabled but not required."""
     workflow_path = Path(".github/workflows/daily-radar.yml")
     workflow = yaml.safe_load(workflow_path.read_text(encoding="utf-8"))
     collect_step = next(
@@ -422,7 +443,8 @@ def test_daily_radar_yml_enables_and_requires_questions_in_production():
     )
     env = collect_step["env"]
     assert str(env.get("OPENAI_QUESTIONS")).lower() == "true"
-    assert str(env.get("OPENAI_QUESTIONS_REQUIRED")).lower() == "true"
+    assert str(env.get("OPENAI_QUESTIONS_REQUIRED")).lower() == "false"
+    assert str(env.get("OPENAI_BRIEFING_REQUIRED")).lower() == "false"
 
 
 def test_daily_radar_runs_after_the_arxiv_rss_bulletin():
@@ -594,7 +616,7 @@ def test_questions_required_raises_when_generation_fails(monkeypatch, tmp_path):
     monkeypatch.setattr(
         cli,
         "generate_daily_questions",
-        lambda *args, **kwargs: (_ for _ in ()).throw(cli.BriefingError("boom")),
+        lambda *args, **kwargs: (_ for _ in ()).throw(BriefingError("boom")),
     )
 
     with pytest.raises(RuntimeError, match="required daily questions failed"):
@@ -609,7 +631,7 @@ def test_questions_best_effort_persists_error_status_without_failing_the_run(mon
     monkeypatch.setattr(
         cli,
         "generate_daily_questions",
-        lambda *args, **kwargs: (_ for _ in ()).throw(cli.BriefingError("boom")),
+        lambda *args, **kwargs: (_ for _ in ()).throw(BriefingError("boom")),
     )
 
     cli.main()
