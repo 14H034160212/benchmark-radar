@@ -1465,6 +1465,72 @@ benchmarks:
       channel earned it, and a model that only understands or only generates
       is structurally capped on tasks that require both.
 
+  - id: pararule_plus
+    name: PARARULE-Plus
+    aliases: ["PARARULE-Plus", "PARARULE Plus", "ParaRule-Plus"]
+    domain: reasoning
+    url: https://arxiv.org/abs/2207.14000
+    released: 2022-07-28
+    caveat: >-
+      Synthetic multi-step deductive reasoning over natural-language facts and
+      rules under a closed-world assumption, with about 100,000 examples at
+      each reasoning depth from 2 to 5 (nearly 400,000 in total) over animal
+      and people entities. An aggregate number hides the per-depth breakdown
+      the dataset was built to expose, and a model fine-tuned on the templated
+      training split is not comparable with one prompted zero-shot.
+
+  - id: abductionrules
+    name: AbductionRules
+    aliases: ["AbductionRules", "Abduction Rules"]
+    domain: reasoning
+    url: https://aclanthology.org/2022.findings-acl.19/
+    released: 2022-03-23
+    caveat: >-
+      Four synthetic abductive-reasoning datasets (Animal and Person domains,
+      each Simple and Confounded): the model must supply the missing fact that
+      explains an observation. The paper itself reports that fine-tuned models
+      partly learned to exploit the structure of the data, so a high
+      fine-tuned score need not mean general abduction, and a number without
+      the subset named is not comparable across reports.
+
+  - id: reclor_plus
+    name: ReClor-plus
+    aliases: ["ReClor-plus", "ReClor-Plus", "ReClor plus"]
+    domain: reasoning
+    url: https://arxiv.org/abs/2310.09430
+    released: 2023-10-13
+    caveat: >-
+      A robustness variant of ReClor in three subsets: shuffled options,
+      the correct choice replaced by "none of the other options is correct",
+      and both combined. Read it against the same model's score on the
+      original ReClor, because the gap is the signal; one blended number hides
+      which variation caused the drop, and the source questions are public.
+
+  - id: logiqa_plus
+    name: LogiQA-plus
+    aliases: ["LogiQA-plus", "LogiQA-Plus", "LogiQA plus"]
+    domain: reasoning
+    url: https://arxiv.org/abs/2310.09430
+    released: 2023-10-13
+    caveat: >-
+      A robustness variant of LogiQA with the same three subsets as
+      ReClor-plus (shuffled options, correct choice replaced by "none of the
+      other options is correct", and both). A score is only meaningful next to
+      the original LogiQA score and with the subset named, and the source
+      questions are public.
+
+  - id: logiqav2_plus
+    name: LogiQAv2-plus
+    aliases: ["LogiQAv2-plus", "LogiQAv2-Plus", "LogiQA 2.0-plus"]
+    domain: reasoning
+    url: https://arxiv.org/abs/2310.09430
+    released: 2023-10-13
+    caveat: >-
+      A robustness variant of LogiQA 2.0 with the same three subsets as
+      ReClor-plus. As with its siblings, the drop from the original LogiQA 2.0
+      score is the measurement, a single blended number hides which variation
+      caused it, and the source questions are public.
+
 
 # Model cards, technical reports and release posts.
 #
