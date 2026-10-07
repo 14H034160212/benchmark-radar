@@ -19,6 +19,7 @@ the constraint that holds whether or not you open it.
 | [`docs/sop-add-model-cards.md`](docs/sop-add-model-cards.md) | Adding a model card, a benchmark, or a score | `data/model_cards.yml` and `data/benchmark_scores.yml` move together. Every value is read out of the cited document, never from memory. |
 | [`docs/query-surfaces.md`](docs/query-surfaces.md) | Changing search, detail lookup, the CLI or HTTP query surface, or the consumer Skill | `QueryService` is the single source of truth. No interface-specific ranking, and no silent network fallback. |
 | [`principle.md`](principle.md) | Changing any benchmark-facing surface | Start from the full corpus across all sources. |
+| [`docs/agent-gotchas.md`](docs/agent-gotchas.md) | Verifying locally, merging, or answering a literature question | A local result counts only from a clean worktree with its own venv. |
 
 ## Glob rule: showcase and UI communication
 
@@ -37,35 +38,8 @@ any report, launch note, TLDR, screenshot, GIF, demo, dashboard, or UI surface.
 - Prefer strong information hierarchy, plain language, concrete examples,
   screenshots, short GIFs, and compact summaries that make the work easy to
   scan, review, forward, or explain upward.
-
-### Example: simplify badge copy and keep its style
-
-Before:
-
-```html
-<p align="center">
-  <a href="https://koutian.is-a.dev/benchmark-radar/"><img alt="Benchmark records collected" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fkoutian.is-a.dev%2Fbenchmark-radar%2Fdata%2Frecords-badge.json&amp;style=for-the-badge"></a>
-  <a href="https://koutian.is-a.dev/benchmark-radar/data/radar.json"><img alt="Download dataset" src="https://img.shields.io/badge/Dataset-download%20JSON-2f81f7?style=for-the-badge&amp;logo=json&amp;logoColor=white"></a>
-  <a href="https://x.com/ktwu01"><img alt="X" src="https://img.shields.io/badge/X-%40ktwu01-000000?style=for-the-badge&amp;logo=x&amp;logoColor=white"></a>
-  <a href="https://www.linkedin.com/in/ktwu01"><img alt="LinkedIn" src="https://img.shields.io/badge/LinkedIn-Koutian%20Wu-0A66C2?style=for-the-badge&amp;logo=linkedin&amp;logoColor=white"></a>
-  <a href="https://scholar.google.com/citations?user=s9w1k-cAAAAJ&amp;hl=en"><img alt="Google Scholar" src="https://img.shields.io/badge/Google%20Scholar-Koutian%20Wu-4285F4?style=for-the-badge&amp;logo=googlescholar&amp;logoColor=white"></a>
-</p>
-```
-
-After:
-
-```html
-<p align="center">
-  <a href="https://koutian.is-a.dev/benchmark-radar/"><img alt="Benchmark records collected" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fkoutian.is-a.dev%2Fbenchmark-radar%2Fdata%2Frecords-badge.json&amp;style=for-the-badge"></a>
-  <a href="https://koutian.is-a.dev/benchmark-radar/data/radar.json"><img alt="Download dataset" src="https://img.shields.io/badge/Dataset-download%20JSON-2f81f7?style=for-the-badge&amp;logo=json&amp;logoColor=white"></a>
-  <a href="https://x.com/ktwu01"><img alt="X" src="https://img.shields.io/badge/X-000000?style=for-the-badge&amp;logo=x&amp;logoColor=white"></a>
-  <a href="https://www.linkedin.com/in/ktwu01"><img alt="LinkedIn" src="https://img.shields.io/badge/LinkedIn-0A66C2?style=for-the-badge&amp;logo=linkedin&amp;logoColor=white"></a>
-  <a href="https://scholar.google.com/citations?user=s9w1k-cAAAAJ&amp;hl=en"><img alt="Google Scholar" src="https://img.shields.io/badge/Google%20Scholar-4285F4?style=for-the-badge&amp;logo=googlescholar&amp;logoColor=white"></a>
-</p>
-```
-
-The after example removes the handle or name from three badge labels. It keeps
-the five-badge layout, badge styles, logos, colors, and profile URLs.
+- When you simplify copy, keep the existing style. For example, shorten a badge
+  label but keep its layout, color, logo, and link.
 
 ## Glob rule: Benchmark Radar audience
 
@@ -83,40 +57,49 @@ Applies to `README*`, `docs/**`, `.github/ISSUE_TEMPLATE/**`, `site/**`,
 - Show the insight before the pipeline. Crawling, normalization, scoring, and
   data-cleaning details matter, but they should support the takeaway instead of
   becoming the takeaway.
+- A report is not a dashboard. Answer a question with cited evidence and
+  state what remains uncertain; a list of counts is not a report.
 - Use bilingual guidance when it helps contributors or readers provide better
   signal. Avoid jargon-heavy summaries that only say what changed; explain why
   the change matters to someone reading, reviewing, or sharing the project.
 
+## Working rules
+
+- Finish the task without nudges. Stop only for a merge, a credential, or a
+  destructive action.
+- If a request has two opposite readings, state your reading in one line, then
+  proceed.
+- Keep each fix minimal. File each follow-up as its own issue.
+- End with a link to the rendered result, after you open it yourself.
+
 ## Branches and pull requests
 
-- Start from the latest `origin/main`, especially for a small edit. Run
-  `git fetch origin`, then branch with
-  `git switch --no-track -c <branch> origin/main`, or bring an existing branch
-  forward with `git rebase origin/main`. Fetching is enough, and it leaves local
-  `main` untouched; do not check out or pull `main` to do this. A one-line fix
-  written on a stale base can carry old copies of files someone else has since
-  changed, and a stale submodule pointer silently rolls the paper back to an
-  earlier commit. Re-read the diff after a rebase, before opening the PR.
-- Keep the `--no-track`, and set the upstream on the first push with
-  `git push -u origin <branch>`. Without it the new branch records `origin/main`
-  as its upstream, a later bare `git push` refuses because the two names differ,
-  and the first repair Git prints is `git push origin HEAD:main`, which would
-  put the task branch on `main`.
-- Keep work on the task branch. Update local or remote `main`, or merge a pull
-  request, only when the user explicitly requests it. Creating or updating a PR
-  does not authorize a merge.
-- Do not squash-merge pull requests.
-- Merge pull requests with a merge commit so Git preserves branch ancestry and recognizes the branch as merged.
-- If you are an agent, say so on every pull request you open. Post a comment on
-  the PR containing the marker `330226` and your model series (`GPT`, `Claude`,
-  `Kimi`, and so on) as an annotation. The marker makes agent-authored PRs
-  searchable in one query, and the model series tells a reviewer what produced
-  the diff before they start reading it. A human opening a PR adds neither.
+- Never push to `main`. Every change goes through a pull request.
+- Start each task from the latest `main`:
+
+      git fetch origin main:main
+      git switch --no-track -c <branch> main
+      git push -u origin <branch>
+
+  The first command updates local `main` without a checkout. If it fails,
+  local `main` has diverged: stop and report it. Keep `--no-track` so a bare
+  `git push` never targets `main`.
+- To update an existing branch, run `git fetch origin main:main`, then
+  `git rebase main`. Re-read the diff before you push.
+- Never merge a pull request unless the user asks. When asked, use a merge
+  commit. Do not squash.
+- Agents: comment `330226 <model-id>` on every pull request you open, for
+  example `330226 claude-opus-5-5`. Use the exact model ID, not only `Claude`
+  or `GPT`.
 
 ## Before opening a pull request
 
 - Run the full CI sequence locally and get it passing before opening a PR. Do
   not open one against a red local run.
+- Skip it for a docs-only PR, when this prints nothing:
+
+      git diff --name-only origin/main... | xargs -n1 basename \
+        | xargs -I{} git grep -lF {} -- tests src site
 - A PR that adds a model card must also add every numeric score that card
   reports and that can be read with certainty to `data/benchmark_scores.yml`.
   Follow [`docs/sop-add-model-cards.md`](docs/sop-add-model-cards.md); a card

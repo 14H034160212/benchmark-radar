@@ -22,6 +22,7 @@ connector, a first-party feed, or the Hacker News attention source. -->
   <a href="https://huggingface.co/datasets/ktwu01/benchmark-radar"><img alt="Hugging Face Dataset" src="https://img.shields.io/badge/Hugging%20Face-Dataset-FFD21E?style=for-the-badge&amp;logo=huggingface&amp;logoColor=000"></a>
   <a href="https://arxiv.org/abs/2609.11115"><img src="https://img.shields.io/badge/arXiv-Paper-red?style=for-the-badge&logo=arxiv" alt="arXiv"></a>
   <a href="https://huggingface.co/papers/2609.11115"><img src="https://img.shields.io/badge/Hugging%20Face-Upvote%20us-FFD21E?style=for-the-badge&amp;logo=huggingface&amp;logoColor=000" alt="Upvote Benchmark Radar on Hugging Face"></a>
+  <a href="https://github.com/sponsors/ktwu01"><img alt="Sponsor ktwu01 on GitHub" src="https://img.shields.io/badge/Sponsor-ea4aaa?style=for-the-badge&amp;logo=githubsponsors&amp;logoColor=white"></a>
   <a href="https://x.com/ktwu01"><img alt="X" src="https://img.shields.io/badge/-000000?style=for-the-badge&amp;logo=x&amp;logoColor=white"></a>
   <a href="https://www.linkedin.com/in/ktwu01"><img alt="LinkedIn" src="https://img.shields.io/badge/LinkedIn-0A66C2?style=for-the-badge&amp;logo=linkedin&amp;logoColor=white"></a>
   <a href="https://scholar.google.com/citations?user=s9w1k-cAAAAJ&amp;hl=en"><img alt="Google Scholar" src="https://img.shields.io/badge/Google%20Scholar-4285F4?style=for-the-badge&amp;logo=googlescholar&amp;logoColor=white"></a>
@@ -30,11 +31,11 @@ connector, a first-party feed, or the Hacker News attention source. -->
 Researchers and evaluation engineers from these institutions use Benchmark
 Radar for benchmark discovery and score tracking:
 
-<img src="assets/researchers.svg" alt="Institutions whose researchers use Benchmark Radar: Amazon, Google, ByteDance, Alibaba, StepFun, Kuaishou, Zhihu, Carnegie Mellon, Auckland, Tsinghua, SJTU, Harvard, MIT, NUS" />
+<img src="assets/researchers.svg" alt="Institutions whose researchers use Benchmark Radar: Google, Amazon, AWS, IBM, ByteDance, Carnegie Mellon, Harvard, MIT, NUS, Auckland, Alibaba, Tencent, Tencent Hunyuan, Qwen, StepFun, Kuaishou, Zhihu, Tsinghua, SJTU" />
 
 I kept running into new benchmarks while doing benchmark research, so I built a
 crawler that continuously collects benchmark-related signals from across the
-web. It pulls evidence from 37 public sources every day, and keeps updating.
+web. It pulls evidence from 39 public sources every day, and keeps updating.
 
 **Find a benchmark in seconds, then see how model scores change over time. Click
 the GIF below to watch SWE-bench Verified move toward saturation.**
@@ -113,6 +114,8 @@ Scan the QR code to join the WeChat group for daily benchmark updates and eval d
 
 <img src="assets/wechat-group-qr.jpg" alt="WeChat group QR code" width="280" />
 
+<img src="assets/discord-group-qr.jpg" alt="Permanent QR code to join the Benchmark Radar Discord group" width="360" />
+
 ## Contributors
 
 Thanks to everyone who helps make Benchmark Radar more useful.
@@ -157,7 +160,7 @@ benchmark catalog, mentions in model cards and technical reports, and score
 histories. It retains source identities and citations so readers can inspect
 candidate benchmarks and their evaluation evidence.
 
-Daily discovery draws on 37 sources: 13 direct connectors and 24 first-party
+Daily discovery draws on 39 sources: 15 direct connectors and 24 first-party
 research and engineering feeds. The catalog collects source records from four
 benchmark catalogs, with numeric score observations on the records that carry
 them. The project publishes the web dashboard with a benchmark leaderboard, a
@@ -185,7 +188,8 @@ The daily evidence feed is built on public data from [arXiv](https://arxiv.org),
 [GitHub Search](https://github.com/search), [GitHub organizations](https://github.com),
 [GitHub Releases](https://docs.github.com/en/repositories/releasing-projects-on-github/about-releases),
 [Hugging Face datasets and Spaces](https://huggingface.co), [Hugging Face Papers](https://huggingface.co/papers),
-[Crossref](https://www.crossref.org), [OpenAlex](https://openalex.org), [OpenReview](https://openreview.net),
+[Crossref](https://www.crossref.org), [DataCite](https://datacite.org), [OpenAIRE](https://www.openaire.eu),
+[OpenAlex](https://openalex.org), [OpenReview](https://openreview.net),
 [Kaggle datasets](https://www.kaggle.com/datasets), [Zenodo](https://zenodo.org),
 [Semantic Scholar](https://www.semanticscholar.org), [Brave Search](https://search.brave.com),
 and [Hacker News](https://news.ycombinator.com), plus first-party lab feeds from
