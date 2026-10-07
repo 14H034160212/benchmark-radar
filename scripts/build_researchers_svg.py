@@ -25,7 +25,7 @@ OUT = REPO_ROOT / "assets" / "researchers.svg"
 
 ROWS = [
     ["amazon.svg", "google.svg", "bytedance.svg", "alibaba.svg", "ibm.svg"],
-    ["stepfun.png", "kuaishou.png", "zhihu.svg"],
+    ["stepfun.png", "kuaishou.png", "zhihu.svg", "tencent.svg"],
     ["cmu.svg", "auckland.svg", "tsinghua.svg", "sjtu.png", "harvard.svg", "mit.svg", "nus.svg"],
 ]
 
