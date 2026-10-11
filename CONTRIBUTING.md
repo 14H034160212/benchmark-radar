@@ -13,6 +13,19 @@ you a week of review rounds.
 | Earn points | [`docs/contributor-points.md`](docs/contributor-points.md) |
 | Work as an AI agent | [`AGENTS.md`](AGENTS.md) |
 
+## Before you start a PR
+
+Answer these in the issue or PR, so reviewers can see who benefits:
+
+1. What outcome do you really want?
+2. What is the highest-leverage variable that determines it?
+3. Will this work move that variable, or just keep you busy?
+4. Who is the customer, and what do they really want?
+
+Then ask whether the outcome needs a PR at all. A bug fix must link evidence of
+a failure that already happened; see [What we don't merge](#2-what-we-dont-merge).
+AI agents: the human contributor answers, not you. Ask for missing answers and wait.
+
 ## 1. What we merge
 
 ### The most useful thing you can add: a model card
@@ -104,6 +117,10 @@ history.
 - **Carries a regression test when it fixes a bug.** Name the failure, show
   the test failing before the fix and passing after. Comments explain what the design
   prevents, not what the code does.
+- **Adds no burden it does not need.** Every line, package and test is
+  something a maintainer keeps working. No new package if the standard library
+  or an existing dependency does the job. No new test unless it guards behavior
+  that could break; a bug fix still carries its regression test.
 - **Discloses authorship.** You may add a benchmark you wrote. Say so in the PR.
 
 ## 2. What we don't merge
