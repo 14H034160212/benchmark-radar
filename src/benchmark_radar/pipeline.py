@@ -17,7 +17,7 @@ from .attention import fetch_attention_feeds
 from .benchmark_attention import collect_benchmark_attention
 from .corpus import exact_artifact_keys
 from .describe import clean_card_text, strip_title_echo
-from .models import RadarItem, RadarRun, SourceHealth
+from .models import RadarItem, RadarRun, SourceHealth, digest_evidence_version
 from .sources import FUTURE_TIMESTAMP_TOLERANCE, SOURCE_FETCHERS, collection_method
 
 TRACKING_PARAMETERS = {"ref", "source", "utm_campaign", "utm_content", "utm_medium", "utm_source"}
@@ -256,6 +256,53 @@ def _matches_structural_signal(item: RadarItem, signal: dict[str, Any]) -> bool:
     raise ValueError(f"unknown structural signal condition: {signal['condition']}")
 
 
+def score_evidence_and_adoption(item: RadarItem) -> None:
+    """Refresh evidence, adoption and the total while retaining text/time scores.
+
+    Same-day merges preserve the chosen source/event/text envelope and use
+    these same equations to incorporate corroborating links and measurements.
+    """
+    evidence = rubric.EVIDENCE_BASE
+    if item.source in rubric.EVIDENCE_PRIMARY_SOURCES:
+        evidence += rubric.EVIDENCE_PRIMARY_CREDIT
+    if item.source in rubric.EVIDENCE_ARTIFACT_SOURCES:
+        evidence += rubric.EVIDENCE_ARTIFACT_CREDIT
+    if item.authors:
+        evidence += rubric.EVIDENCE_AUTHORSHIP_CREDIT
+    if item.artifact_urls:
+        evidence += rubric.EVIDENCE_CROSS_LINK_CREDIT
+    item.evidence_score = min(evidence, rubric.SCORE_MAX)
+
+    # Each counter is scored on its own log curve against its own saturation
+    # point, then the strongest one wins. Counters that accumulate without a
+    # human decision are capped first, so a large automated download total can
+    # place a record mid-pack but cannot outscore a widely-starred repository
+    # (issue #278). The cap applies per metric before the max, not to the
+    # result, so a record carrying both stars and downloads is still free to
+    # score above the cap on its stars.
+    adoption = max(
+        (
+            min(
+                rubric.SCORE_MAX
+                * math.log10(1 + max(0.0, float(item.metrics.get(metric, 0))))
+                / math.log10(1 + saturation),
+                rubric.ADOPTION_CAPPED_METRICS.get(metric, rubric.SCORE_MAX),
+            )
+            for metric, saturation in rubric.ADOPTION_METRIC_SATURATION.items()
+            if item.metrics.get(metric, 0)
+        ),
+        default=0.0,
+    )
+    item.adoption_score = min(adoption, rubric.SCORE_MAX)
+    item.total_score = round(
+        sum(
+            weight * getattr(item, f"{component}_score")
+            for component, weight in rubric.WEIGHTS.items()
+        ),
+        2,
+    )
+
+
 def score_item(
     item: RadarItem,
     taxonomy: dict[str, Any],
@@ -312,17 +359,6 @@ def score_item(
     if is_self_reference(item):
         item.suppression_reasons.append(rubric.SELF_REFERENCE_LABEL)
 
-    evidence = rubric.EVIDENCE_BASE
-    if item.source in rubric.EVIDENCE_PRIMARY_SOURCES:
-        evidence += rubric.EVIDENCE_PRIMARY_CREDIT
-    if item.source in rubric.EVIDENCE_ARTIFACT_SOURCES:
-        evidence += rubric.EVIDENCE_ARTIFACT_CREDIT
-    if item.authors:
-        evidence += rubric.EVIDENCE_AUTHORSHIP_CREDIT
-    if item.artifact_urls:
-        evidence += rubric.EVIDENCE_CROSS_LINK_CREDIT
-    item.evidence_score = min(evidence, rubric.SCORE_MAX)
-
     activity_at = item.updated_at or item.published_at
     age_hours = max(0.0, (now - activity_at).total_seconds() / 3600)
     if lookback_hours <= 0:
@@ -334,34 +370,7 @@ def score_item(
     recency_factor = rubric.RECENCY_EVENT_FACTORS.get(item.event_kind, 1.0)
     item.recency_score *= recency_factor
 
-    # Each counter is scored on its own log curve against its own saturation
-    # point, then the strongest one wins. Counters that accumulate without a
-    # human decision are capped first, so a large automated download total can
-    # place a record mid-pack but cannot outscore a widely-starred repository
-    # (issue #278). The cap applies per metric before the max, not to the
-    # result, so a record carrying both stars and downloads is still free to
-    # score above the cap on its stars.
-    adoption = max(
-        (
-            min(
-                rubric.SCORE_MAX
-                * math.log10(1 + max(0.0, float(item.metrics.get(metric, 0))))
-                / math.log10(1 + saturation),
-                rubric.ADOPTION_CAPPED_METRICS.get(metric, rubric.SCORE_MAX),
-            )
-            for metric, saturation in rubric.ADOPTION_METRIC_SATURATION.items()
-            if item.metrics.get(metric, 0)
-        ),
-        default=0.0,
-    )
-    item.adoption_score = min(adoption, rubric.SCORE_MAX)
-    item.total_score = round(
-        sum(
-            weight * getattr(item, f"{component}_score")
-            for component, weight in rubric.WEIGHTS.items()
-        ),
-        2,
-    )
+    score_evidence_and_adoption(item)
     item.score_version = rubric.SCORING_VERSION
     item.score_max = rubric.SCORE_MAX
     item.rationale = [
@@ -581,6 +590,35 @@ def _apply_arxiv_discovery_state(
             "discovered_at": item.discovered_at.astimezone(UTC).isoformat(),
             "last_activity_at": activity_at.astimezone(UTC).isoformat(),
         }
+    return changed
+
+
+def _apply_xbsleepy_discovery_state(
+    fetched: list[RadarItem], *, now: datetime, state: dict[str, Any]
+) -> list[RadarItem]:
+    """Suppress unchanged cumulative rows across overlapping collection windows."""
+    seen = state.setdefault("xbsleepy", {})
+    changed = []
+    for item in fetched:
+        activity = _date(item.digest_activity_at, fallback=item.updated_at or item.published_at)
+        version = digest_evidence_version(item)
+        previous = seen.get(item.source_id) or {}
+        previous_activity = _date(
+            previous.get("last_activity_at"), fallback=datetime.min.replace(tzinfo=UTC)
+        )
+        item.discovered_at = _date(previous.get("discovered_at"), fallback=now)
+        # A stale payload must not move the durable cursor backwards.
+        if previous and activity < previous_activity:
+            continue
+        if not previous or activity > previous_activity or version != previous.get("version"):
+            if previous:
+                item.event_kind = "updated"
+            changed.append(item)
+            seen[item.source_id] = {
+                "last_activity_at": activity.astimezone(UTC).isoformat(),
+                "discovered_at": item.discovered_at.astimezone(UTC).isoformat(),
+                "version": version,
+            }
     return changed
 
 
@@ -960,7 +998,12 @@ def run_pipeline(
     future_dated_count = 0
     discovery_state = deepcopy((previous_snapshot or {}).get("discovery_state") or {})
     enabled = [
-        (name, source_config)
+        (
+            name,
+            {**source_config, "_seen_state": discovery_state.get("xbsleepy", {})}
+            if name == "xbsleepy"
+            else source_config,
+        )
         for name, source_config in config["sources"].items()
         if source_config.get("enabled", True)
     ]
@@ -971,7 +1014,9 @@ def run_pipeline(
             if error is not None:
                 raise error
             connector_rejected = int(fetch_config.get("_future_rejections", 0) or 0)
-            fetched_count += len(fetched) + connector_rejected
+            connector_suppressed = int(fetch_config.get("_overlap_suppressed", 0) or 0)
+            suppressed_count += connector_suppressed
+            fetched_count += len(fetched) + connector_rejected + connector_suppressed
             fetched, rejected_future = _drop_future_dated_items(fetched, now=now)
             rejected_future += connector_rejected
             future_dated_count += rejected_future
@@ -995,6 +1040,10 @@ def run_pipeline(
                     now=now,
                     state=discovery_state,
                 )
+                suppressed_count += len(fetched) - len(changed)
+                items.extend(changed)
+            elif source_name == "xbsleepy":
+                changed = _apply_xbsleepy_discovery_state(fetched, now=now, state=discovery_state)
                 suppressed_count += len(fetched) - len(changed)
                 items.extend(changed)
             else:

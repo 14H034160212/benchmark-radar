@@ -1988,3 +1988,117 @@ def test_sources_fetch_concurrently_but_shared_hosts_stay_serial(monkeypatch):
     # Health stays in config order, exactly as a sequential fetch reported it.
     assert [source.source for source in run.health] == names
     assert all(source.ok for source in run.health)
+
+
+def _digest_config():
+    return {
+        "radar": {
+            "lookback_hours": 48,
+            "max_items_per_source": 1,
+            "report_limit": 10,
+            "minimum_score": 40,
+        },
+        "taxonomy": {"benchmark": ["benchmark"]},
+        "sources": {
+            "xbsleepy": {
+                "index_url": "https://digest.example/index.json",
+                "enabled": True,
+                "allow_empty": True,
+            }
+        },
+    }
+
+
+def _digest_row(identifier="2607.1", activity="2026-07-27"):
+    return {
+        "id": identifier,
+        "title": "An agent planning benchmark",
+        "links": {"abs": f"https://arxiv.org/abs/{identifier}"},
+        "published": "2026-07-01T12:00:00Z",
+        "first_seen": activity,
+        "abstract": "We introduce a benchmark for planning agents.",
+        "authors": ["Researcher"],
+        "tags": ["planning"],
+    }
+
+
+def test_digest_overlap_is_suppressed_after_durable_snapshot_roundtrip(monkeypatch, tmp_path):
+    import json
+
+    from benchmark_radar.snapshots import write_snapshot
+
+    row = _digest_row()
+    monkeypatch.setattr("benchmark_radar.sources.get_json", lambda *a, **kw: {"papers": [row]})
+    previous = None
+    for day in (27, 28, 29):
+        run = run_pipeline(
+            _digest_config(), datetime(2026, 7, day, 5, tzinfo=UTC), previous_snapshot=previous
+        )
+        assert len(run.items) == (1 if day == 27 else 0)
+        assert run.selection["suppressed_as_seen"] == (0 if day == 27 else 1)
+        assert run.selection["fetched"] == 1
+        path = write_snapshot(run, tmp_path)
+        previous = json.loads(path.read_text())
+    assert previous["discovery_state"]["xbsleepy"]["xbsleepy:2607.1"]["last_activity_at"] == (
+        "2026-07-27T00:00:00+00:00"
+    )
+
+
+def test_digest_overlap_recovers_a_missed_collection_then_emits_changes_once(monkeypatch):
+    from benchmark_radar.snapshots import snapshot_for_run
+
+    row = _digest_row()
+    monkeypatch.setattr("benchmark_radar.sources.get_json", lambda *a, **kw: {"papers": [row]})
+    now = datetime(2026, 7, 29, 5, tzinfo=UTC)
+    first = run_pipeline(_digest_config(), now)
+    assert len(first.items) == 1
+    original_discovery = first.items[0].discovered_at
+    row["citations"] = 7
+    second = run_pipeline(
+        _digest_config(), now + timedelta(hours=1), previous_snapshot=snapshot_for_run(first)
+    )
+    assert len(second.items) == 1
+    assert second.items[0].event_kind == "updated"
+    assert second.items[0].discovered_at == original_discovery
+    third = run_pipeline(
+        _digest_config(), now + timedelta(hours=2), previous_snapshot=snapshot_for_run(second)
+    )
+    assert third.items == []
+
+
+def test_seen_digest_rows_do_not_consume_the_cap_for_unseen_rows(monkeypatch):
+    from benchmark_radar.snapshots import snapshot_for_run
+
+    rows = [_digest_row(activity="2026-07-28")]
+    monkeypatch.setattr("benchmark_radar.sources.get_json", lambda *a, **kw: {"papers": rows})
+    now = datetime(2026, 7, 28, 5, tzinfo=UTC)
+    first = run_pipeline(_digest_config(), now)
+    rows.append(_digest_row("2607.2", activity="2026-07-27"))
+    second = run_pipeline(
+        _digest_config(), now + timedelta(hours=1), previous_snapshot=snapshot_for_run(first)
+    )
+    assert [item.source_id for item in second.items] == ["xbsleepy:2607.2"]
+    assert second.selection["suppressed_as_seen"] == 1
+    assert second.selection["fetched"] == 2
+
+
+def test_digest_cursor_survives_failure_and_ignores_older_activity(monkeypatch):
+    from benchmark_radar.snapshots import snapshot_for_run
+
+    row = _digest_row(activity="2026-07-28")
+    monkeypatch.setattr("benchmark_radar.sources.get_json", lambda *a, **kw: {"papers": [row]})
+    now = datetime(2026, 7, 28, 5, tzinfo=UTC)
+    first = run_pipeline(_digest_config(), now)
+    previous = snapshot_for_run(first)
+    monkeypatch.setattr("benchmark_radar.sources.get_json", lambda *a, **kw: {"papers": [{}]})
+    failed = run_pipeline(_digest_config(), now + timedelta(hours=1), previous_snapshot=previous)
+    assert not failed.health[0].ok
+    assert failed.discovery_state["xbsleepy"] == first.discovery_state["xbsleepy"]
+    row["first_seen"] = "2026-07-27"
+    row["citations"] = 100
+    monkeypatch.setattr("benchmark_radar.sources.get_json", lambda *a, **kw: {"papers": [row]})
+    stale = run_pipeline(
+        _digest_config(), now + timedelta(hours=2), previous_snapshot=snapshot_for_run(failed)
+    )
+    assert stale.items == []
+    assert stale.discovery_state["xbsleepy"] == first.discovery_state["xbsleepy"]

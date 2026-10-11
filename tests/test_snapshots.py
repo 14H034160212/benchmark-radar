@@ -1739,3 +1739,53 @@ def test_cross_source_merge_accepts_genuinely_newer_artifact_evidence():
     merged = merge_snapshots(first, later)
     assert merged["evidence_items"][0]["source"] == "XBsleepy"
     assert merged["evidence_items"][0]["event_kind"] == "updated"
+
+
+@pytest.mark.parametrize("reverse", [False, True])
+def test_primary_release_survives_high_adoption_digest_and_merges_evidence(reverse):
+    from benchmark_radar.pipeline import score_item
+
+    first_run = radar_run(27)
+    primary = first_run.items[0]
+    primary.event_kind = "released"
+    primary.authors = ["Primary Author"]
+    primary.metrics = {"stars": 1}
+    taxonomy = {"benchmark": ["benchmark"]}
+    score_item(primary, taxonomy, now=first_run.generated_at)
+    first = snapshot_for_run(first_run)
+    later_run = radar_run(27)
+    later_run.generated_at += timedelta(hours=1)
+    digest = later_run.items[0]
+    digest.source = "XBsleepy"
+    digest.source_id = "xbsleepy:2607.0027"
+    digest.event_kind = "discovered"
+    digest.authors = ["Digest Author"]
+    digest.artifact_urls = ["https://arxiv.org/pdf/2607.0027"]
+    digest.metrics = {"citations": 1000000}
+    digest.source_tags = ["xbsleepy:planning"]
+    score_item(digest, taxonomy, now=later_run.generated_at)
+    later = snapshot_for_run(later_run)
+    # Exercise the reported failure: adoption makes the non-primary copy's
+    # aggregate score exceed that of the paper's original source.
+    assert digest.total_score > primary.total_score
+    later["selection"] = {"recommendation_score": 0}
+    merged = merge_snapshots(later, first) if reverse else merge_snapshots(first, later)
+    record = merged["evidence_items"][0]
+    assert record["source"] == "arXiv"
+    assert record["event_kind"] == "released"
+    assert record["authors"] == ["Digest Author", "Primary Author"]
+    assert record["artifact_urls"] == ["https://arxiv.org/pdf/2607.0027"]
+    assert record["metrics"] == {"citations": 1000000, "stars": 1}
+    assert record["source_tags"] == ["xbsleepy:planning"]
+    assert record["contributing_sources"] == ["XBsleepy", "arXiv"]
+    # The merged source envelope scores its corroboration with the exact same
+    # production equations, rather than copying the digest's aggregate score.
+    primary.authors = record["authors"]
+    primary.artifact_urls = record["artifact_urls"]
+    primary.metrics = record["metrics"]
+    score_item(primary, taxonomy, now=first_run.generated_at)
+    assert record["evidence_score"] == primary.evidence_score
+    assert record["adoption_score"] == primary.adoption_score
+    assert record["total_score"] == primary.total_score
+    assert record["recommended"] is True
+    assert first["evidence_items"][0]["metrics"] == {"stars": 1}

@@ -21,7 +21,7 @@ from .describe import (
     strip_title_echo,
 )
 from .http import get_json, get_text
-from .models import RadarItem
+from .models import RadarItem, digest_evidence_version
 from .priority_organizations import load_priority_github_organizations
 
 
@@ -2217,6 +2217,7 @@ def fetch_xbsleepy(
     downstream grouping can use the digest's own taxonomy while `categories`
     stays the pipeline's own keyword classification.
     """
+    config["_overlap_suppressed"] = 0
     index_url = str(config.get("index_url") or "").strip()
     if not index_url:
         raise ConnectorPayloadError("xbsleepy source config is missing index_url")
@@ -2322,6 +2323,7 @@ def fetch_xbsleepy(
             url=url,
             published_at=published_at,
             updated_at=updated_at,
+            digest_activity_at=activity_at.astimezone(UTC).isoformat(),
             summary=clean_card_text(str(row.get("abstract") or "")),
             event_kind="discovered",
             authors=authors,
@@ -2342,7 +2344,29 @@ def fetch_xbsleepy(
         config.setdefault("_source_warnings", []).append(
             f"XBsleepy omitted {invalid_citations} invalid citation count(s)"
         )
-    ordered = sorted(found.values(), key=lambda item: activity_by_id[item.source_id], reverse=True)
+    seen = config.get("_seen_state") or {}
+    unseen = []
+    for item in found.values():
+        previous = seen.get(item.source_id) or {}
+        previous_activity = _optional_date(str(previous.get("last_activity_at") or ""))
+        activity = activity_by_id[item.source_id]
+        if previous_activity is not None and (
+            activity < previous_activity
+            or (
+                activity == previous_activity
+                and digest_evidence_version(item) == previous.get("version")
+            )
+        ):
+            config["_overlap_suppressed"] = config.get("_overlap_suppressed", 0) + 1
+        else:
+            unseen.append(item)
+    if config.get("_overlap_suppressed"):
+        config.setdefault("_source_warnings", []).append(
+            f"XBsleepy suppressed {config['_overlap_suppressed']} unchanged or older record(s)"
+        )
+    # Suppress durable overlap before applying the source cap, so already-seen
+    # rows cannot repeatedly consume the capacity meant for unseen records.
+    ordered = sorted(unseen, key=lambda item: activity_by_id[item.source_id], reverse=True)
     if limit <= 0:
         return []
     if len(ordered) > limit:
