@@ -13,6 +13,26 @@ you a week of review rounds.
 | Earn points | [`docs/contributor-points.md`](docs/contributor-points.md) |
 | Work as an AI agent | [`AGENTS.md`](AGENTS.md) |
 
+## Before starting a contribution
+
+Every contributor must answer these four questions before starting substantive
+work. If you use an AI agent, the agent must ask you and wait for your answers
+before planning or implementing the contribution:
+
+1. What outcome do you really want?
+2. What is the highest-leverage variable that determines this outcome?
+3. Will this work move that variable, or just make you feel busy?
+4. Who is the customer, and what do they really want?
+
+The contributor must answer personally. An agent must not invent answers or
+treat a task request as an answer. Ask only unanswered questions, and start
+substantive work only after all four have answers. Reuse explicit answers for
+the same contribution. If the outcome, highest-leverage variable, or customer
+needs change, ask for updated answers and wait before continuing.
+
+Record your answers in the issue or PR so reviewers can see who benefits and
+which outcome the contribution should improve.
+
 ## 1. What we merge
 
 ### The most useful thing you can add: a model card
