@@ -89,31 +89,6 @@ source_documents:
     benchmarks: [swe_bench_science]
     retrieved_at: 2026-09-18
 
-  # A participant report rather than the organizers' own paper. It is listed
-  # because it reports the official blind-test leaderboard for SciClaimEval at
-  # NTCIR-19 across eleven frontier and open models, which the benchmark paper
-  # (run before the shared task) does not.
-  - id: scitrue_ntcir19_sciclaimeval
-    name: "SciTrue: NTCIR-19 SciClaimEval results"
-    publisher: SciTrue team (NTCIR-19 participant)
-    document_type: benchmark_leaderboard
-    url: https://arxiv.org/abs/2609.00654
-    benchmarks: [sciclaimeval]
-    published: 2026-09-01
-    retrieved_at: 2026-10-07
-
-  # A challenge-winning system report, not the organizers' paper. It records
-  # the MER2026 Track 2 (MER-FG) result that ranked first, 79.3928 EW-F1; the
-  # challenge paper predates the leaderboard. The ACM DOI was not yet resolving
-  # when this was added, so the url is the authors' repository.
-  - id: multimer_mer2026_track2
-    name: "MultiMER: MER2026 Track 2 (MER-FG) result"
-    publisher: MultiMER team (ACM Multimedia 2026 Grand Challenge)
-    document_type: benchmark_leaderboard
-    url: https://github.com/14H034160212/MultiMER
-    benchmarks: [mer2026_mer_fg]
-    retrieved_at: 2026-10-07
-
 # Canonical benchmark records. `aliases` exist so a future extractor can map
 # vendor spellings ("SWE-bench-Verified", "SWE Bench Verified") onto one id
 # without changing the ids the leaderboard is built from.
