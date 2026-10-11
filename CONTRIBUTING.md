@@ -13,11 +13,11 @@ you a week of review rounds.
 | Earn points | [`docs/contributor-points.md`](docs/contributor-points.md) |
 | Work as an AI agent | [`AGENTS.md`](AGENTS.md) |
 
-## Before starting a contribution
+## Before starting PR-oriented work
 
-Every contributor must answer these four questions before starting substantive
-work. If you use an AI agent, the agent must ask you and wait for your answers
-before planning or implementing the contribution:
+Every contributor must answer these four questions before starting PR-oriented
+work. If you are an AI agent, ask your human contributor and wait for their
+answers. Do not answer for them:
 
 1. What outcome do you really want?
 2. What is the highest-leverage variable that determines this outcome?
@@ -26,12 +26,16 @@ before planning or implementing the contribution:
 
 The contributor must answer personally. An agent must not invent answers or
 treat a task request as an answer. Ask only unanswered questions, and start
-substantive work only after all four have answers. Reuse explicit answers for
+PR-oriented work only after all four have answers. Reuse explicit answers for
 the same contribution. If the outcome, highest-leverage variable, or customer
 needs change, ask for updated answers and wait before continuing.
 
 Record your answers in the issue or PR so reviewers can see who benefits and
 which outcome the contribution should improve.
+
+Before proceeding, ask whether the PR is necessary and whether the outcome can
+be achieved without it. For a bug fix, cite evidence that a critical bug actually
+occurred. If no critical bug occurred, do not make the fix or open a PR.
 
 ## 1. What we merge
 
