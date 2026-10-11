@@ -1096,5 +1096,260 @@
     ],
     "status": "release_attribution_withdrawn",
     "note": "Correction to the preceding SuperGLUE review: this paper supplies score-publication evidence for these pre-existing component tasks, not their original benchmark release. The benchmark date facts restore the prior cited score evidence; release dates remain unknown. The SuperGLUE source record itself retains its introducing-paper date."
+  },
+  {
+    "source_url": "https://arxiv.org/abs/1603.07396",
+    "title": "A Diagram Is Worth A Dozen Images",
+    "first_version_date": "2016-03-24",
+    "retrieved_on": "2026-10-11",
+    "locator": "arXiv submission history, v1",
+    "response_sha256": "a629e3825f63b90e8ae99ea96fba5ffba458f34d18e8db6670959e98aadfd01e",
+    "source_keys": [
+      "llm-stats:ai2d"
+    ]
+  },
+  {
+    "source_url": "https://arxiv.org/abs/2111.08897",
+    "title": "ARKitScenes: A Diverse Real-World Dataset For 3D Indoor Scene Understanding Using Mobile RGB-D Data",
+    "first_version_date": "2021-11-17",
+    "retrieved_on": "2026-10-11",
+    "locator": "arXiv submission history, v1",
+    "response_sha256": "f0c06f496b5a5493a8ed6bde8038fe336f9418f00dacbe64266b5267f98b30f4",
+    "source_keys": [
+      "llm-stats:arkitscenes"
+    ]
+  },
+  {
+    "source_url": "https://arxiv.org/abs/1705.02101",
+    "title": "TALL: Temporal Activity Localization via Language Query",
+    "first_version_date": "2017-05-05",
+    "retrieved_on": "2026-10-11",
+    "locator": "arXiv submission history, v1",
+    "response_sha256": "100b41a421b53ccc410853f36f8a5a1c4552c5b2940fea925308379b912d231c",
+    "source_keys": [
+      "llm-stats:charadessta"
+    ]
+  },
+  {
+    "source_url": "https://arxiv.org/abs/2406.04744",
+    "title": "CRAG -- Comprehensive RAG Benchmark",
+    "first_version_date": "2024-06-07",
+    "retrieved_on": "2026-10-11",
+    "locator": "arXiv submission history, v1",
+    "response_sha256": "3068ad8af78d4a6454030b64381afa16166418aae551187d6391534b1a03989c",
+    "source_keys": [
+      "llm-stats:crag"
+    ]
+  },
+  {
+    "source_url": "https://arxiv.org/abs/2406.08035",
+    "title": "LVBench: An Extreme Long Video Understanding Benchmark",
+    "first_version_date": "2024-06-12",
+    "retrieved_on": "2026-10-11",
+    "locator": "arXiv submission history, v1",
+    "response_sha256": "b5ce0ed85a98477e4f6335174519e88816fc6388f1cd7b14e89ca1009a9aab3d",
+    "source_keys": [
+      "llm-stats:lvbench"
+    ]
+  },
+  {
+    "source_url": "https://arxiv.org/abs/2410.07095",
+    "title": "MLE-bench: Evaluating Machine Learning Agents on Machine Learning Engineering",
+    "first_version_date": "2024-10-09",
+    "retrieved_on": "2026-10-11",
+    "locator": "arXiv submission history, v1",
+    "response_sha256": "42819fcae1726e4f9a3cc8402d9aa5e179b1e2e802d770150b8905ca9fb9c08f",
+    "source_keys": [
+      "llm-stats:mle-bench"
+    ]
+  },
+  {
+    "source_url": "https://arxiv.org/abs/2407.01523",
+    "title": "MMLongBench-Doc: Benchmarking Long-context Document Understanding with Visualizations",
+    "first_version_date": "2024-07-01",
+    "retrieved_on": "2026-10-11",
+    "locator": "arXiv submission history, v1",
+    "response_sha256": "92582b6f8152f30b12f15a6bee11a08cc955e7ca36de54d38a266f894c8dbd39",
+    "source_keys": [
+      "llm-stats:mmlongbench-doc"
+    ]
+  },
+  {
+    "source_url": "https://arxiv.org/abs/2405.11985",
+    "title": "MTVQA: Benchmarking Multilingual Text-Centric Visual Question Answering",
+    "first_version_date": "2024-05-20",
+    "retrieved_on": "2026-10-11",
+    "locator": "arXiv submission history, v1",
+    "response_sha256": "fd040557522689ddf1c6a40ffbe66c738e816e53e1941620cf87f0066fc6c41e",
+    "source_keys": [
+      "llm-stats:mtvqa"
+    ]
+  },
+  {
+    "source_url": "https://arxiv.org/abs/2208.08227",
+    "title": "MultiPL-E: A Scalable and Extensible Approach to Benchmarking Neural Code Generation",
+    "first_version_date": "2022-08-17",
+    "retrieved_on": "2026-10-11",
+    "locator": "arXiv submission history, v1",
+    "response_sha256": "a7e2be2b11831fee8345d9e130c0a6031857cbbc72fcd44a6f9ead8b62021e80",
+    "source_keys": [
+      "llm-stats:multipl-e",
+      "llm-stats:multipl-e-humaneval",
+      "llm-stats:multipl-e-mbpp"
+    ]
+  },
+  {
+    "source_url": "https://arxiv.org/abs/2301.11325",
+    "title": "MusicLM: Generating Music From Text",
+    "first_version_date": "2023-01-26",
+    "retrieved_on": "2026-10-11",
+    "locator": "arXiv submission history, v1",
+    "response_sha256": "9c6d3b866ca96dd4653bd9baa8fea33547e47694de6ec5eced53188e6607bb91",
+    "source_keys": [
+      "llm-stats:musiccaps"
+    ]
+  },
+  {
+    "source_url": "https://arxiv.org/abs/2012.09988",
+    "title": "Objectron: A Large Scale Dataset of Object-Centric Videos in the Wild with Pose Annotations",
+    "first_version_date": "2020-12-18",
+    "retrieved_on": "2026-10-11",
+    "locator": "arXiv submission history, v1",
+    "response_sha256": "549d9618940a3435933294f615f7ba9a7fb2043fab4dc2e742dc5e9ea8b8eadb",
+    "source_keys": [
+      "llm-stats:objectron"
+    ]
+  },
+  {
+    "source_url": "https://arxiv.org/abs/2501.00321",
+    "title": "OCRBench v2: An Improved Benchmark for Evaluating Large Multimodal Models on Visual Text Localization and Reasoning",
+    "first_version_date": "2024-12-31",
+    "retrieved_on": "2026-10-11",
+    "locator": "arXiv submission history, v1",
+    "response_sha256": "a14fb507db36a5c4b18ac18dbf2b276ade839c6d24030c4333e061c95ef5fd49",
+    "source_keys": [
+      "llm-stats:ocrbench-v2"
+    ]
+  },
+  {
+    "source_url": "https://arxiv.org/abs/2412.07626",
+    "title": "OmniDocBench: Benchmarking Diverse PDF Document Parsing with Comprehensive Annotations",
+    "first_version_date": "2024-12-10",
+    "retrieved_on": "2026-10-11",
+    "locator": "arXiv submission history, v1",
+    "response_sha256": "32925ca10606243ae1fddc79917251675bd4147a0354b2f1a37f95d2dece5e81",
+    "source_keys": [
+      "llm-stats:omnidocbench"
+    ]
+  },
+  {
+    "source_url": "https://arxiv.org/abs/2501.05510",
+    "title": "OVO-Bench: How Far is Your Video-LLMs from Real-World Online Video Understanding?",
+    "first_version_date": "2025-01-09",
+    "retrieved_on": "2026-10-11",
+    "locator": "arXiv submission history, v1",
+    "response_sha256": "f1f868d5cf12fe1aca9d7c6d4b22e1fd38511e971d31cc8290aa9fe96792dba9",
+    "source_keys": [
+      "llm-stats:ovobench"
+    ]
+  },
+  {
+    "source_url": "https://arxiv.org/abs/2305.10415",
+    "title": "PMC-VQA: Visual Instruction Tuning for Medical Visual Question Answering",
+    "first_version_date": "2023-05-17",
+    "retrieved_on": "2026-10-11",
+    "locator": "arXiv submission history, v1",
+    "response_sha256": "f8ffdd5580d0220c5df3003aaef497f1b3864628c0073a2529d4b93521091c78",
+    "source_keys": [
+      "llm-stats:pmc-vqa"
+    ]
+  },
+  {
+    "source_url": "https://arxiv.org/abs/2107.09609",
+    "title": "QVHighlights: Detecting Moments and Highlights in Videos via Natural Language Queries",
+    "first_version_date": "2021-07-20",
+    "retrieved_on": "2026-10-11",
+    "locator": "arXiv submission history, v1",
+    "response_sha256": "483f51672867f17a539b7afc9ccb59e80c85ea960e3b22803b3e9f4197530631",
+    "source_keys": [
+      "llm-stats:qvhighlights"
+    ]
+  },
+  {
+    "source_url": "https://arxiv.org/abs/2401.10935",
+    "title": "SeeClick: Harnessing GUI Grounding for Advanced Visual GUI Agents",
+    "first_version_date": "2024-01-17",
+    "retrieved_on": "2026-10-11",
+    "locator": "arXiv submission history, v1",
+    "response_sha256": "2ae3b3a4e6eb1dd6b85e377804db2e201e666ac91d0f70401d996dc8b1dc6384",
+    "source_keys": [
+      "llm-stats:screenspot"
+    ]
+  },
+  {
+    "source_url": "https://arxiv.org/abs/2504.07981",
+    "title": "ScreenSpot-Pro: GUI Grounding for Professional High-Resolution Computer Use",
+    "first_version_date": "2025-04-04",
+    "retrieved_on": "2026-10-11",
+    "locator": "arXiv submission history, v1",
+    "response_sha256": "7772e4a6f46fbe46cb1f6e8436376e80e92ff238845edc8db0f99295773a9f6d",
+    "source_keys": [
+      "llm-stats:screenspot-pro"
+    ]
+  },
+  {
+    "source_url": "https://arxiv.org/abs/2312.14135",
+    "title": "V*: Guided Visual Search as a Core Mechanism in Multimodal LLMs",
+    "first_version_date": "2023-12-21",
+    "retrieved_on": "2026-10-11",
+    "locator": "arXiv submission history, v1",
+    "response_sha256": "2f7b3930cc13f65358f28027aca6ef505b9fa5e90663b0789db4d5b736519f39",
+    "source_keys": [
+      "llm-stats:v-star"
+    ]
+  },
+  {
+    "source_url": "https://arxiv.org/abs/2404.05955",
+    "title": "VisualWebBench: How Far Have Multimodal LLMs Evolved in Web Page Understanding and Grounding?",
+    "first_version_date": "2024-04-09",
+    "retrieved_on": "2026-10-11",
+    "locator": "arXiv submission history, v1",
+    "response_sha256": "2ee1bcd394b85c9a68192e5c183fff1810ab537804dc1e53ca8acfe87b235381",
+    "source_keys": [
+      "llm-stats:visualwebbench"
+    ]
+  },
+  {
+    "source_url": "https://arxiv.org/abs/2407.06581",
+    "title": "Vision language models are blind: Failing to translate detailed visual features into words",
+    "first_version_date": "2024-07-09",
+    "retrieved_on": "2026-10-11",
+    "locator": "arXiv submission history, v1",
+    "response_sha256": "455f5ebc23901d41810304b47c1f8a87b2573cb8c28b8fda51c763e47434f30e",
+    "source_keys": [
+      "llm-stats:vlmsareblind"
+    ]
+  },
+  {
+    "source_url": "https://arxiv.org/abs/2407.01284",
+    "title": "We-Math: Does Your Large Multimodal Model Achieve Human-like Mathematical Reasoning?",
+    "first_version_date": "2024-07-01",
+    "retrieved_on": "2026-10-11",
+    "locator": "arXiv submission history, v1",
+    "response_sha256": "b2358a791bedbdda560c48cddf12f038982133e092ad954b6b89d6c332202bce",
+    "source_keys": [
+      "llm-stats:we-math"
+    ]
+  },
+  {
+    "source_url": "https://arxiv.org/abs/2406.04770",
+    "title": "WildBench: Benchmarking LLMs with Challenging Tasks from Real Users in the Wild",
+    "first_version_date": "2024-06-07",
+    "retrieved_on": "2026-10-11",
+    "locator": "arXiv submission history, v1",
+    "response_sha256": "8639c332d7440d31c90313a6baef71e94ccff16f50a0c20c505f265539e87cfe",
+    "source_keys": [
+      "llm-stats:wild-bench"
+    ]
   }
 ]

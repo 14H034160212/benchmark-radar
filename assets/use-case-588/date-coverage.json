@@ -1,7 +1,7 @@
 {
   "records": 3228,
-  "released": 2667,
-  "missing_release": 561,
+  "released": 2692,
+  "missing_release": 536,
   "sources": {
     "artificial_analysis": {
       "records": 25,
@@ -15,9 +15,9 @@
     },
     "llm_stats": {
       "records": 687,
-      "missing_release": 532,
-      "model_release_proxy": 526,
-      "released": 155,
+      "missing_release": 507,
+      "model_release_proxy": 501,
+      "released": 180,
       "undated": 6
     },
     "model_reports": {
@@ -175,15 +175,6 @@
       "name": "Agents' Last Exam",
       "source": "llm_stats",
       "source_url": "https://api.zeroeval.com/leaderboard/benchmarks/agents-last-exam?top_n=500",
-      "fallback": "model_release_proxy",
-      "first_score_reported_at": null,
-      "status": "release_evidence_required"
-    },
-    {
-      "key": "llm-stats:ai2d",
-      "name": "AI2D",
-      "source": "llm_stats",
-      "source_url": "https://api.zeroeval.com/leaderboard/benchmarks/ai2d?top_n=500",
       "fallback": "model_release_proxy",
       "first_score_reported_at": null,
       "status": "release_evidence_required"
@@ -382,15 +373,6 @@
       "name": "Arena-Hard v2",
       "source": "llm_stats",
       "source_url": "https://api.zeroeval.com/leaderboard/benchmarks/arena-hard-v2?top_n=500",
-      "fallback": "model_release_proxy",
-      "first_score_reported_at": null,
-      "status": "release_evidence_required"
-    },
-    {
-      "key": "llm-stats:arkitscenes",
-      "name": "ARKitScenes",
-      "source": "llm_stats",
-      "source_url": "https://api.zeroeval.com/leaderboard/benchmarks/arkitscenes?top_n=500",
       "fallback": "model_release_proxy",
       "first_score_reported_at": null,
       "status": "release_evidence_required"
@@ -738,15 +720,6 @@
       "status": "release_evidence_required"
     },
     {
-      "key": "llm-stats:charadessta",
-      "name": "CharadesSTA",
-      "source": "llm_stats",
-      "source_url": "https://api.zeroeval.com/leaderboard/benchmarks/charadessta?top_n=500",
-      "fallback": "model_release_proxy",
-      "first_score_reported_at": null,
-      "status": "release_evidence_required"
-    },
-    {
       "key": "llm-stats:chartmuseum",
       "name": "ChartMuseum",
       "source": "llm_stats",
@@ -1030,15 +1003,6 @@
       "name": "CoWorkBench",
       "source": "llm_stats",
       "source_url": "https://api.zeroeval.com/leaderboard/benchmarks/coworkbench?top_n=500",
-      "fallback": "model_release_proxy",
-      "first_score_reported_at": null,
-      "status": "release_evidence_required"
-    },
-    {
-      "key": "llm-stats:crag",
-      "name": "CRAG",
-      "source": "llm_stats",
-      "source_url": "https://api.zeroeval.com/leaderboard/benchmarks/crag?top_n=500",
       "fallback": "model_release_proxy",
       "first_score_reported_at": null,
       "status": "release_evidence_required"
@@ -2304,15 +2268,6 @@
       "status": "release_evidence_required"
     },
     {
-      "key": "llm-stats:lvbench",
-      "name": "LVBench",
-      "source": "llm_stats",
-      "source_url": "https://api.zeroeval.com/leaderboard/benchmarks/lvbench?top_n=500",
-      "fallback": "model_release_proxy",
-      "first_score_reported_at": null,
-      "status": "release_evidence_required"
-    },
-    {
       "key": "llm-stats:management-consulting-tasks",
       "name": "Management Consulting Tasks (Internal)",
       "source": "llm_stats",
@@ -2601,15 +2556,6 @@
       "status": "release_evidence_required"
     },
     {
-      "key": "llm-stats:mle-bench",
-      "name": "MLE-Bench",
-      "source": "llm_stats",
-      "source_url": "https://api.zeroeval.com/leaderboard/benchmarks/mle-bench?top_n=500",
-      "fallback": "model_release_proxy",
-      "first_score_reported_at": null,
-      "status": "release_evidence_required"
-    },
-    {
       "key": "llm-stats:mle-bench-lite",
       "name": "MLE-Bench Lite",
       "source": "llm_stats",
@@ -2758,15 +2704,6 @@
       "name": "MMLongBench-128K",
       "source": "llm_stats",
       "source_url": "https://api.zeroeval.com/leaderboard/benchmarks/mmlongbench-128k?top_n=500",
-      "fallback": "model_release_proxy",
-      "first_score_reported_at": null,
-      "status": "release_evidence_required"
-    },
-    {
-      "key": "llm-stats:mmlongbench-doc",
-      "name": "MMLongBench-Doc",
-      "source": "llm_stats",
-      "source_url": "https://api.zeroeval.com/leaderboard/benchmarks/mmlongbench-doc?top_n=500",
       "fallback": "model_release_proxy",
       "first_score_reported_at": null,
       "status": "release_evidence_required"
@@ -3051,15 +2988,6 @@
       "status": "release_evidence_required"
     },
     {
-      "key": "llm-stats:mtvqa",
-      "name": "MTVQA",
-      "source": "llm_stats",
-      "source_url": "https://api.zeroeval.com/leaderboard/benchmarks/mtvqa?top_n=500",
-      "fallback": "model_release_proxy",
-      "first_score_reported_at": null,
-      "status": "release_evidence_required"
-    },
-    {
       "key": "llm-stats:multi-if",
       "name": "Multi-IF",
       "source": "llm_stats",
@@ -3091,42 +3019,6 @@
       "name": "Multilingual MMLU",
       "source": "llm_stats",
       "source_url": "https://api.zeroeval.com/leaderboard/benchmarks/multilingual-mmlu?top_n=500",
-      "fallback": "model_release_proxy",
-      "first_score_reported_at": null,
-      "status": "release_evidence_required"
-    },
-    {
-      "key": "llm-stats:multipl-e",
-      "name": "MultiPL-E",
-      "source": "llm_stats",
-      "source_url": "https://api.zeroeval.com/leaderboard/benchmarks/multipl-e?top_n=500",
-      "fallback": "model_release_proxy",
-      "first_score_reported_at": null,
-      "status": "release_evidence_required"
-    },
-    {
-      "key": "llm-stats:multipl-e-humaneval",
-      "name": "Multipl-E HumanEval",
-      "source": "llm_stats",
-      "source_url": "https://api.zeroeval.com/leaderboard/benchmarks/multipl-e-humaneval?top_n=500",
-      "fallback": "model_release_proxy",
-      "first_score_reported_at": null,
-      "status": "release_evidence_required"
-    },
-    {
-      "key": "llm-stats:multipl-e-mbpp",
-      "name": "Multipl-E MBPP",
-      "source": "llm_stats",
-      "source_url": "https://api.zeroeval.com/leaderboard/benchmarks/multipl-e-mbpp?top_n=500",
-      "fallback": "model_release_proxy",
-      "first_score_reported_at": null,
-      "status": "release_evidence_required"
-    },
-    {
-      "key": "llm-stats:musiccaps",
-      "name": "MusicCaps",
-      "source": "llm_stats",
-      "source_url": "https://api.zeroeval.com/leaderboard/benchmarks/musiccaps?top_n=500",
       "fallback": "model_release_proxy",
       "first_score_reported_at": null,
       "status": "release_evidence_required"
@@ -3240,24 +3132,6 @@
       "status": "release_evidence_required"
     },
     {
-      "key": "llm-stats:objectron",
-      "name": "Objectron",
-      "source": "llm_stats",
-      "source_url": "https://api.zeroeval.com/leaderboard/benchmarks/objectron?top_n=500",
-      "fallback": "model_release_proxy",
-      "first_score_reported_at": null,
-      "status": "release_evidence_required"
-    },
-    {
-      "key": "llm-stats:ocrbench-v2",
-      "name": "OCRBench_V2",
-      "source": "llm_stats",
-      "source_url": "https://api.zeroeval.com/leaderboard/benchmarks/ocrbench-v2?top_n=500",
-      "fallback": "model_release_proxy",
-      "first_score_reported_at": null,
-      "status": "release_evidence_required"
-    },
-    {
       "key": "llm-stats:ocrbench-v2-(en)",
       "name": "OCRBench-V2 (en)",
       "source": "llm_stats",
@@ -3334,15 +3208,6 @@
       "name": "OmniBench Music",
       "source": "llm_stats",
       "source_url": "https://api.zeroeval.com/leaderboard/benchmarks/omnibench-music?top_n=500",
-      "fallback": "model_release_proxy",
-      "first_score_reported_at": null,
-      "status": "release_evidence_required"
-    },
-    {
-      "key": "llm-stats:omnidocbench",
-      "name": "OmniDocBench",
-      "source": "llm_stats",
-      "source_url": "https://api.zeroeval.com/leaderboard/benchmarks/omnidocbench?top_n=500",
       "fallback": "model_release_proxy",
       "first_score_reported_at": null,
       "status": "release_evidence_required"
@@ -3528,15 +3393,6 @@
       "status": "release_evidence_required"
     },
     {
-      "key": "llm-stats:ovobench",
-      "name": "OVOBench",
-      "source": "llm_stats",
-      "source_url": "https://api.zeroeval.com/leaderboard/benchmarks/ovobench?top_n=500",
-      "fallback": "model_release_proxy",
-      "first_score_reported_at": null,
-      "status": "release_evidence_required"
-    },
-    {
       "key": "llm-stats:pathmcqa",
       "name": "PathMCQA",
       "source": "llm_stats",
@@ -3586,15 +3442,6 @@
       "name": "PLawBench",
       "source": "llm_stats",
       "source_url": "https://api.zeroeval.com/leaderboard/benchmarks/plawbench?top_n=500",
-      "fallback": "model_release_proxy",
-      "first_score_reported_at": null,
-      "status": "release_evidence_required"
-    },
-    {
-      "key": "llm-stats:pmc-vqa",
-      "name": "PMC-VQA",
-      "source": "llm_stats",
-      "source_url": "https://api.zeroeval.com/leaderboard/benchmarks/pmc-vqa?top_n=500",
       "fallback": "model_release_proxy",
       "first_score_reported_at": null,
       "status": "release_evidence_required"
@@ -3694,15 +3541,6 @@
       "name": "ProtocolQA",
       "source": "llm_stats",
       "source_url": "https://api.zeroeval.com/leaderboard/benchmarks/protocolqa?top_n=500",
-      "fallback": "model_release_proxy",
-      "first_score_reported_at": null,
-      "status": "release_evidence_required"
-    },
-    {
-      "key": "llm-stats:qvhighlights",
-      "name": "QVHighlights",
-      "source": "llm_stats",
-      "source_url": "https://api.zeroeval.com/leaderboard/benchmarks/qvhighlights?top_n=500",
       "fallback": "model_release_proxy",
       "first_score_reported_at": null,
       "status": "release_evidence_required"
@@ -3910,24 +3748,6 @@
       "name": "SAT Math",
       "source": "llm_stats",
       "source_url": "https://api.zeroeval.com/leaderboard/benchmarks/sat-math?top_n=500",
-      "fallback": "model_release_proxy",
-      "first_score_reported_at": null,
-      "status": "release_evidence_required"
-    },
-    {
-      "key": "llm-stats:screenspot",
-      "name": "ScreenSpot",
-      "source": "llm_stats",
-      "source_url": "https://api.zeroeval.com/leaderboard/benchmarks/screenspot?top_n=500",
-      "fallback": "model_release_proxy",
-      "first_score_reported_at": null,
-      "status": "release_evidence_required"
-    },
-    {
-      "key": "llm-stats:screenspot-pro",
-      "name": "ScreenSpot Pro",
-      "source": "llm_stats",
-      "source_url": "https://api.zeroeval.com/leaderboard/benchmarks/screenspot-pro?top_n=500",
       "fallback": "model_release_proxy",
       "first_score_reported_at": null,
       "status": "release_evidence_required"
@@ -4464,15 +4284,6 @@
       "status": "release_evidence_required"
     },
     {
-      "key": "llm-stats:v-star",
-      "name": "V*",
-      "source": "llm_stats",
-      "source_url": "https://api.zeroeval.com/leaderboard/benchmarks/v-star?top_n=500",
-      "fallback": "model_release_proxy",
-      "first_score_reported_at": null,
-      "status": "release_evidence_required"
-    },
-    {
       "key": "llm-stats:vatex",
       "name": "VATEX",
       "source": "llm_stats",
@@ -4662,15 +4473,6 @@
       "status": "release_evidence_required"
     },
     {
-      "key": "llm-stats:visualwebbench",
-      "name": "VisualWebBench",
-      "source": "llm_stats",
-      "source_url": "https://api.zeroeval.com/leaderboard/benchmarks/visualwebbench?top_n=500",
-      "fallback": "model_release_proxy",
-      "first_score_reported_at": null,
-      "status": "release_evidence_required"
-    },
-    {
       "key": "llm-stats:visulogic",
       "name": "VisuLogic",
       "source": "llm_stats",
@@ -4707,15 +4509,6 @@
       "status": "release_evidence_required"
     },
     {
-      "key": "llm-stats:vlmsareblind",
-      "name": "VLMsAreBlind",
-      "source": "llm_stats",
-      "source_url": "https://api.zeroeval.com/leaderboard/benchmarks/vlmsareblind?top_n=500",
-      "fallback": "model_release_proxy",
-      "first_score_reported_at": null,
-      "status": "release_evidence_required"
-    },
-    {
       "key": "llm-stats:vocalsound",
       "name": "VocalSound",
       "source": "llm_stats",
@@ -4738,15 +4531,6 @@
       "name": "VQA-Rad",
       "source": "llm_stats",
       "source_url": "https://api.zeroeval.com/leaderboard/benchmarks/vqa-rad?top_n=500",
-      "fallback": "model_release_proxy",
-      "first_score_reported_at": null,
-      "status": "release_evidence_required"
-    },
-    {
-      "key": "llm-stats:we-math",
-      "name": "We-Math",
-      "source": "llm_stats",
-      "source_url": "https://api.zeroeval.com/leaderboard/benchmarks/we-math?top_n=500",
       "fallback": "model_release_proxy",
       "first_score_reported_at": null,
       "status": "release_evidence_required"
@@ -4783,15 +4567,6 @@
       "name": "WideSearch",
       "source": "llm_stats",
       "source_url": "https://api.zeroeval.com/leaderboard/benchmarks/widesearch?top_n=500",
-      "fallback": "model_release_proxy",
-      "first_score_reported_at": null,
-      "status": "release_evidence_required"
-    },
-    {
-      "key": "llm-stats:wild-bench",
-      "name": "Wild Bench",
-      "source": "llm_stats",
-      "source_url": "https://api.zeroeval.com/leaderboard/benchmarks/wild-bench?top_n=500",
       "fallback": "model_release_proxy",
       "first_score_reported_at": null,
       "status": "release_evidence_required"

@@ -1,15 +1,15 @@
 # Release-date recovery for issue #588
 
-**122 source records now have cited benchmark dates; all 3,228 catalog records remain.**
+**147 source records now have cited benchmark dates; all 3,228 catalog records remain.**
 
 | Source | Missing release before | Missing release after | Recovered |
 | --- | ---: | ---: | ---: |
-| LLM Stats | 645 | 532 | 113 |
+| LLM Stats | 645 | 507 | 138 |
 | Model reports | 26 | 18 | 8 |
 | Artificial Analysis | 8 | 8 | 0 |
 | OpenCompass Hub | 4 | 3 | 1 |
 | Claire Radar | 0 | 0 | 0 |
-| Total | 683 | 561 | 122 |
+| Total | 683 | 536 | 147 |
 
 The issue's original 668-record count predates the current catalog. `baseline.json`
 pins the software commit, rebuilt-index hash, and every initially missing source key.
@@ -23,7 +23,10 @@ Other additions explicitly use `paper_first_version`; their evidence is the pape
 introducing the particular benchmark or original partition, not an arbitrary
 bibliography citation. The second batch dates original partitions such as the VQAv2
 test and validation splits, CoVoST 2 English-to-Chinese, the MMMU validation set; versioned, protocol-labelled, and variant
-records without their own evidence remain undated. No score, metric, source identity, or runtime name join is added.
+records without their own evidence remain undated. The third batch adds 25 more LLM Stats
+records from 23 introducing papers verified by arXiv title identity and v1 submission
+history, including the MultiPL-E HumanEval and MBPP translations named in that paper's
+abstract. No score, metric, source identity, or runtime name join is added.
 
 ## Review corrections
 
@@ -35,7 +38,7 @@ recovered-key list now reconciles every batch to the current unresolved ledger.
 
 ## Still unresolved
 
-**These verified batches are not completion of all date research.** The 561
+**These verified batches are not completion of all date research.** The 536
 remaining records are enumerated without truncation in `date-coverage.json`.
 They need primary-source release evidence; inclusion in that list does not mean
 that every possible external source has already been searched. Versioned, internal,

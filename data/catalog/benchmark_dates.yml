@@ -10,6 +10,14 @@
 # or a claim about a benchmark's highest score, and never enter Pareto ranking.
 schema_version: 1
 benchmarks:
+  llm-stats:ai2d:
+    basis: paper_first_version
+    name: AI2D
+    note: 'First version of the introducing paper: A Diagram Is Worth A Dozen Images. The source-record
+      description identifies this benchmark or its original partition; no dates or scores are
+      joined by name at runtime.'
+    released: '2016-03-24'
+    source_url: https://arxiv.org/abs/1603.07396
   llm-stats:arc-agi:
     basis: paper_first_version
     name: ARC-AGI
@@ -18,6 +26,14 @@ benchmarks:
       joined by name at runtime.'
     released: '2019-11-05'
     source_url: https://arxiv.org/abs/1911.01547
+  llm-stats:arkitscenes:
+    basis: paper_first_version
+    name: ARKitScenes
+    note: 'First version of the introducing paper: ARKitScenes: A Diverse Real-World Dataset For 3D
+      Indoor Scene Understanding Using Mobile RGB-D Data. The source-record description identifies
+      this benchmark or its original partition; no dates or scores are joined by name at runtime.'
+    released: '2021-11-17'
+    source_url: https://arxiv.org/abs/2111.08897
   llm-stats:bbh:
     basis: paper_first_version
     name: BBH
@@ -42,6 +58,14 @@ benchmarks:
       at runtime.'
     released: '2025-02-26'
     source_url: https://arxiv.org/abs/2502.19187
+  llm-stats:charadessta:
+    basis: paper_first_version
+    name: CharadesSTA
+    note: 'First version of the introducing paper: TALL: Temporal Activity Localization via Language
+      Query. The source-record description identifies this benchmark or its original partition; no
+      dates or scores are joined by name at runtime.'
+    released: '2017-05-05'
+    source_url: https://arxiv.org/abs/1705.02101
   llm-stats:chexpert-cxr:
     basis: paper_first_version
     name: "CheXpert CXR"
@@ -74,6 +98,14 @@ benchmarks:
       partition; no dates or scores are joined by name at runtime.'
     released: '2020-07-20'
     source_url: https://arxiv.org/abs/2007.10310
+  llm-stats:crag:
+    basis: paper_first_version
+    name: CRAG
+    note: 'First version of the introducing paper: CRAG -- Comprehensive RAG Benchmark. The
+      source-record description identifies this benchmark or its original partition; no dates or
+      scores are joined by name at runtime.'
+    released: '2024-06-07'
+    source_url: https://arxiv.org/abs/2406.04744
   llm-stats:crux-o:
     basis: paper_first_version
     name: CRUX-O
@@ -138,6 +170,14 @@ benchmarks:
       at runtime.'
     released: '2025-01-24'
     source_url: https://arxiv.org/abs/2501.14249
+  llm-stats:lvbench:
+    basis: paper_first_version
+    name: LVBench
+    note: 'First version of the introducing paper: LVBench: An Extreme Long Video Understanding
+      Benchmark. The source-record description identifies this benchmark or its original
+      partition; no dates or scores are joined by name at runtime.'
+    released: '2024-06-12'
+    source_url: https://arxiv.org/abs/2406.08035
   llm-stats:math-500:
     basis: paper_first_version
     name: MATH-500
@@ -154,6 +194,14 @@ benchmarks:
       original partition; no dates or scores are joined by name at runtime.'
     released: '2018-10-05'
     source_url: https://arxiv.org/abs/1810.02508
+  llm-stats:mle-bench:
+    basis: paper_first_version
+    name: MLE-Bench
+    note: 'First version of the introducing paper: MLE-bench: Evaluating Machine Learning Agents on
+      Machine Learning Engineering. The source-record description identifies this benchmark or its
+      original partition; no dates or scores are joined by name at runtime.'
+    released: '2024-10-09'
+    source_url: https://arxiv.org/abs/2410.07095
   llm-stats:mlvu:
     basis: paper_first_version
     name: MLVU
@@ -162,6 +210,14 @@ benchmarks:
       partition; no dates or scores are joined by name at runtime.'
     released: '2024-06-06'
     source_url: https://arxiv.org/abs/2406.04264
+  llm-stats:mmlongbench-doc:
+    basis: paper_first_version
+    name: MMLongBench-Doc
+    note: 'First version of the introducing paper: MMLongBench-Doc: Benchmarking Long-context Document
+      Understanding with Visualizations. The source-record description identifies this benchmark
+      or its original partition; no dates or scores are joined by name at runtime.'
+    released: '2024-07-01'
+    source_url: https://arxiv.org/abs/2407.01523
   llm-stats:mmlu-base:
     basis: paper_first_version
     name: MMLU-Base
@@ -197,6 +253,14 @@ benchmarks:
       at runtime.'
     released: '2023-11-27'
     source_url: https://arxiv.org/abs/2311.16502
+  llm-stats:mtvqa:
+    basis: paper_first_version
+    name: MTVQA
+    note: 'First version of the introducing paper: MTVQA: Benchmarking Multilingual Text-Centric Visual
+      Question Answering. The source-record description identifies this benchmark or its original
+      partition; no dates or scores are joined by name at runtime.'
+    released: '2024-05-20'
+    source_url: https://arxiv.org/abs/2405.11985
   llm-stats:muirbench:
     basis: paper_first_version
     name: MuirBench
@@ -205,6 +269,38 @@ benchmarks:
       original partition; no dates or scores are joined by name at runtime.'
     released: '2024-06-13'
     source_url: https://arxiv.org/abs/2406.09411
+  llm-stats:multipl-e:
+    basis: paper_first_version
+    name: MultiPL-E
+    note: 'First version of the introducing paper: MultiPL-E: A Scalable and Extensible Approach to
+      Benchmarking Neural Code Generation. The source-record description identifies this benchmark
+      or its original partition; no dates or scores are joined by name at runtime.'
+    released: '2022-08-17'
+    source_url: https://arxiv.org/abs/2208.08227
+  llm-stats:multipl-e-humaneval:
+    basis: paper_first_version
+    name: "Multipl-E HumanEval"
+    note: 'First version of the introducing paper: MultiPL-E: A Scalable and Extensible Approach to
+      Benchmarking Neural Code Generation. The source-record description identifies this benchmark
+      or its original partition; no dates or scores are joined by name at runtime.'
+    released: '2022-08-17'
+    source_url: https://arxiv.org/abs/2208.08227
+  llm-stats:multipl-e-mbpp:
+    basis: paper_first_version
+    name: "Multipl-E MBPP"
+    note: 'First version of the introducing paper: MultiPL-E: A Scalable and Extensible Approach to
+      Benchmarking Neural Code Generation. The source-record description identifies this benchmark
+      or its original partition; no dates or scores are joined by name at runtime.'
+    released: '2022-08-17'
+    source_url: https://arxiv.org/abs/2208.08227
+  llm-stats:musiccaps:
+    basis: paper_first_version
+    name: MusicCaps
+    note: 'First version of the introducing paper: MusicLM: Generating Music From Text. The
+      source-record description identifies this benchmark or its original partition; no dates or
+      scores are joined by name at runtime.'
+    released: '2023-01-26'
+    source_url: https://arxiv.org/abs/2301.11325
   llm-stats:mvbench:
     basis: paper_first_version
     name: MVBench
@@ -221,6 +317,23 @@ benchmarks:
       no dates or scores are joined by name at runtime.'
     released: '2019-03-26'
     source_url: https://arxiv.org/abs/1903.11027
+  llm-stats:objectron:
+    basis: paper_first_version
+    name: Objectron
+    note: 'First version of the introducing paper: Objectron: A Large Scale Dataset of Object-Centric
+      Videos in the Wild with Pose Annotations. The source-record description identifies this
+      benchmark or its original partition; no dates or scores are joined by name at runtime.'
+    released: '2020-12-18'
+    source_url: https://arxiv.org/abs/2012.09988
+  llm-stats:ocrbench-v2:
+    basis: paper_first_version
+    name: OCRBench_V2
+    note: 'First version of the introducing paper: OCRBench v2: An Improved Benchmark for Evaluating
+      Large Multimodal Models on Visual Text Localization and Reasoning. The source-record
+      description identifies this benchmark or its original partition; no dates or scores are
+      joined by name at runtime.'
+    released: '2024-12-31'
+    source_url: https://arxiv.org/abs/2501.00321
   llm-stats:olympiadbench:
     basis: paper_first_version
     name: OlympiadBench
@@ -230,6 +343,22 @@ benchmarks:
       joined by name at runtime.'
     released: '2024-02-21'
     source_url: https://arxiv.org/abs/2402.14008
+  llm-stats:omnidocbench:
+    basis: paper_first_version
+    name: OmniDocBench
+    note: 'First version of the introducing paper: OmniDocBench: Benchmarking Diverse PDF Document
+      Parsing with Comprehensive Annotations. The source-record description identifies this
+      benchmark or its original partition; no dates or scores are joined by name at runtime.'
+    released: '2024-12-10'
+    source_url: https://arxiv.org/abs/2412.07626
+  llm-stats:ovobench:
+    basis: paper_first_version
+    name: OVOBench
+    note: 'First version of the introducing paper: OVO-Bench: How Far is Your Video-LLMs from
+      Real-World Online Video Understanding?. The source-record description identifies this
+      benchmark or its original partition; no dates or scores are joined by name at runtime.'
+    released: '2025-01-09'
+    source_url: https://arxiv.org/abs/2501.05510
   llm-stats:perceptiontest:
     basis: paper_first_version
     name: PerceptionTest
@@ -238,6 +367,14 @@ benchmarks:
       original partition; no dates or scores are joined by name at runtime.'
     released: '2023-05-23'
     source_url: https://arxiv.org/abs/2305.13786
+  llm-stats:pmc-vqa:
+    basis: paper_first_version
+    name: PMC-VQA
+    note: 'First version of the introducing paper: PMC-VQA: Visual Instruction Tuning for Medical
+      Visual Question Answering. The source-record description identifies this benchmark or its
+      original partition; no dates or scores are joined by name at runtime.'
+    released: '2023-05-17'
+    source_url: https://arxiv.org/abs/2305.10415
   llm-stats:pope:
     basis: paper_first_version
     name: POPE
@@ -246,6 +383,14 @@ benchmarks:
       original partition; no dates or scores are joined by name at runtime.'
     released: '2023-05-17'
     source_url: https://arxiv.org/abs/2305.10355
+  llm-stats:qvhighlights:
+    basis: paper_first_version
+    name: QVHighlights
+    note: 'First version of the introducing paper: QVHighlights: Detecting Moments and Highlights in
+      Videos via Natural Language Queries. The source-record description identifies this benchmark
+      or its original partition; no dates or scores are joined by name at runtime.'
+    released: '2021-07-20'
+    source_url: https://arxiv.org/abs/2107.09609
   llm-stats:repobench:
     basis: paper_first_version
     name: RepoBench
@@ -262,6 +407,22 @@ benchmarks:
       or scores are joined by name at runtime.'
     released: '2024-06-10'
     source_url: https://arxiv.org/abs/2406.06025
+  llm-stats:screenspot:
+    basis: paper_first_version
+    name: ScreenSpot
+    note: 'First version of the introducing paper: SeeClick: Harnessing GUI Grounding for Advanced
+      Visual GUI Agents. The source-record description identifies this benchmark or its original
+      partition; no dates or scores are joined by name at runtime.'
+    released: '2024-01-17'
+    source_url: https://arxiv.org/abs/2401.10935
+  llm-stats:screenspot-pro:
+    basis: paper_first_version
+    name: "ScreenSpot Pro"
+    note: 'First version of the introducing paper: ScreenSpot-Pro: GUI Grounding for Professional
+      High-Resolution Computer Use. The source-record description identifies this benchmark or its
+      original partition; no dates or scores are joined by name at runtime.'
+    released: '2025-04-04'
+    source_url: https://arxiv.org/abs/2504.07981
   llm-stats:social-iqa:
     basis: paper_first_version
     name: "Social IQa"
@@ -278,6 +439,30 @@ benchmarks:
       no dates or scores are joined by name at runtime.'
     released: '2024-03-01'
     source_url: https://arxiv.org/abs/2403.00476
+  llm-stats:v-star:
+    basis: paper_first_version
+    name: "V*"
+    note: 'First version of the introducing paper: V*: Guided Visual Search as a Core Mechanism in
+      Multimodal LLMs. The source-record description identifies this benchmark or its original
+      partition; no dates or scores are joined by name at runtime.'
+    released: '2023-12-21'
+    source_url: https://arxiv.org/abs/2312.14135
+  llm-stats:visualwebbench:
+    basis: paper_first_version
+    name: VisualWebBench
+    note: 'First version of the introducing paper: VisualWebBench: How Far Have Multimodal LLMs Evolved
+      in Web Page Understanding and Grounding?. The source-record description identifies this
+      benchmark or its original partition; no dates or scores are joined by name at runtime.'
+    released: '2024-04-09'
+    source_url: https://arxiv.org/abs/2404.05955
+  llm-stats:vlmsareblind:
+    basis: paper_first_version
+    name: VLMsAreBlind
+    note: 'First version of the introducing paper: Vision language models are blind: Failing to
+      translate detailed visual features into words. The source-record description identifies this
+      benchmark or its original partition; no dates or scores are joined by name at runtime.'
+    released: '2024-07-09'
+    source_url: https://arxiv.org/abs/2407.06581
   llm-stats:vqav2:
     basis: paper_first_version
     name: VQAv2
@@ -302,6 +487,22 @@ benchmarks:
       this benchmark or its original partition; no dates or scores are joined by name at runtime.'
     released: '2016-12-02'
     source_url: https://arxiv.org/abs/1612.00837
+  llm-stats:we-math:
+    basis: paper_first_version
+    name: We-Math
+    note: 'First version of the introducing paper: We-Math: Does Your Large Multimodal Model Achieve
+      Human-like Mathematical Reasoning?. The source-record description identifies this benchmark
+      or its original partition; no dates or scores are joined by name at runtime.'
+    released: '2024-07-01'
+    source_url: https://arxiv.org/abs/2407.01284
+  llm-stats:wild-bench:
+    basis: paper_first_version
+    name: "Wild Bench"
+    note: 'First version of the introducing paper: WildBench: Benchmarking LLMs with Challenging Tasks
+      from Real Users in the Wild. The source-record description identifies this benchmark or its
+      original partition; no dates or scores are joined by name at runtime.'
+    released: '2024-06-07'
+    source_url: https://arxiv.org/abs/2406.04770
   llm-stats:xlsum-english:
     basis: paper_first_version
     name: "XLSum English"
