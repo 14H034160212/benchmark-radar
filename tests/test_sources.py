@@ -3815,10 +3815,11 @@ def test_xbsleepy_counts_malformed_rows_without_hiding_healthy_records(monkeypat
     ]
 
 
-def test_xbsleepy_all_malformed_rows_leave_a_visible_warning(monkeypatch):
+def test_xbsleepy_all_malformed_rows_fail_even_when_empty_is_allowed(monkeypatch):
     monkeypatch.setattr("benchmark_radar.sources.get_json", lambda *a, **kw: {"papers": [{}]})
     config = {"index_url": "https://digest.example/data/index.json", "allow_empty": True}
-    assert fetch_xbsleepy(config, datetime(2026, 9, 8, tzinfo=UTC), 10) == []
+    with pytest.raises(ConnectorPayloadError, match="no valid paper rows"):
+        fetch_xbsleepy(config, datetime(2026, 9, 8, tzinfo=UTC), 10)
     assert config["_source_warnings"] == [
         "XBsleepy skipped 1 malformed row(s) (id: 1, links.abs: 1, title: 1, valid date: 1)"
     ]
@@ -3864,5 +3865,28 @@ def test_xbsleepy_first_seen_cannot_replace_missing_publication_provenance(monke
     paper = {**XBSLEEPY_INDEX_PAPERS[0], "published": None, "announced_date": None}
     monkeypatch.setattr("benchmark_radar.sources.get_json", lambda *a, **kw: {"papers": [paper]})
     config = {"index_url": "https://digest.example/data/index.json"}
-    assert fetch_xbsleepy(config, datetime(2026, 9, 8, tzinfo=UTC), 10) == []
+    with pytest.raises(ConnectorPayloadError, match="no valid paper rows"):
+        fetch_xbsleepy(config, datetime(2026, 9, 8, tzinfo=UTC), 10)
     assert config["_source_warnings"] == ["XBsleepy skipped 1 malformed row(s) (valid date: 1)"]
+
+
+def test_xbsleepy_cap_prefers_digest_activity_over_old_publication_dates(monkeypatch):
+    older = {
+        **XBSLEEPY_INDEX_PAPERS[0],
+        "id": "old-newly-discovered",
+        "published": "2026-07-01T12:00:00Z",
+        "updated": "2026-07-02T12:00:00Z",
+        "announced_date": "2026-07-02",
+        "first_seen": "2026-09-11",
+    }
+    newer = {**XBSLEEPY_INDEX_PAPERS[0], "first_seen": "2026-09-10"}
+    monkeypatch.setattr(
+        "benchmark_radar.sources.get_json", lambda *a, **kw: {"papers": [newer, older]}
+    )
+    items = fetch_xbsleepy(
+        {"index_url": "https://digest.example/data/index.json"},
+        datetime(2026, 9, 8, tzinfo=UTC),
+        1,
+    )
+    assert [item.source_id for item in items] == ["xbsleepy:old-newly-discovered"]
+    assert items[0].published_at == datetime(2026, 7, 1, 12, tzinfo=UTC)

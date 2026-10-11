@@ -2223,6 +2223,7 @@ def fetch_xbsleepy(
     payload = get_json(index_url, **_request_options(config))
     rows = _payload_rows(payload, "papers", "XBsleepy")
     found: dict[str, RadarItem] = {}
+    activity_by_id: dict[str, datetime] = {}
     skipped_rows = 0
     missing_fields: dict[str, int] = defaultdict(int)
     invalid_citations = 0
@@ -2305,7 +2306,9 @@ def fetch_xbsleepy(
                 invalid_citations += 1
             else:
                 metrics["citations"] = citations
-        found[f"xbsleepy:{paper_id}"] = RadarItem(
+        source_id = f"xbsleepy:{paper_id}"
+        activity_by_id[source_id] = activity_at
+        found[source_id] = RadarItem(
             source="XBsleepy",
             source_id=f"xbsleepy:{paper_id}",
             title=title,
@@ -2326,13 +2329,15 @@ def fetch_xbsleepy(
         config.setdefault("_source_warnings", []).append(
             f"XBsleepy skipped {skipped_rows} malformed row(s) ({reasons})"
         )
+    if rows and skipped_rows == len(rows):
+        raise ConnectorPayloadError("XBsleepy non-empty index contains no valid paper rows")
     if invalid_citations:
         config.setdefault("_source_warnings", []).append(
             f"XBsleepy omitted {invalid_citations} invalid citation count(s)"
         )
-    return sorted(
-        found.values(), key=lambda item: item.updated_at or item.published_at, reverse=True
-    )[:limit]
+    return sorted(found.values(), key=lambda item: activity_by_id[item.source_id], reverse=True)[
+        :limit
+    ]
 
 
 # Brave's freshness range is date-granular and inclusive. `since` plus the
