@@ -1365,6 +1365,7 @@ _TREND_DAY_KEYS = (
     "selection",
     "since",
     "source_counts",
+    "contributing_source_counts",
 )
 
 

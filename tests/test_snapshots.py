@@ -17,6 +17,7 @@ from benchmark_radar.models import (
 )
 from benchmark_radar.snapshots import (
     SnapshotError,
+    dashboard_trends,
     load_snapshots,
     merge_snapshots,
     migrate_snapshot_history,
@@ -1678,6 +1679,8 @@ def test_dashboard_counts_merged_sources_without_inflating_unique_records(tmp_pa
     assert day["evidence_count"] == 1
     assert day["source_counts"] == {"arXiv": 1}
     assert day["contributing_source_counts"] == {"XBsleepy": 1, "arXiv": 1}
+    trend_day = dashboard_trends(dashboard)["days"][0]
+    assert trend_day["contributing_source_counts"] == day["contributing_source_counts"]
 
 
 def test_same_day_merge_preserves_contributing_source_provenance():
