@@ -124,7 +124,6 @@ footer {
   justify-content: space-between;
   gap: 1.25rem;
   min-height: 80px;
-  border-bottom: 1px solid var(--edge);
   background: color-mix(in srgb, var(--canvas) 96%, transparent);
   backdrop-filter: blur(12px);
 }
