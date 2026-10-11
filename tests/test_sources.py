@@ -3541,7 +3541,6 @@ def test_arxiv_partial_atom_is_not_evicted_by_newer_rss_at_source_cap(monkeypatc
     assert any("arXiv Atom: RequestError" in warning for warning in config["_source_warnings"])
 
 
-
 XBSLEEPY_INDEX_PAPERS = [
     {
         "id": "2609.11115",
@@ -3608,7 +3607,7 @@ def test_xbsleepy_maps_index_papers_and_carries_theme_tags(monkeypatch):
     ]
     assert item.metrics == {"citations": 2.0}
     assert item.authors == ["Koutian Wu"]
-    assert item.parser_version == "xbsleepy-index/1"
+    assert item.parser_version == "xbsleepy-index/2"
 
 
 def test_xbsleepy_accepts_date_only_announced_dates(monkeypatch):
@@ -3751,3 +3750,119 @@ def test_xbsleepy_date_only_announcement_uses_day_precision(monkeypatch, cutoff_
     if items:
         assert items[0].published_at == datetime(2026, 9, 4, 18, tzinfo=UTC)
         assert items[0].updated_at == datetime(2026, 9, 5, 18, tzinfo=UTC)
+
+
+@pytest.mark.parametrize(
+    "value, expected",
+    [
+        (None, {}),
+        ("", {}),
+        (0, {"citations": 0.0}),
+        ("7", {"citations": 7.0}),
+        ("not-a-count", {}),
+        (float("nan"), {}),
+        (float("inf"), {}),
+        (-1, {}),
+        (True, {}),
+    ],
+)
+def test_xbsleepy_citations_require_a_reported_numeric_count(monkeypatch, value, expected):
+    paper = {**XBSLEEPY_INDEX_PAPERS[0], "citations": value}
+    monkeypatch.setattr("benchmark_radar.sources.get_json", lambda *a, **kw: {"papers": [paper]})
+    config = {"index_url": "https://digest.example/data/index.json"}
+    items = fetch_xbsleepy(config, datetime(2026, 9, 8, tzinfo=UTC), 10)
+    assert len(items) == 1
+    assert items[0].to_dict()["metrics"] == expected
+    assert items[0].parser_version == "xbsleepy-index/2"
+    if value not in (None, "", 0, "7"):
+        assert config["_source_warnings"] == ["XBsleepy omitted 1 invalid citation count(s)"]
+
+
+def test_xbsleepy_missing_citations_remain_unknown(monkeypatch):
+    paper = dict(XBSLEEPY_INDEX_PAPERS[0])
+    paper.pop("citations")
+    monkeypatch.setattr("benchmark_radar.sources.get_json", lambda *a, **kw: {"papers": [paper]})
+    items = fetch_xbsleepy(
+        {"index_url": "https://digest.example/data/index.json"},
+        datetime(2026, 9, 8, tzinfo=UTC),
+        10,
+    )
+    assert items[0].metrics == {}
+
+
+def test_xbsleepy_counts_malformed_rows_without_hiding_healthy_records(monkeypatch):
+    healthy = XBSLEEPY_INDEX_PAPERS[0]
+    rows = [
+        healthy,
+        {**healthy, "id": ""},
+        {**healthy, "title": ""},
+        {**healthy, "links": {}},
+        {
+            **healthy,
+            "published": None,
+            "updated": None,
+            "announced_date": "invalid",
+            "first_seen": None,
+        },
+        {},
+    ]
+    monkeypatch.setattr("benchmark_radar.sources.get_json", lambda *a, **kw: {"papers": rows})
+    config = {"index_url": "https://digest.example/data/index.json", "allow_empty": True}
+    items = fetch_xbsleepy(config, datetime(2026, 9, 8, tzinfo=UTC), 10)
+    assert len(items) == 1
+    assert config["_source_warnings"] == [
+        "XBsleepy skipped 5 malformed row(s) (id: 2, links.abs: 2, title: 2, valid date: 2)"
+    ]
+
+
+def test_xbsleepy_all_malformed_rows_leave_a_visible_warning(monkeypatch):
+    monkeypatch.setattr("benchmark_radar.sources.get_json", lambda *a, **kw: {"papers": [{}]})
+    config = {"index_url": "https://digest.example/data/index.json", "allow_empty": True}
+    assert fetch_xbsleepy(config, datetime(2026, 9, 8, tzinfo=UTC), 10) == []
+    assert config["_source_warnings"] == [
+        "XBsleepy skipped 1 malformed row(s) (id: 1, links.abs: 1, title: 1, valid date: 1)"
+    ]
+
+
+@pytest.mark.parametrize(
+    "first_seen, cutoff, expected",
+    [
+        ("2026-09-10", datetime(2026, 9, 10, 5, tzinfo=UTC), 1),
+        ("2026-09-10", datetime(2026, 9, 11, 5, tzinfo=UTC), 0),
+        ("2026-09-10T06:00:00Z", datetime(2026, 9, 10, 5, tzinfo=UTC), 1),
+        ("2026-09-10T04:00:00Z", datetime(2026, 9, 10, 5, tzinfo=UTC), 0),
+    ],
+)
+def test_xbsleepy_collects_newly_discovered_old_papers(monkeypatch, first_seen, cutoff, expected):
+    paper = {
+        **XBSLEEPY_INDEX_PAPERS[0],
+        "published": "2026-07-01T12:00:00Z",
+        "updated": "2026-07-02T12:00:00Z",
+        "announced_date": "2026-07-02",
+        "first_seen": first_seen,
+    }
+    monkeypatch.setattr("benchmark_radar.sources.get_json", lambda *a, **kw: {"papers": [paper]})
+    items = fetch_xbsleepy({"index_url": "https://digest.example/data/index.json"}, cutoff, 10)
+    assert len(items) == expected
+    if items:
+        assert items[0].published_at == datetime(2026, 7, 1, 12, tzinfo=UTC)
+        assert items[0].updated_at == datetime(2026, 7, 2, 12, tzinfo=UTC)
+
+
+def test_xbsleepy_rejects_a_future_first_seen(monkeypatch):
+    paper = {**XBSLEEPY_INDEX_PAPERS[0], "first_seen": "2027-01-01"}
+    monkeypatch.setattr("benchmark_radar.sources.get_json", lambda *a, **kw: {"papers": [paper]})
+    config = {
+        "index_url": "https://digest.example/data/index.json",
+        "_collection_now": datetime(2026, 9, 10, 12, tzinfo=UTC),
+    }
+    assert fetch_xbsleepy(config, datetime(2026, 9, 8, tzinfo=UTC), 10) == []
+    assert config["_future_rejections"] == 1
+
+
+def test_xbsleepy_first_seen_cannot_replace_missing_publication_provenance(monkeypatch):
+    paper = {**XBSLEEPY_INDEX_PAPERS[0], "published": None, "announced_date": None}
+    monkeypatch.setattr("benchmark_radar.sources.get_json", lambda *a, **kw: {"papers": [paper]})
+    config = {"index_url": "https://digest.example/data/index.json"}
+    assert fetch_xbsleepy(config, datetime(2026, 9, 8, tzinfo=UTC), 10) == []
+    assert config["_source_warnings"] == ["XBsleepy skipped 1 malformed row(s) (valid date: 1)"]

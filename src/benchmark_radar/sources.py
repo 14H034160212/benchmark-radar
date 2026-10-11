@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 import os
 import re
 import time
@@ -2222,6 +2223,9 @@ def fetch_xbsleepy(
     payload = get_json(index_url, **_request_options(config))
     rows = _payload_rows(payload, "papers", "XBsleepy")
     found: dict[str, RadarItem] = {}
+    skipped_rows = 0
+    missing_fields: dict[str, int] = defaultdict(int)
+    invalid_citations = 0
     for row in rows:
         paper_id = str(row.get("id") or "").strip()
         title = str(row.get("title") or "").strip()
@@ -2234,6 +2238,8 @@ def fetch_xbsleepy(
         announced_raw = str(row.get("announced_date") or "").strip()
         announced = _optional_date(announced_raw)
         updated = _optional_date(str(row.get("updated") or ""))
+        first_seen_raw = str(row.get("first_seen") or "").strip()
+        first_seen = _optional_date(first_seen_raw)
         published_at = published or announced
         updated_at = updated or published_at
         # `published` is the arXiv v1 submission time, not the announcement, so
@@ -2242,18 +2248,33 @@ def fetch_xbsleepy(
         # take the latest known timestamp as the activity signal, while the
         # item's own dates stay the paper's publication provenance.
         activity_at = max(
-            (value for value in (updated, published_at, announced) if value is not None),
+            (
+                value
+                for value in (updated, published_at, announced, first_seen)
+                if value is not None
+            ),
             default=None,
         )
-        if not paper_id or not title or not url or activity_at is None:
+        missing = [
+            name
+            for name, value in (("id", paper_id), ("title", title), ("links.abs", url))
+            if not value
+        ]
+        if published_at is None or activity_at is None:
+            missing.append("valid date")
+        if missing:
+            skipped_rows += 1
+            for name in missing:
+                missing_fields[name] += 1
             continue
-        # A date-only announcement has day precision, not midnight precision.
-        # Keep the cutoff day without changing the stored publication dates.
-        announcement_in_window = (
-            len(announced_raw) == 10 and announced is not None and announced.date() >= since.date()
+        # Digest discovery and announcement cursors can have day precision.
+        # Keep the cutoff day without changing the paper's stored dates.
+        date_activity_in_window = any(
+            len(raw_date) == 10 and value is not None and value.date() >= since.date()
+            for raw_date, value in ((announced_raw, announced), (first_seen_raw, first_seen))
         )
-        if (activity_at < since and not announcement_in_window) or _reject_future(
-            config, paper_id, published_at, updated, announced
+        if (activity_at < since and not date_activity_in_window) or _reject_future(
+            config, paper_id, published_at, updated, announced, first_seen
         ):
             continue
         raw_authors = row.get("authors")
@@ -2269,6 +2290,21 @@ def fetch_xbsleepy(
             if str(links.get(key) or "").startswith(("https://", "http://"))
         ]
         source_tags = [f"xbsleepy:{str(tag).strip()}" for tag in raw_tags or [] if str(tag).strip()]
+        metrics = {}
+        citation_value = row.get("citations")
+        if citation_value is not None and citation_value != "":
+            try:
+                citations = float(citation_value)
+                if (
+                    isinstance(citation_value, bool)
+                    or not math.isfinite(citations)
+                    or citations < 0
+                ):
+                    raise ValueError("invalid citation count")
+            except (TypeError, ValueError, OverflowError):
+                invalid_citations += 1
+            else:
+                metrics["citations"] = citations
         found[f"xbsleepy:{paper_id}"] = RadarItem(
             source="XBsleepy",
             source_id=f"xbsleepy:{paper_id}",
@@ -2280,10 +2316,19 @@ def fetch_xbsleepy(
             event_kind="discovered",
             authors=authors,
             artifact_urls=artifact_urls,
-            metrics={"citations": float(row.get("citations") or 0)},
+            metrics=metrics,
             source_tags=source_tags,
             raw=row,
-            parser_version="xbsleepy-index/1",
+            parser_version="xbsleepy-index/2",
+        )
+    if skipped_rows:
+        reasons = ", ".join(f"{name}: {count}" for name, count in sorted(missing_fields.items()))
+        config.setdefault("_source_warnings", []).append(
+            f"XBsleepy skipped {skipped_rows} malformed row(s) ({reasons})"
+        )
+    if invalid_citations:
+        config.setdefault("_source_warnings", []).append(
+            f"XBsleepy omitted {invalid_citations} invalid citation count(s)"
         )
     return sorted(
         found.values(), key=lambda item: item.updated_at or item.published_at, reverse=True
