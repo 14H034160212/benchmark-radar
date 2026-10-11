@@ -3729,3 +3729,25 @@ def test_xbsleepy_rejects_future_timestamps_instead_of_publishing_them(monkeypat
 
     assert items == []
     assert config["_future_rejections"] == 1
+
+
+@pytest.mark.parametrize("cutoff_day, expected", [(10, 1), (11, 0)])
+def test_xbsleepy_date_only_announcement_uses_day_precision(monkeypatch, cutoff_day, expected):
+    paper = {
+        "id": "2609.00003",
+        "title": "Delayed benchmark announcement",
+        "published": "2026-09-04T18:00:00Z",
+        "updated": "2026-09-05T18:00:00Z",
+        "announced_date": "2026-09-10",
+        "links": {"abs": "https://arxiv.org/abs/2609.00003"},
+    }
+    monkeypatch.setattr("benchmark_radar.sources.get_json", lambda *a, **kw: {"papers": [paper]})
+    items = fetch_xbsleepy(
+        {"index_url": "https://digest.example/data/index.json"},
+        datetime(2026, 9, cutoff_day, 5, tzinfo=UTC),
+        10,
+    )
+    assert len(items) == expected
+    if items:
+        assert items[0].published_at == datetime(2026, 9, 4, 18, tzinfo=UTC)
+        assert items[0].updated_at == datetime(2026, 9, 5, 18, tzinfo=UTC)

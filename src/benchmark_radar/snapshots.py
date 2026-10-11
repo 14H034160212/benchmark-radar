@@ -671,7 +671,16 @@ def merge_snapshots(existing: dict[str, Any], incoming: dict[str, Any]) -> dict[
     aliases = artifact_alias_map(all_items)
     merged_items: dict[str, Any] = {}
     for item in all_items:
-        merged_items[aliases[exact_artifact_key(item)]] = item
+        key = aliases[exact_artifact_key(item)]
+        previous = merged_items.get(key)
+        if previous is not None and (previous.get("source_tags") or item.get("source_tags")):
+            item = {
+                **item,
+                "source_tags": sorted(
+                    set(previous.get("source_tags") or []) | set(item.get("source_tags") or [])
+                ),
+            }
+        merged_items[key] = item
     evidence_items = list(merged_items.values())
 
     # Attention collection normally carries the previous pass forward, but a

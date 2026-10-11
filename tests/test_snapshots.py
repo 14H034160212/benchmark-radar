@@ -18,6 +18,7 @@ from benchmark_radar.models import (
 from benchmark_radar.snapshots import (
     SnapshotError,
     load_snapshots,
+    merge_snapshots,
     migrate_snapshot_history,
     rebuild_dashboard,
     records_badge,
@@ -1634,3 +1635,23 @@ def test_a_data_only_rebuild_writes_no_blog(tmp_path):
         for node in ET.parse(output.parent / "sitemap.xml").getroot().findall("sm:url/sm:loc", ns)
     ]
     assert not [url for url in urls if "/blog/" in url]
+
+
+@pytest.mark.parametrize("reverse", [False, True])
+@pytest.mark.parametrize("later_tags", [[], ["xbsleepy:coding", "xbsleepy:planning"]])
+def test_same_day_snapshot_merge_preserves_source_tags(reverse, later_tags):
+    earlier_run = radar_run()
+    earlier_run.items[0].source_tags = ["xbsleepy:planning"]
+    later_run = radar_run()
+    later_run.generated_at += timedelta(hours=1)
+    later_run.items[0].source_tags = later_tags
+    later_run.items[0].metrics = {"citations": 9}
+    earlier = snapshot_for_run(earlier_run)
+    later = snapshot_for_run(later_run)
+    merged = merge_snapshots(later, earlier) if reverse else merge_snapshots(earlier, later)
+    assert len(merged["evidence_items"]) == 1
+    item = merged["evidence_items"][0]
+    assert item["source_tags"] == sorted({"xbsleepy:planning", *later_tags})
+    assert item["metrics"] == {"citations": 9}
+    assert earlier["evidence_items"][0]["source_tags"] == ["xbsleepy:planning"]
+    assert later["evidence_items"][0]["source_tags"] == later_tags

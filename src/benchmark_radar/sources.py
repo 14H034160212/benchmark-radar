@@ -2231,7 +2231,8 @@ def fetch_xbsleepy(
         links = links if isinstance(links, dict) else {}
         url = str(links.get("abs") or "").strip()
         published = _optional_date(str(row.get("published") or ""))
-        announced = _optional_date(str(row.get("announced_date") or ""))
+        announced_raw = str(row.get("announced_date") or "").strip()
+        announced = _optional_date(announced_raw)
         updated = _optional_date(str(row.get("updated") or ""))
         published_at = published or announced
         updated_at = updated or published_at
@@ -2246,7 +2247,12 @@ def fetch_xbsleepy(
         )
         if not paper_id or not title or not url or activity_at is None:
             continue
-        if activity_at < since or _reject_future(
+        # A date-only announcement has day precision, not midnight precision.
+        # Keep the cutoff day without changing the stored publication dates.
+        announcement_in_window = (
+            len(announced_raw) == 10 and announced is not None and announced.date() >= since.date()
+        )
+        if (activity_at < since and not announcement_in_window) or _reject_future(
             config, paper_id, published_at, updated, announced
         ):
             continue
