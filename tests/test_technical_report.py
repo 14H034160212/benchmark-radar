@@ -67,7 +67,7 @@ def test_use_case_tables_are_typeset_rather_than_screenshots() -> None:
         assert not (LATEX / "figures" / retired).exists()
 
 
-def test_deposited_pdfs_live_on_zenodo_not_in_the_repository() -> None:
-    # v0.9.0 is DOI 10.5281/zenodo.22167102. The tracked draft is latex/main.pdf;
-    # a second PDF copy in the tree goes stale and disagrees with it.
+def test_published_pdfs_are_not_copied_into_the_repository() -> None:
+    # Cite only https://arxiv.org/abs/2609.11115. The tracked draft is
+    # latex/main.pdf; a second PDF copy in the tree goes stale.
     assert not (ROOT / "output" / "pdf").exists()
