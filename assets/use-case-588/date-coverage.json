@@ -1,7 +1,7 @@
 {
   "records": 3228,
-  "released": 2670,
-  "missing_release": 558,
+  "released": 2667,
+  "missing_release": 561,
   "sources": {
     "artificial_analysis": {
       "records": 25,
@@ -29,7 +29,9 @@
     },
     "opencompass_hub": {
       "records": 461,
-      "released": 461
+      "released": 458,
+      "missing_release": 3,
+      "score_publication": 3
     }
   },
   "unresolved": [
@@ -5053,6 +5055,33 @@
       "source_url": "https://github.com/abundant-ai/swe-marathon",
       "fallback": "score_publication",
       "first_score_reported_at": "2026-08-28",
+      "status": "release_evidence_required"
+    },
+    {
+      "key": "opencompass:507",
+      "name": "WSC",
+      "source": "opencompass_hub",
+      "source_url": "https://hub.opencompass.org.cn/dataset-detail/WSC",
+      "fallback": "score_publication",
+      "first_score_reported_at": "2019-05-02",
+      "status": "release_evidence_required"
+    },
+    {
+      "key": "opencompass:528",
+      "name": "RTE",
+      "source": "opencompass_hub",
+      "source_url": "https://hub.opencompass.org.cn/dataset-detail/RTE",
+      "fallback": "score_publication",
+      "first_score_reported_at": "2019-05-02",
+      "status": "release_evidence_required"
+    },
+    {
+      "key": "opencompass:529",
+      "name": "COPA",
+      "source": "opencompass_hub",
+      "source_url": "https://hub.opencompass.org.cn/dataset-detail/COPA",
+      "fallback": "score_publication",
+      "first_score_reported_at": "2019-05-02",
       "status": "release_evidence_required"
     }
   ]

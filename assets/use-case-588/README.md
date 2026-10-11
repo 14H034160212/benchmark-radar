@@ -1,15 +1,15 @@
 # Release-date recovery for issue #588
 
-**125 source records now have cited benchmark dates; all 3,228 catalog records remain.**
+**122 source records now have cited benchmark dates; all 3,228 catalog records remain.**
 
 | Source | Missing release before | Missing release after | Recovered |
 | --- | ---: | ---: | ---: |
 | LLM Stats | 645 | 532 | 113 |
 | Model reports | 26 | 18 | 8 |
 | Artificial Analysis | 8 | 8 | 0 |
-| OpenCompass Hub | 4 | 0 | 4 |
+| OpenCompass Hub | 4 | 3 | 1 |
 | Claire Radar | 0 | 0 | 0 |
-| Total | 683 | 558 | 125 |
+| Total | 683 | 561 | 122 |
 
 The issue's original 668-record count predates the current catalog. `baseline.json`
 pins the software commit, rebuilt-index hash, and every initially missing source key.
@@ -22,13 +22,20 @@ Consensus subsets use May 12, 2025, rather than the May 13 arXiv submission.
 Other additions explicitly use `paper_first_version`; their evidence is the paper
 introducing the particular benchmark or original partition, not an arbitrary
 bibliography citation. The second batch dates original partitions such as the VQAv2
-test and validation splits, CoVoST 2 English-to-Chinese, the MMMU validation set, and
-SuperGLUE tasks hosted on OpenCompass; versioned, protocol-labelled, and variant
+test and validation splits, CoVoST 2 English-to-Chinese, the MMMU validation set; versioned, protocol-labelled, and variant
 records without their own evidence remain undated. No score, metric, source identity, or runtime name join is added.
+
+## Review corrections
+
+WSC, RTE, and COPA predate SuperGLUE. Its introducing paper is retained only
+as cited score-publication evidence for those three OpenCompass records; their
+release dates remain unknown. The original review entry is preserved and an
+append-only correction records the withdrawn release attribution. The baseline
+recovered-key list now reconciles every batch to the current unresolved ledger.
 
 ## Still unresolved
 
-**These verified batches are not completion of all date research.** The 558
+**These verified batches are not completion of all date research.** The 561
 remaining records are enumerated without truncation in `date-coverage.json`.
 They need primary-source release evidence; inclusion in that list does not mean
 that every possible external source has already been searched. Versioned, internal,

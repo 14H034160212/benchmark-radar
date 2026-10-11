@@ -1085,5 +1085,16 @@
     "source_keys": [
       "llm-stats:xstest"
     ]
+  },
+  {
+    "source_url": "https://arxiv.org/abs/1905.00537",
+    "retrieved_on": "2026-10-12",
+    "source_keys": [
+      "opencompass:507",
+      "opencompass:528",
+      "opencompass:529"
+    ],
+    "status": "release_attribution_withdrawn",
+    "note": "Correction to the preceding SuperGLUE review: this paper supplies score-publication evidence for these pre-existing component tasks, not their original benchmark release. The benchmark date facts restore the prior cited score evidence; release dates remain unknown. The SuperGLUE source record itself retains its introducing-paper date."
   }
 ]

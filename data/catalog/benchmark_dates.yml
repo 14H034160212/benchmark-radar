@@ -349,13 +349,19 @@ benchmarks:
     source_url: "https://arxiv.org/abs/2306.09212"
     note: "First version introducing CMMLU; the 2024 revision is not its release."
   opencompass:507:
-    basis: paper_first_version
+    basis: score_publication
+    first_score_reported_at: '2019-05-02'
     name: WSC
-    note: 'First version of the introducing paper: SuperGLUE: A Stickier Benchmark for General-Purpose
-      Language Understanding Systems. The source-record description identifies this benchmark or
-      its original partition; no dates or scores are joined by name at runtime.'
-    released: '2019-05-02'
-    source_url: https://arxiv.org/abs/1905.00537
+    note: The original benchmark release day is absent from the crawl. Table 2 provides the earliest
+      dated numeric language-model evaluation retained in this date archive for the source-linked WSC
+      task; it is not a benchmark release date.
+    score_evidence:
+      locator: Table 2, BERT row, WSC column
+      metric: accuracy
+      model: BERT-large-cased (fine-tuned)
+      unit: percent
+      value: 68.5
+    source_url: https://arxiv.org/abs/1905.00537v1
   "opencompass:511":
     name: "CommonSenseQA"
     released: "2018-11-02"
@@ -377,21 +383,33 @@ benchmarks:
     released: '2020-04-13'
     source_url: https://arxiv.org/abs/2004.05986
   opencompass:528:
-    basis: paper_first_version
+    basis: score_publication
+    first_score_reported_at: '2019-05-02'
     name: RTE
-    note: 'First version of the introducing paper: SuperGLUE: A Stickier Benchmark for General-Purpose
-      Language Understanding Systems. The source-record description identifies this benchmark or
-      its original partition; no dates or scores are joined by name at runtime.'
-    released: '2019-05-02'
-    source_url: https://arxiv.org/abs/1905.00537
+    note: The original benchmark release day is absent from the crawl. Table 2 provides the earliest
+      dated numeric language-model evaluation retained in this date archive for the source-linked RTE
+      task; it is not a benchmark release date.
+    score_evidence:
+      locator: Table 2, BERT row, RTE column
+      metric: accuracy
+      model: BERT-large-cased (fine-tuned)
+      unit: percent
+      value: 70.1
+    source_url: https://arxiv.org/abs/1905.00537v1
   opencompass:529:
-    basis: paper_first_version
+    basis: score_publication
+    first_score_reported_at: '2019-05-02'
     name: COPA
-    note: 'First version of the introducing paper: SuperGLUE: A Stickier Benchmark for General-Purpose
-      Language Understanding Systems. The source-record description identifies this benchmark or
-      its original partition; no dates or scores are joined by name at runtime.'
-    released: '2019-05-02'
-    source_url: https://arxiv.org/abs/1905.00537
+    note: The original benchmark release day is absent from the crawl. Table 2 provides the earliest
+      dated numeric language-model evaluation retained in this date archive for the source-linked COPA
+      task; it is not a benchmark release date.
+    score_evidence:
+      locator: Table 2, BERT row, COPA column
+      metric: accuracy
+      model: BERT-large-cased (fine-tuned)
+      unit: percent
+      value: 69
+    source_url: https://arxiv.org/abs/1905.00537v1
   "opencompass:536":
     name: "DROP"
     released: "2019-03-01"
