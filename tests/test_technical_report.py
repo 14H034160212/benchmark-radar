@@ -5,7 +5,6 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 LATEX = ROOT / "docs" / "technical-report" / "latex"
 MANUSCRIPT = LATEX / "main.tex"
-FROZEN_DEPOSIT = ROOT / "output" / "pdf" / "benchmark-radar-technical-report-v0.9.0.pdf"
 
 
 def test_latex_is_the_only_report_source() -> None:
@@ -68,11 +67,7 @@ def test_use_case_tables_are_typeset_rather_than_screenshots() -> None:
         assert not (LATEX / "figures" / retired).exists()
 
 
-def test_frozen_deposit_is_present_and_is_never_a_write_target() -> None:
-    # The artifact behind DOI 10.5281/zenodo.22167102. A new report version is
-    # deposited under a new versioned filename, never by replacing this one.
-    assert FROZEN_DEPOSIT.is_file()
-
-    for path in ROOT.joinpath("scripts").rglob("*.py"):
-        assert FROZEN_DEPOSIT.name not in path.read_text(encoding="utf-8")
-    assert FROZEN_DEPOSIT.name not in (LATEX / "Makefile").read_text(encoding="utf-8")
+def test_deposited_pdfs_live_on_zenodo_not_in_the_repository() -> None:
+    # v0.9.0 is DOI 10.5281/zenodo.22167102. The tracked draft is latex/main.pdf;
+    # a second PDF copy in the tree goes stale and disagrees with it.
+    assert not (ROOT / "output" / "pdf").exists()

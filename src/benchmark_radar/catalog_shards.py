@@ -1,6 +1,6 @@
 """Per-benchmark shards: one JSON file per source record for the detail panel.
 
-DISPLAY-PLAN.md step 1. The search index answers "which benchmark", a shard
+The search index answers "which benchmark", a shard
 answers the reader's four questions about one of them: who made it, is it open,
 how big is it, what scores exist. One shard per source record, addressed by the
 record's own slug, so all 1,148 rows have a URL and none is merged away.

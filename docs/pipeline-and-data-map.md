@@ -121,12 +121,11 @@ repository, not this pinned pointer.
 - Zenodo metadata: `docs/technical-report/zenodo-metadata.json`. It describes
   the frozen v0.9.0 deposit, so its version and counts are a record of that
   deposit rather than drift. A new deposit rewrites it in the same change.
-- Frozen deposit: `output/pdf/benchmark-radar-technical-report-v0.9.0.pdf`. This
-  is the artifact behind DOI 10.5281/zenodo.22167102. Nothing writes to that
-  path; leave it byte-for-byte unchanged.
+- Deposited report: v0.9.0 lives on Zenodo at DOI 10.5281/zenodo.22167102.
+  The repository keeps no copy of deposited PDFs.
 
 Before changing report claims or Zenodo metadata, run the clean-checkout CI
 sequence in `AGENTS.md` and recompute claims from its outputs. Rebuild the PDF
 with `make` in `docs/technical-report/latex/`, inspect the rendered PDF, and
-commit that exact file. A deposit copies the reviewed PDF to a versioned name
-under `output/pdf/`. The PDF is a dated interpretation, not a data source.
+commit that exact file. A deposit uploads the reviewed PDF to Zenodo under a
+versioned name. The PDF is a dated interpretation, not a data source.
