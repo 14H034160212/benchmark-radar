@@ -645,6 +645,21 @@ def normalize_snapshot(snapshot: dict[str, Any], *, source: str = "snapshot") ->
     return normalized
 
 
+def _evidence_rank(record):
+    activity = _validate_time(
+        record.get("updated_at") or record["published_at"],
+        source="merged evidence",
+        field="artifact activity",
+    )
+    return (
+        activity,
+        record["source"] in rubric.EVIDENCE_PRIMARY_SOURCES,
+        record.get("event_kind") == "released",
+        float(record.get("evidence_score") or 0),
+        float(record.get("total_score") or 0),
+    )
+
+
 def merge_snapshots(existing: dict[str, Any], incoming: dict[str, Any]) -> dict[str, Any]:
     """Union two passes over the same UTC day into one snapshot.
 
@@ -707,27 +722,17 @@ def merge_snapshots(existing: dict[str, Any], incoming: dict[str, Any]) -> dict[
                     }
                 ),
             }
-        if previous is not None and previous["source"] != item["source"]:
+        if previous is not None and (
+            previous["source"] != item["source"] or len(item.get("contributing_sources") or []) > 1
+        ):
             # Collection retries do not make the paper itself newer. At equal
             # artifact activity, primary evidence and the release envelope win
             # before scores influenced by mutable engagement measurements.
-            def evidence_rank(record):
-                activity = _validate_time(
-                    record.get("updated_at") or record["published_at"],
-                    source="merged evidence",
-                    field="artifact activity",
-                )
-                return (
-                    activity,
-                    record["source"] in rubric.EVIDENCE_PRIMARY_SOURCES,
-                    record.get("event_kind") == "released",
-                    float(record.get("evidence_score") or 0),
-                    float(record.get("total_score") or 0),
-                )
 
+            cross_source = previous["source"] != item["source"]
             selected, other = (
                 (previous, item)
-                if evidence_rank(previous) > evidence_rank(item)
+                if cross_source and _evidence_rank(previous) > _evidence_rank(item)
                 else (item, previous)
             )
             merged = {
@@ -743,12 +748,13 @@ def merge_snapshots(existing: dict[str, Any], incoming: dict[str, Any]) -> dict[
             for metric, measurement in (other.get("metrics") or {}).items():
                 if metric not in merged["metrics"]:
                     merged["metrics"][metric] = measurement
-                else:
+                elif cross_source:
                     merged["metrics"][metric] = max(measurement, merged["metrics"][metric])
             merged["rationale"] = list(selected.get("rationale") or [])
-            note = f"Also found via {other['source']}"
-            if note not in merged["rationale"]:
-                merged["rationale"].append(note)
+            for source in merged["contributing_sources"]:
+                note = f"Also found via {source}"
+                if source != selected["source"] and note not in merged["rationale"]:
+                    merged["rationale"].append(note)
             # Only the current rubric can be replayed here. Historical score
             # versions retain their scores; their measured evidence still unions.
             if selected.get("score_version") == rubric.SCORING_VERSION:
