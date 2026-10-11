@@ -46,3 +46,21 @@ def test_coverage_preserves_every_source_record_and_distinguishes_date_evidence(
 def test_date_coverage_rejects_a_silent_duplicate_population():
     with pytest.raises(ValueError, match="duplicate source-record keys"):
         MODULE.audit_date_coverage({"benchmarks": [{"key": "a"}, {"key": "a"}]})
+
+
+@pytest.mark.parametrize("precision", ["score_publication", "document_publication", "day"])
+def test_actual_score_dates_are_not_reported_as_fully_undated(precision):
+    row = {
+        "key": "model-reports:reported-score",
+        "name": "Reported score",
+        "source": "model_reports",
+        "source_url": "https://example.org/paper",
+        "first_score_reported_at": "2024-01-02",
+        "first_score_source_reference": {"date_precision": precision},
+        "first_score_record": {"date_precision": "model_announcement"},
+    }
+    result = MODULE.audit_date_coverage({"benchmarks": [row]})
+    assert result["missing_release"] == 1
+    assert result["unresolved"][0]["fallback"] == "score_publication"
+    assert result["sources"]["model_reports"]["score_publication"] == 1
+    assert "undated" not in result["sources"]["model_reports"]

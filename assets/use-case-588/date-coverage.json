@@ -24,7 +24,8 @@
       "records": 141,
       "released": 123,
       "missing_release": 18,
-      "undated": 18
+      "score_publication": 16,
+      "undated": 2
     },
     "opencompass_hub": {
       "records": 461,
@@ -5242,7 +5243,7 @@
       "name": "ArXivMath",
       "source": "model_reports",
       "source_url": "https://matharena.ai/arxivmath",
-      "fallback": "undated",
+      "fallback": "score_publication",
       "first_score_reported_at": "2026-08-28",
       "status": "release_evidence_required"
     },
@@ -5251,7 +5252,7 @@
       "name": "BankerToolBench",
       "source": "model_reports",
       "source_url": "https://github.com/Handshake-AI-Research/bankertoolbench",
-      "fallback": "undated",
+      "fallback": "score_publication",
       "first_score_reported_at": "2026-08-28",
       "status": "release_evidence_required"
     },
@@ -5260,7 +5261,7 @@
       "name": "BeyondAIME",
       "source": "model_reports",
       "source_url": "https://huggingface.co/datasets/ByteDance-Seed/BeyondAIME",
-      "fallback": "undated",
+      "fallback": "score_publication",
       "first_score_reported_at": "2026-02-14",
       "status": "release_evidence_required"
     },
@@ -5269,7 +5270,7 @@
       "name": "BrokenArXiv",
       "source": "model_reports",
       "source_url": "https://matharena.ai/brokenarxiv",
-      "fallback": "undated",
+      "fallback": "score_publication",
       "first_score_reported_at": "2026-08-28",
       "status": "release_evidence_required"
     },
@@ -5278,7 +5279,7 @@
       "name": "CyberGym",
       "source": "model_reports",
       "source_url": "https://openreview.net/forum?id=2YvbLQEdYt",
-      "fallback": "undated",
+      "fallback": "score_publication",
       "first_score_reported_at": "2026-08-28",
       "status": "release_evidence_required"
     },
@@ -5287,7 +5288,7 @@
       "name": "DRACO",
       "source": "model_reports",
       "source_url": "https://huggingface.co/datasets/perplexity-ai/draco",
-      "fallback": "undated",
+      "fallback": "score_publication",
       "first_score_reported_at": "2026-08-28",
       "status": "release_evidence_required"
     },
@@ -5296,7 +5297,7 @@
       "name": "ExploitGym",
       "source": "model_reports",
       "source_url": "https://github.com/sunblaze-ucb/exploitgym",
-      "fallback": "undated",
+      "fallback": "score_publication",
       "first_score_reported_at": "2026-09-10",
       "status": "release_evidence_required"
     },
@@ -5314,7 +5315,7 @@
       "name": "Harbor-Index",
       "source": "model_reports",
       "source_url": "https://github.com/harbor-framework/harbor-index",
-      "fallback": "undated",
+      "fallback": "score_publication",
       "first_score_reported_at": "2026-08-28",
       "status": "release_evidence_required"
     },
@@ -5323,7 +5324,7 @@
       "name": "HorizonMath",
       "source": "model_reports",
       "source_url": "https://github.com/ewang26/HorizonMath",
-      "fallback": "undated",
+      "fallback": "score_publication",
       "first_score_reported_at": "2026-08-28",
       "status": "release_evidence_required"
     },
@@ -5332,7 +5333,7 @@
       "name": "LPFQA",
       "source": "model_reports",
       "source_url": "https://huggingface.co/datasets/m-a-p/LPFQA",
-      "fallback": "undated",
+      "fallback": "score_publication",
       "first_score_reported_at": "2026-02-14",
       "status": "release_evidence_required"
     },
@@ -5341,7 +5342,7 @@
       "name": "MARS-Bench",
       "source": "model_reports",
       "source_url": "https://syuchin.github.io/MARS-Bench/",
-      "fallback": "undated",
+      "fallback": "score_publication",
       "first_score_reported_at": "2026-02-14",
       "status": "release_evidence_required"
     },
@@ -5350,7 +5351,7 @@
       "name": "MathArena Apex 2025",
       "source": "model_reports",
       "source_url": "https://matharena.ai/apex",
-      "fallback": "undated",
+      "fallback": "score_publication",
       "first_score_reported_at": "2026-08-28",
       "status": "release_evidence_required"
     },
@@ -5368,7 +5369,7 @@
       "name": "OneMillionBench",
       "source": "model_reports",
       "source_url": "https://github.com/humanlaya/OneMillion-Bench",
-      "fallback": "undated",
+      "fallback": "score_publication",
       "first_score_reported_at": "2026-08-28",
       "status": "release_evidence_required"
     },
@@ -5377,7 +5378,7 @@
       "name": "SEC-Bench Pro",
       "source": "model_reports",
       "source_url": "https://github.com/sec-bench/sec-bench",
-      "fallback": "undated",
+      "fallback": "score_publication",
       "first_score_reported_at": "2026-09-10",
       "status": "release_evidence_required"
     },
@@ -5386,7 +5387,7 @@
       "name": "SUPERChem",
       "source": "model_reports",
       "source_url": "https://github.com/catalystforyou/SUPERChem_eval",
-      "fallback": "undated",
+      "fallback": "score_publication",
       "first_score_reported_at": "2026-08-28",
       "status": "release_evidence_required"
     },
@@ -5395,7 +5396,7 @@
       "name": "SWE-Marathon",
       "source": "model_reports",
       "source_url": "https://github.com/abundant-ai/swe-marathon",
-      "fallback": "undated",
+      "fallback": "score_publication",
       "first_score_reported_at": "2026-08-28",
       "status": "release_evidence_required"
     },

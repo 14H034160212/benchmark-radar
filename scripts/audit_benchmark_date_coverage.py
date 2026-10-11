@@ -29,7 +29,7 @@ def audit_date_coverage(index: dict[str, Any]) -> dict[str, Any]:
         source["missing_release"] += 1
         reference = row.get("first_score_source_reference") or {}
         score = row.get("first_score_record") or {}
-        if reference.get("date_precision") == "score_publication":
+        if reference.get("date_precision") in {"score_publication", "document_publication", "day"}:
             fallback = "score_publication"
         elif score.get("date_precision") == "model_announcement":
             fallback = "model_release_proxy"
