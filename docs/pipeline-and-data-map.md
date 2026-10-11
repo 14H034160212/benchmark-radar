@@ -118,8 +118,8 @@ repository, not this pinned pointer.
   export only after auditing a clean corpus rebuild; review and commit the
   figure PDFs and manuscript PDF together. The exporter writes no report prose.
 - Build instructions and audited inputs: `docs/technical-report/README.md`
-- Canonical citation: <https://arxiv.org/abs/2609.11115>. Cite only this. The
-  repository keeps no copy of published PDFs.
+- Canonical citation: <https://arxiv.org/abs/2609.11115>. see repo main/CITATION.cff.
+  Cite only this. The repository keeps no copy of published PDFs.
 
 Before changing report claims, run the clean-checkout CI
 sequence in `AGENTS.md` and recompute claims from its outputs. Rebuild the PDF
