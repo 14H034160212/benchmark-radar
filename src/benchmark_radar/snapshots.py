@@ -155,6 +155,16 @@ def _validate_evidence_items(items: Any, *, source: str) -> None:
             raise SnapshotError(
                 f"{source}: evidence item {index} must not expose raw source payloads"
             )
+        if "contributing_sources" in item and (
+            not isinstance(item["contributing_sources"], list)
+            or any(
+                not isinstance(name, str) or not name.strip()
+                for name in item["contributing_sources"]
+            )
+        ):
+            raise SnapshotError(
+                f"{source}: evidence item {index} contributing_sources must be names"
+            )
         if "recommended" in item and not isinstance(item["recommended"], bool):
             raise SnapshotError(f"{source}: evidence item {index} recommended must be a boolean")
         item_missing = sorted(item_fields - item.keys())
@@ -680,6 +690,22 @@ def merge_snapshots(existing: dict[str, Any], incoming: dict[str, Any]) -> dict[
                     set(previous.get("source_tags") or []) | set(item.get("source_tags") or [])
                 ),
             }
+        if previous is not None and (
+            previous["source"] != item["source"]
+            or previous.get("contributing_sources")
+            or item.get("contributing_sources")
+        ):
+            item = {
+                **item,
+                "contributing_sources": sorted(
+                    {
+                        previous["source"],
+                        item["source"],
+                        *(previous.get("contributing_sources") or []),
+                        *(item.get("contributing_sources") or []),
+                    }
+                ),
+            }
         merged_items[key] = item
     evidence_items = list(merged_items.values())
 
@@ -1082,6 +1108,11 @@ def dashboard_data(
             for category in item["categories"]
         )
         source_counts = Counter(item["source"] for item in evidence_items)
+        contributing_source_counts = Counter(
+            source
+            for item in evidence_items
+            for source in {item["source"], *(item.get("contributing_sources") or [])}
+        )
         event_counts = Counter(item["event_kind"] for item in evidence_items)
         attention_source_counts = Counter(item["source"] for item in observations)
         attention_event_counts = Counter(item["event_kind"] for item in observations)
@@ -1128,6 +1159,7 @@ def dashboard_data(
                 "category_counts": dict(sorted(category_counts.items())),
                 "category_counts_released": dict(sorted(category_counts_released.items())),
                 "source_counts": dict(sorted(source_counts.items())),
+                "contributing_source_counts": dict(sorted(contributing_source_counts.items())),
                 "event_kind_counts": dict(sorted(event_counts.items())),
                 "evidence_items": evidence_items,
                 "attention": {

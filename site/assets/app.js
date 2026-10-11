@@ -88,7 +88,7 @@ const SOURCE_GAP_REASONS = {
 // Calling the third one "found nothing" would be wrong: GitHub returning 300
 // records that all scored too low is a scoring outcome, not a broken source.
 function zeroItemSources(day) {
-  const counts = day.source_counts || {};
+  const counts = day.contributing_source_counts || day.source_counts || {};
   const merged = new Map();
   (day.ingest_health || [])
     .filter((entry) => entry.kind !== "attention")

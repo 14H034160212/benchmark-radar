@@ -1655,3 +1655,36 @@ def test_same_day_snapshot_merge_preserves_source_tags(reverse, later_tags):
     assert item["metrics"] == {"citations": 9}
     assert earlier["evidence_items"][0]["source_tags"] == ["xbsleepy:planning"]
     assert later["evidence_items"][0]["source_tags"] == later_tags
+
+
+def test_dashboard_counts_merged_sources_without_inflating_unique_records(tmp_path):
+    from benchmark_radar.pipeline import deduplicate
+
+    run = radar_run(27)
+    primary = run.items[0]
+    digest = RadarItem(
+        source="XBsleepy",
+        source_id="xbsleepy:2607.0027",
+        title=primary.title,
+        url=primary.url,
+        published_at=primary.published_at - timedelta(hours=1),
+    )
+    run.items = deduplicate([primary, digest])
+    run.health.append(SourceHealth(source="xbsleepy", ok=True, item_count=1))
+    snapshot_dir = tmp_path / "snapshots"
+    write_snapshot(run, snapshot_dir)
+    dashboard = rebuild_dashboard(snapshot_dir, tmp_path / "radar.json")
+    day = dashboard["days"][0]
+    assert day["evidence_count"] == 1
+    assert day["source_counts"] == {"arXiv": 1}
+    assert day["contributing_source_counts"] == {"XBsleepy": 1, "arXiv": 1}
+
+
+def test_same_day_merge_preserves_contributing_source_provenance():
+    first = snapshot_for_run(radar_run(27))
+    later = snapshot_for_run(radar_run(27))
+    later["generated_at"] = "2026-07-27T13:15:00+00:00"
+    later["evidence_items"][0]["source"] = "XBsleepy"
+    merged = merge_snapshots(first, later)
+    assert len(merged["evidence_items"]) == 1
+    assert merged["evidence_items"][0]["contributing_sources"] == ["XBsleepy", "arXiv"]

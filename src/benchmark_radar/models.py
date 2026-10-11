@@ -33,6 +33,9 @@ class RadarItem:
     # unclassified counts read `categories`, and a source must not be able to
     # classify itself into the corpus.
     source_tags: list[str] = field(default_factory=list)
+    # Corroborating discovery sources preserved when copies merge. The primary
+    # source and unique-record counts remain independent of this provenance.
+    contributing_sources: list[str] = field(default_factory=list)
     evidence_score: float = 0.0
     relevance_score: float = 0.0
     recency_score: float = 0.0

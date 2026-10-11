@@ -152,6 +152,7 @@ def test_source_native_tags_survive_scoring_and_a_cross_source_merge():
 
     assert len(merged) == 1
     assert merged[0].source_tags == tags
+    assert merged[0].contributing_sources == ["XBsleepy", "arXiv"]
     # And they are on the record a snapshot serializes.
     assert merged[0].to_dict()["source_tags"] == tags
 

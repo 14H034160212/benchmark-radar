@@ -2335,9 +2335,20 @@ def fetch_xbsleepy(
         config.setdefault("_source_warnings", []).append(
             f"XBsleepy omitted {invalid_citations} invalid citation count(s)"
         )
-    return sorted(found.values(), key=lambda item: activity_by_id[item.source_id], reverse=True)[
-        :limit
-    ]
+    ordered = sorted(found.values(), key=lambda item: activity_by_id[item.source_id], reverse=True)
+    if limit <= 0:
+        return []
+    if len(ordered) > limit:
+        boundary = activity_by_id[ordered[limit - 1].source_id]
+        end = limit
+        while end < len(ordered) and activity_by_id[ordered[end].source_id] == boundary:
+            end += 1
+        if end > limit:
+            config.setdefault("_source_warnings", []).append(
+                f"XBsleepy kept {end} records at cap {limit} to preserve the tied activity cohort"
+            )
+        return ordered[:end]
+    return ordered
 
 
 # Brave's freshness range is date-granular and inclusive. `since` plus the

@@ -3890,3 +3890,25 @@ def test_xbsleepy_cap_prefers_digest_activity_over_old_publication_dates(monkeyp
     )
     assert [item.source_id for item in items] == ["xbsleepy:old-newly-discovered"]
     assert items[0].published_at == datetime(2026, 7, 1, 12, tzinfo=UTC)
+
+
+def test_xbsleepy_preserves_a_tied_discovery_cohort_past_the_source_cap(monkeypatch):
+    rows = [
+        {
+            **XBSLEEPY_INDEX_PAPERS[0],
+            "id": f"backfill-{n}",
+            "published": "2026-07-01T12:00:00Z",
+            "updated": "2026-07-02T12:00:00Z",
+            "announced_date": "2026-07-02",
+            "first_seen": "2026-09-10",
+        }
+        for n in range(4)
+    ]
+    rows.append({**rows[0], "id": "older-cohort", "first_seen": "2026-09-09"})
+    monkeypatch.setattr("benchmark_radar.sources.get_json", lambda *a, **kw: {"papers": rows})
+    config = {"index_url": "https://digest.example/data/index.json"}
+    items = fetch_xbsleepy(config, datetime(2026, 9, 8, tzinfo=UTC), 2)
+    assert {item.source_id for item in items} == {f"xbsleepy:backfill-{n}" for n in range(4)}
+    assert config["_source_warnings"] == [
+        "XBsleepy kept 4 records at cap 2 to preserve the tied activity cohort"
+    ]

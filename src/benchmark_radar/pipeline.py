@@ -108,6 +108,14 @@ def deduplicate(items: list[RadarItem]) -> list[RadarItem]:
         for tag in duplicate.source_tags:
             if tag not in target.source_tags:
                 target.source_tags.append(tag)
+        target.contributing_sources = sorted(
+            {
+                target.source,
+                duplicate.source,
+                *target.contributing_sources,
+                *duplicate.contributing_sources,
+            }
+        )
         # A record with no description loses nothing by adopting one that has
         # it; a record that already has one keeps its own.
         if not target.summary.strip() and duplicate.summary.strip():
