@@ -118,15 +118,10 @@ repository, not this pinned pointer.
   export only after auditing a clean corpus rebuild; review and commit the
   figure PDFs and manuscript PDF together. The exporter writes no report prose.
 - Build instructions and audited inputs: `docs/technical-report/README.md`
-- Zenodo metadata: `docs/technical-report/zenodo-metadata.json`. It describes
-  the frozen v0.9.0 deposit, so its version and counts are a record of that
-  deposit rather than drift. A new deposit rewrites it in the same change.
-- Frozen deposit: `output/pdf/benchmark-radar-technical-report-v0.9.0.pdf`. This
-  is the artifact behind DOI 10.5281/zenodo.22167102. Nothing writes to that
-  path; leave it byte-for-byte unchanged.
+- Canonical citation: <https://arxiv.org/abs/2609.11115>. see repo main/CITATION.cff.
+  Cite only this. The repository keeps no copy of published PDFs.
 
-Before changing report claims or Zenodo metadata, run the clean-checkout CI
+Before changing report claims, run the clean-checkout CI
 sequence in `AGENTS.md` and recompute claims from its outputs. Rebuild the PDF
 with `make` in `docs/technical-report/latex/`, inspect the rendered PDF, and
-commit that exact file. A deposit copies the reviewed PDF to a versioned name
-under `output/pdf/`. The PDF is a dated interpretation, not a data source.
+commit that exact file. The PDF is a dated interpretation, not a data source.

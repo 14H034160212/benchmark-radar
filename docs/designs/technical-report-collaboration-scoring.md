@@ -9,7 +9,7 @@ Public coordination issue: https://github.com/ktwu01/benchmark-radar/issues/447
 
 ## Problem Statement
 
-Benchmark Radar v0.9.0 is a frozen, citable Zenodo report. The next report draft should become more useful by including real cases in which a practitioner or researcher uses Benchmark Radar to make a decision or reach a defensible conclusion.
+Benchmark Radar is a published, citable report (<https://arxiv.org/abs/2609.11115>). see main/CITATION.cff. The next report draft should become more useful by including real cases in which a practitioner or researcher uses Benchmark Radar to make a decision or reach a defensible conclusion.
 
 The current report cannot support a field-wide claim about recent benchmark trends. That is a limit of the available evidence and comparison window, not evidence that no trend exists. The draft should turn that limitation into open research assignments and invite collaborators to complete them through GitHub issues and pull requests. The four initial use cases are examples, not a closed list.
 
@@ -21,7 +21,6 @@ The report becomes a public research program rather than a static description of
 
 ## Constraints
 
-- Freeze the published Zenodo v0.9.0 record. Work only on the next draft; publication and arXiv submission are later steps.
 - Do not write invented or illustrative success stories. Until a collaborator completes a case, label it as an open research question.
 - Rebuild the data pipeline before changing quantitative report claims. Derived files and the current PDF are not sources of truth.
 - Use GitHub issues as the complete unit of assignment and scoring. Do not maintain a second private point system.
@@ -66,7 +65,7 @@ Proposed reader-facing copy:
 >
 > These are starting examples, not limits. Contributors may propose any real use case as a six-point issue. Each study runs through a scored GitHub issue and pull-request discussion. Accepted evidence, analysis, and prose will be merged into the next report source and rebuilt PDF. Contributors whose completed issue work is substantial and who participate in manuscript drafting or critical revision, final approval, and accountability will be invited as coauthors.
 
-The final arXiv/Zenodo report should contain completed findings, not invitations alone. Until then, the draft must show unfinished work as open studies.
+The final arXiv report should contain completed findings, not invitations alone. Until then, the draft must show unfinished work as open studies.
 
 ### 2. Make new real use cases start at six points
 
@@ -214,7 +213,7 @@ Only future issue work uses the seven-day assignment rule. Every historical merg
 - An active study appears only in the future-work collaboration box with assignee, score, and issue link. It contributes no finding yet.
 - An unclaimed study appears only in that collaboration box as available work. Readers may also add a different real use case through the six-point issue form.
 - If no studies are complete, the next draft contains the collaboration box but makes no use-case result claim.
-- The arXiv/Zenodo release contains completed findings plus a short future-work box for any remaining studies. It never presents an active or unclaimed study as evidence.
+- The arXiv release contains completed findings plus a short future-work box for any remaining studies. It never presents an active or unclaimed study as evidence.
 
 ## Open Questions
 
@@ -236,7 +235,7 @@ Only future issue work uses the seven-day assignment rule. Every historical merg
 
 ## Distribution Plan
 
-The collaboration call is authored in `docs/technical-report/latex/main.tex` and appears in the tracked build `docs/technical-report/latex/main.pdf`, which links to the public master GitHub issue. Nothing writes to `output/pdf/benchmark-radar-technical-report-v0.9.0.pdf`; that deposited artifact remains byte-for-byte frozen. The repository's existing issue and pull-request workflow handles assignment, review, and evidence. Any quantitative claim change follows the documented clean-checkout generator sequence, then the draft PDF is rebuilt and visually inspected. A release filename and DOI command are chosen only when the next version is ready to deposit.
+The collaboration call is authored in `docs/technical-report/latex/main.tex` and appears in the tracked build `docs/technical-report/latex/main.pdf`, which links to the public master GitHub issue. The published report is cited only as <https://arxiv.org/abs/2609.11115>. The repository's existing issue and pull-request workflow handles assignment, review, and evidence. Any quantitative claim change follows the documented clean-checkout generator sequence, then the draft PDF is rebuilt and visually inspected. A release filename and DOI command are chosen only when the next version is ready to deposit.
 
 ## Next Steps
 
