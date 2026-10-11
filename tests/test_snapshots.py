@@ -17,7 +17,9 @@ from benchmark_radar.models import (
 )
 from benchmark_radar.snapshots import (
     SnapshotError,
+    dashboard_trends,
     load_snapshots,
+    merge_snapshots,
     migrate_snapshot_history,
     rebuild_dashboard,
     records_badge,
@@ -1634,3 +1636,156 @@ def test_a_data_only_rebuild_writes_no_blog(tmp_path):
         for node in ET.parse(output.parent / "sitemap.xml").getroot().findall("sm:url/sm:loc", ns)
     ]
     assert not [url for url in urls if "/blog/" in url]
+
+
+@pytest.mark.parametrize("reverse", [False, True])
+@pytest.mark.parametrize("later_tags", [[], ["xbsleepy:coding", "xbsleepy:planning"]])
+def test_same_day_snapshot_merge_preserves_source_tags(reverse, later_tags):
+    earlier_run = radar_run()
+    earlier_run.items[0].source_tags = ["xbsleepy:planning"]
+    later_run = radar_run()
+    later_run.generated_at += timedelta(hours=1)
+    later_run.items[0].source_tags = later_tags
+    later_run.items[0].metrics = {"citations": 9}
+    earlier = snapshot_for_run(earlier_run)
+    later = snapshot_for_run(later_run)
+    merged = merge_snapshots(later, earlier) if reverse else merge_snapshots(earlier, later)
+    assert len(merged["evidence_items"]) == 1
+    item = merged["evidence_items"][0]
+    assert item["source_tags"] == sorted({"xbsleepy:planning", *later_tags})
+    assert item["metrics"] == {"citations": 9}
+    assert earlier["evidence_items"][0]["source_tags"] == ["xbsleepy:planning"]
+    assert later["evidence_items"][0]["source_tags"] == later_tags
+
+
+def test_dashboard_counts_merged_sources_without_inflating_unique_records(tmp_path):
+    from benchmark_radar.pipeline import deduplicate
+
+    run = radar_run(27)
+    primary = run.items[0]
+    digest = RadarItem(
+        source="XBsleepy",
+        source_id="xbsleepy:2607.0027",
+        title=primary.title,
+        url=primary.url,
+        published_at=primary.published_at - timedelta(hours=1),
+    )
+    run.items = deduplicate([primary, digest])
+    run.health.append(SourceHealth(source="xbsleepy", ok=True, item_count=1))
+    snapshot_dir = tmp_path / "snapshots"
+    write_snapshot(run, snapshot_dir)
+    dashboard = rebuild_dashboard(snapshot_dir, tmp_path / "radar.json")
+    day = dashboard["days"][0]
+    assert day["evidence_count"] == 1
+    assert day["source_counts"] == {"arXiv": 1}
+    assert day["contributing_source_counts"] == {"XBsleepy": 1, "arXiv": 1}
+    trend_day = dashboard_trends(dashboard)["days"][0]
+    assert trend_day["contributing_source_counts"] == day["contributing_source_counts"]
+
+
+def test_same_day_merge_preserves_contributing_source_provenance():
+    first = snapshot_for_run(radar_run(27))
+    later = snapshot_for_run(radar_run(27))
+    later["generated_at"] = "2026-07-27T13:15:00+00:00"
+    later["evidence_items"][0]["source"] = "XBsleepy"
+    merged = merge_snapshots(first, later)
+    assert len(merged["evidence_items"]) == 1
+    assert merged["evidence_items"][0]["contributing_sources"] == ["XBsleepy", "arXiv"]
+
+
+@pytest.mark.parametrize("reverse", [False, True])
+def test_cross_source_retry_preserves_scored_primary_event_and_recommendation(reverse):
+    first_run = radar_run(27)
+    primary = first_run.items[0]
+    primary.event_kind = "released"
+    primary.total_score = 80
+    primary.evidence_score = 90
+    first = snapshot_for_run(first_run)
+    first["evidence_items"][0]["recommended"] = True
+    later = snapshot_for_run(radar_run(27))
+    later["generated_at"] = "2026-07-27T13:15:00+00:00"
+    digest = later["evidence_items"][0]
+    digest.update(
+        source="XBsleepy",
+        source_id="xbsleepy:2607.0027",
+        total_score=40,
+        evidence_score=50,
+        event_kind="discovered",
+        recommended=False,
+        source_tags=["xbsleepy:planning"],
+    )
+    merged = merge_snapshots(later, first) if reverse else merge_snapshots(first, later)
+    record = merged["evidence_items"][0]
+    assert record["source"] == "arXiv"
+    assert record["event_kind"] == "released"
+    assert record["total_score"] == 80
+    assert record["evidence_score"] == 90
+    assert record["recommended"] is True
+    assert record["source_tags"] == ["xbsleepy:planning"]
+    assert record["contributing_sources"] == ["XBsleepy", "arXiv"]
+
+
+def test_cross_source_merge_accepts_genuinely_newer_artifact_evidence():
+    first = snapshot_for_run(radar_run(27))
+    first["evidence_items"][0]["total_score"] = 80
+    later = snapshot_for_run(radar_run(27))
+    later["generated_at"] = "2026-07-27T13:15:00+00:00"
+    later["evidence_items"][0].update(
+        source="XBsleepy",
+        updated_at="2026-07-27T13:00:00+00:00",
+        total_score=40,
+        event_kind="updated",
+    )
+    merged = merge_snapshots(first, later)
+    assert merged["evidence_items"][0]["source"] == "XBsleepy"
+    assert merged["evidence_items"][0]["event_kind"] == "updated"
+
+
+@pytest.mark.parametrize("reverse", [False, True])
+def test_primary_release_survives_high_adoption_digest_and_merges_evidence(reverse):
+    from benchmark_radar.pipeline import score_item
+
+    first_run = radar_run(27)
+    primary = first_run.items[0]
+    primary.event_kind = "released"
+    primary.authors = ["Primary Author"]
+    primary.metrics = {"stars": 1}
+    taxonomy = {"benchmark": ["benchmark"]}
+    score_item(primary, taxonomy, now=first_run.generated_at)
+    first = snapshot_for_run(first_run)
+    later_run = radar_run(27)
+    later_run.generated_at += timedelta(hours=1)
+    digest = later_run.items[0]
+    digest.source = "XBsleepy"
+    digest.source_id = "xbsleepy:2607.0027"
+    digest.event_kind = "discovered"
+    digest.authors = ["Digest Author"]
+    digest.artifact_urls = ["https://arxiv.org/pdf/2607.0027"]
+    digest.metrics = {"citations": 1000000}
+    digest.source_tags = ["xbsleepy:planning"]
+    score_item(digest, taxonomy, now=later_run.generated_at)
+    later = snapshot_for_run(later_run)
+    # Exercise the reported failure: adoption makes the non-primary copy's
+    # aggregate score exceed that of the paper's original source.
+    assert digest.total_score > primary.total_score
+    later["selection"] = {"recommendation_score": 0}
+    merged = merge_snapshots(later, first) if reverse else merge_snapshots(first, later)
+    record = merged["evidence_items"][0]
+    assert record["source"] == "arXiv"
+    assert record["event_kind"] == "released"
+    assert record["authors"] == ["Digest Author", "Primary Author"]
+    assert record["artifact_urls"] == ["https://arxiv.org/pdf/2607.0027"]
+    assert record["metrics"] == {"citations": 1000000, "stars": 1}
+    assert record["source_tags"] == ["xbsleepy:planning"]
+    assert record["contributing_sources"] == ["XBsleepy", "arXiv"]
+    # The merged source envelope scores its corroboration with the exact same
+    # production equations, rather than copying the digest's aggregate score.
+    primary.authors = record["authors"]
+    primary.artifact_urls = record["artifact_urls"]
+    primary.metrics = record["metrics"]
+    score_item(primary, taxonomy, now=first_run.generated_at)
+    assert record["evidence_score"] == primary.evidence_score
+    assert record["adoption_score"] == primary.adoption_score
+    assert record["total_score"] == primary.total_score
+    assert record["recommended"] is True
+    assert first["evidence_items"][0]["metrics"] == {"stars": 1}

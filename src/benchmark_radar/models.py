@@ -17,6 +17,8 @@ class RadarItem:
     updated_at: datetime | None = None
     discovered_at: datetime | None = None
     retrieved_at: datetime | None = None
+    # Digest activity drives collection without replacing publication provenance.
+    digest_activity_at: str | None = None
     summary: str = ""
     event_kind: str = "discovered"
     authors: list[str] = field(default_factory=list)
@@ -27,6 +29,15 @@ class RadarItem:
     parser_version: str = "radar-item/1"
     raw_payload_hash: str = ""
     categories: list[str] = field(default_factory=list)
+    # Theme tags a curated source attached itself, namespaced by that source
+    # (e.g. `xbsleepy:planning`). Kept apart from `categories`, which only ever
+    # holds the local taxonomy's keyword matches: retention and the
+    # unclassified counts read `categories`, and a source must not be able to
+    # classify itself into the corpus.
+    source_tags: list[str] = field(default_factory=list)
+    # Corroborating discovery sources preserved when copies merge. The primary
+    # source and unique-record counts remain independent of this provenance.
+    contributing_sources: list[str] = field(default_factory=list)
     evidence_score: float = 0.0
     relevance_score: float = 0.0
     recency_score: float = 0.0
@@ -167,3 +178,19 @@ class RadarRun:
     # when the collector is disabled, so an absent block means "not collected"
     # rather than "nothing had attention".
     benchmark_attention: dict[str, Any] | None = None
+
+
+def digest_evidence_version(item: RadarItem) -> str:
+    """Stable material digest evidence, excluding collection-time metadata."""
+    material = {
+        "title": item.title,
+        "url": item.url,
+        "summary": item.summary,
+        "published": item.published_at.isoformat(),
+        "updated": item.updated_at.isoformat() if item.updated_at else None,
+        "authors": sorted(item.authors),
+        "links": sorted(item.artifact_urls),
+        "metrics": item.metrics,
+        "tags": sorted(item.source_tags),
+    }
+    return hashlib.sha256(json.dumps(material, sort_keys=True).encode()).hexdigest()
