@@ -3912,3 +3912,21 @@ def test_xbsleepy_preserves_a_tied_discovery_cohort_past_the_source_cap(monkeypa
     assert config["_source_warnings"] == [
         "XBsleepy kept 4 records at cap 2 to preserve the tied activity cohort"
     ]
+
+
+@pytest.mark.parametrize("url", ["/abs/2609.1", "ftp://example.org/paper", "https://", "https://["])
+def test_xbsleepy_skips_invalid_urls_before_snapshotting(monkeypatch, url):
+    healthy = XBSLEEPY_INDEX_PAPERS[0]
+    invalid = {**healthy, "id": "invalid-url", "links": {"abs": url}}
+    monkeypatch.setattr(
+        "benchmark_radar.sources.get_json", lambda *a, **kw: {"papers": [healthy, invalid]}
+    )
+    config = {"index_url": "https://digest.example/data/index.json", "allow_empty": True}
+    rows = fetch_xbsleepy(config, datetime(2026, 9, 8, tzinfo=UTC), 10)
+    assert len(rows) == 1
+    assert config["_source_warnings"] == [
+        "XBsleepy skipped 1 malformed row(s) (HTTP(S) links.abs: 1)"
+    ]
+    monkeypatch.setattr("benchmark_radar.sources.get_json", lambda *a, **kw: {"papers": [invalid]})
+    with pytest.raises(ConnectorPayloadError, match="no valid paper rows"):
+        fetch_xbsleepy(config, datetime(2026, 9, 8, tzinfo=UTC), 10)

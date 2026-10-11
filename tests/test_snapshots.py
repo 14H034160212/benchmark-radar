@@ -1691,3 +1691,51 @@ def test_same_day_merge_preserves_contributing_source_provenance():
     merged = merge_snapshots(first, later)
     assert len(merged["evidence_items"]) == 1
     assert merged["evidence_items"][0]["contributing_sources"] == ["XBsleepy", "arXiv"]
+
+
+@pytest.mark.parametrize("reverse", [False, True])
+def test_cross_source_retry_preserves_scored_primary_event_and_recommendation(reverse):
+    first_run = radar_run(27)
+    primary = first_run.items[0]
+    primary.event_kind = "released"
+    primary.total_score = 80
+    primary.evidence_score = 90
+    first = snapshot_for_run(first_run)
+    first["evidence_items"][0]["recommended"] = True
+    later = snapshot_for_run(radar_run(27))
+    later["generated_at"] = "2026-07-27T13:15:00+00:00"
+    digest = later["evidence_items"][0]
+    digest.update(
+        source="XBsleepy",
+        source_id="xbsleepy:2607.0027",
+        total_score=40,
+        evidence_score=50,
+        event_kind="discovered",
+        recommended=False,
+        source_tags=["xbsleepy:planning"],
+    )
+    merged = merge_snapshots(later, first) if reverse else merge_snapshots(first, later)
+    record = merged["evidence_items"][0]
+    assert record["source"] == "arXiv"
+    assert record["event_kind"] == "released"
+    assert record["total_score"] == 80
+    assert record["evidence_score"] == 90
+    assert record["recommended"] is True
+    assert record["source_tags"] == ["xbsleepy:planning"]
+    assert record["contributing_sources"] == ["XBsleepy", "arXiv"]
+
+
+def test_cross_source_merge_accepts_genuinely_newer_artifact_evidence():
+    first = snapshot_for_run(radar_run(27))
+    first["evidence_items"][0]["total_score"] = 80
+    later = snapshot_for_run(radar_run(27))
+    later["generated_at"] = "2026-07-27T13:15:00+00:00"
+    later["evidence_items"][0].update(
+        source="XBsleepy",
+        updated_at="2026-07-27T13:00:00+00:00",
+        total_score=40,
+        event_kind="updated",
+    )
+    merged = merge_snapshots(first, later)
+    assert merged["evidence_items"][0]["source"] == "XBsleepy"
+    assert merged["evidence_items"][0]["event_kind"] == "updated"

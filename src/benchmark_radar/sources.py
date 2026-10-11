@@ -11,7 +11,7 @@ from datetime import UTC, datetime, timedelta
 from email.utils import parsedate_to_datetime
 from pathlib import Path
 from typing import Any
-from urllib.parse import urljoin
+from urllib.parse import urljoin, urlsplit
 
 from .describe import (
     clean_card_text,
@@ -2261,6 +2261,13 @@ def fetch_xbsleepy(
             for name, value in (("id", paper_id), ("title", title), ("links.abs", url))
             if not value
         ]
+        try:
+            parsed_url = urlsplit(url)
+            valid_url = url.startswith(("http://", "https://")) and bool(parsed_url.hostname)
+        except ValueError:
+            valid_url = False
+        if url and not valid_url:
+            missing.append("HTTP(S) links.abs")
         if published_at is None or activity_at is None:
             missing.append("valid date")
         if missing:

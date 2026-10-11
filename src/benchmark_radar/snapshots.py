@@ -662,8 +662,8 @@ def merge_snapshots(existing: dict[str, Any], incoming: dict[str, Any]) -> dict[
 
     Item identity uses every exact identifier transitively, the same rule daily
     dedup and the cumulative corpus already use. On a collision the incoming
-    (newer) record wins: it observed the artifact more recently, so its metrics
-    and scores are the fresher reading.
+    (newer) record wins within a source. Cross-source copies compare artifact
+    activity and retain the stronger scored evidence when that activity is tied.
     """
     # A delayed retry can arrive after a newer pass. All "incoming wins"
     # decisions below must mean chronologically newer, not merely whichever
@@ -706,6 +706,31 @@ def merge_snapshots(existing: dict[str, Any], incoming: dict[str, Any]) -> dict[
                     }
                 ),
             }
+        if previous is not None and previous["source"] != item["source"]:
+            # A retry's collection timestamp does not make an unchanged digest
+            # copy newer paper evidence. Compare artifact activity first, then
+            # retain the stronger scored copy at the same activity date. Keep
+            # its source, event and score components together, while unioning
+            # the provenance above. Same-source refreshes still use the latest pass.
+            def evidence_rank(record):
+                activity = _validate_time(
+                    record.get("updated_at") or record["published_at"],
+                    source="merged evidence",
+                    field="artifact activity",
+                )
+                return (
+                    activity,
+                    float(record.get("total_score") or 0),
+                    float(record.get("evidence_score") or 0),
+                    record.get("event_kind") == "released",
+                )
+
+            if evidence_rank(previous) > evidence_rank(item):
+                item = {
+                    **previous,
+                    "source_tags": item.get("source_tags") or [],
+                    "contributing_sources": item["contributing_sources"],
+                }
         merged_items[key] = item
     evidence_items = list(merged_items.values())
 
