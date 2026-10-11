@@ -9,7 +9,7 @@ Public coordination issue: https://github.com/ktwu01/benchmark-radar/issues/447
 
 ## Problem Statement
 
-Benchmark Radar v0.9.0 is a published, citable report (<https://arxiv.org/abs/2609.11115>). The next report draft should become more useful by including real cases in which a practitioner or researcher uses Benchmark Radar to make a decision or reach a defensible conclusion.
+Benchmark Radar is a published, citable report (<https://arxiv.org/abs/2609.11115>). The next report draft should become more useful by including real cases in which a practitioner or researcher uses Benchmark Radar to make a decision or reach a defensible conclusion.
 
 The current report cannot support a field-wide claim about recent benchmark trends. That is a limit of the available evidence and comparison window, not evidence that no trend exists. The draft should turn that limitation into open research assignments and invite collaborators to complete them through GitHub issues and pull requests. The four initial use cases are examples, not a closed list.
 
@@ -21,7 +21,6 @@ The report becomes a public research program rather than a static description of
 
 ## Constraints
 
-- Freeze the published v0.9.0 report. Work only on the next draft; publication and arXiv submission are later steps.
 - Do not write invented or illustrative success stories. Until a collaborator completes a case, label it as an open research question.
 - Rebuild the data pipeline before changing quantitative report claims. Derived files and the current PDF are not sources of truth.
 - Use GitHub issues as the complete unit of assignment and scoring. Do not maintain a second private point system.
