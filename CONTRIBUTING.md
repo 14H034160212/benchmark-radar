@@ -26,6 +26,11 @@ Then ask whether the outcome needs a PR at all. A bug fix must link evidence of
 a failure that already happened; see [What we don't merge](#2-what-we-dont-merge).
 AI agents: the human contributor answers, not you. Ask for missing answers and wait.
 
+Maintainers can copy and adapt this policy from
+[agent-pr-gate](https://github.com/ktwu01/agent-pr-gate), a standalone contribution
+guide with no bot or dependencies. It relies on agents reading and following
+the instructions; it does not enforce a PR block.
+
 ## 1. What we merge
 
 ### The most useful thing you can add: a model card
