@@ -13,29 +13,18 @@ you a week of review rounds.
 | Earn points | [`docs/contributor-points.md`](docs/contributor-points.md) |
 | Work as an AI agent | [`AGENTS.md`](AGENTS.md) |
 
-## Before starting PR-oriented work
+## Before you start a PR
 
-Every contributor must answer these four questions before starting PR-oriented
-work. If you are an AI agent, ask your human contributor and wait for their
-answers. Do not answer for them:
+Answer these in the issue or PR, so reviewers can see who benefits:
 
 1. What outcome do you really want?
-2. What is the highest-leverage variable that determines this outcome?
-3. Will this work move that variable, or just make you feel busy?
+2. What is the highest-leverage variable that determines it?
+3. Will this work move that variable, or just keep you busy?
 4. Who is the customer, and what do they really want?
 
-The contributor must answer personally. An agent must not invent answers or
-treat a task request as an answer. Ask only unanswered questions, and start
-PR-oriented work only after all four have answers. Reuse explicit answers for
-the same contribution. If the outcome, highest-leverage variable, or customer
-needs change, ask for updated answers and wait before continuing.
-
-Record your answers in the issue or PR so reviewers can see who benefits and
-which outcome the contribution should improve.
-
-Before proceeding, ask whether the PR is necessary and whether the outcome can
-be achieved without it. For a bug fix, cite evidence that a critical bug actually
-occurred. If no critical bug occurred, do not make the fix or open a PR.
+Then ask whether the outcome needs a PR at all. A bug fix must link evidence of
+a failure that already happened; see [What we don't merge](#2-what-we-dont-merge).
+AI agents: the human contributor answers, not you. Ask for missing answers and wait.
 
 ## 1. What we merge
 
@@ -128,6 +117,10 @@ history.
 - **Carries a regression test when it fixes a bug.** Name the failure, show
   the test failing before the fix and passing after. Comments explain what the design
   prevents, not what the code does.
+- **Adds no burden it does not need.** Every line, package and test is
+  something a maintainer keeps working. No new package if the standard library
+  or an existing dependency does the job. No new test unless it guards behavior
+  that could break; a bug fix still carries its regression test.
 - **Discloses authorship.** You may add a benchmark you wrote. Say so in the PR.
 
 ## 2. What we don't merge
