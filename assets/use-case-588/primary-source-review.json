@@ -1,0 +1,1355 @@
+[
+  {
+    "source_url": "https://arxiv.org/abs/2501.12851",
+    "title": "ACEBench: Who Wins the Match Point in Tool Usage?",
+    "first_version_date": "2025-01-22",
+    "retrieved_on": "2026-10-11",
+    "locator": "arXiv submission history, v1",
+    "response_sha256": "dadbac825f29b4135aa9507c8654a4d443caf5e3bf682eda1bfe9eee70a3bdf4",
+    "source_keys": [
+      "llm-stats:acebench"
+    ]
+  },
+  {
+    "source_url": "https://arxiv.org/abs/2304.06364",
+    "title": "AGIEval: A Human-Centric Benchmark for Evaluating Foundation Models",
+    "first_version_date": "2023-04-13",
+    "retrieved_on": "2026-10-11",
+    "locator": "arXiv submission history, v1",
+    "response_sha256": "e71c6e19cd81c6ffa80fd8bacd84782e4c8a14103ae815f5708fcdb748d19712",
+    "source_keys": [
+      "llm-stats:agieval"
+    ]
+  },
+  {
+    "source_url": "https://arxiv.org/abs/2311.18743",
+    "title": "AlignBench: Benchmarking Chinese Alignment of Large Language Models",
+    "first_version_date": "2023-11-30",
+    "retrieved_on": "2026-10-11",
+    "locator": "arXiv submission history, v1",
+    "response_sha256": "dc339d459998ab100bb0c0e272d9d5f90a372488d51d778d87b20284d3c56473",
+    "source_keys": [
+      "llm-stats:alignbench"
+    ]
+  },
+  {
+    "source_url": "https://arxiv.org/abs/2405.14573",
+    "title": "AndroidWorld: A Dynamic Benchmarking Environment for Autonomous Agents",
+    "first_version_date": "2024-05-23",
+    "retrieved_on": "2026-10-11",
+    "locator": "arXiv submission history, v1",
+    "response_sha256": "7898470b4d877e55ad999050c9491aa4bdcf775b967cf40b641c4970f87d502f",
+    "source_keys": [
+      "llm-stats:androidworld",
+      "llm-stats:androidworld-sr"
+    ]
+  },
+  {
+    "source_url": "https://arxiv.org/abs/2304.08244",
+    "title": "API-Bank: A Comprehensive Benchmark for Tool-Augmented LLMs",
+    "first_version_date": "2023-04-14",
+    "retrieved_on": "2026-10-11",
+    "locator": "arXiv submission history, v1",
+    "response_sha256": "4cfebe1d35eedf8c1e00e51097295f2f61eaea506e0ff0cc500dbd31f74de6c2",
+    "source_keys": [
+      "llm-stats:api-bank"
+    ]
+  },
+  {
+    "source_url": "https://arxiv.org/abs/2602.05857",
+    "title": "BABE: Biology Arena BEnchmark",
+    "first_version_date": "2026-02-05",
+    "retrieved_on": "2026-10-11",
+    "locator": "arXiv submission history, v1",
+    "response_sha256": "72e836346c3849069167bbb8f5dcb0e1e981d8c4e44a66bedb36242f35db6759",
+    "source_keys": [
+      "model-reports:babe"
+    ]
+  },
+  {
+    "source_url": "https://arxiv.org/abs/2501.17399",
+    "title": "MultiChallenge: A Realistic Multi-Turn Conversation Evaluation Benchmark Challenging to Frontier LLMs",
+    "first_version_date": "2025-01-29",
+    "retrieved_on": "2026-10-11",
+    "locator": "arXiv submission history, v1",
+    "response_sha256": "495f3b74697586c0b210f35d2291cac84ee6d9ceae2985eb813370a17153f624",
+    "source_keys": [
+      "model-reports:multi_challenge",
+      "llm-stats:multichallenge"
+    ]
+  },
+  {
+    "source_url": "https://arxiv.org/abs/2406.15877",
+    "title": "BigCodeBench: Benchmarking Code Generation with Diverse Function Calls and Complex Instructions",
+    "first_version_date": "2024-06-22",
+    "retrieved_on": "2026-10-11",
+    "locator": "arXiv submission history, v1",
+    "response_sha256": "2efbae91e220146981afba29715768759ed4e508df2c795f64b080767a5ecadc",
+    "source_keys": [
+      "llm-stats:bigcodebench",
+      "llm-stats:bigcodebench-full"
+    ]
+  },
+  {
+    "source_url": "https://arxiv.org/abs/2404.12390",
+    "title": "BLINK: Multimodal Large Language Models Can See but Not Perceive",
+    "first_version_date": "2024-04-18",
+    "retrieved_on": "2026-10-11",
+    "locator": "arXiv submission history, v1",
+    "response_sha256": "8c280576c5b47705f40b883cd659c8d39f077068bba71d83d369f377360448aa",
+    "source_keys": [
+      "llm-stats:blink"
+    ]
+  },
+  {
+    "source_url": "https://arxiv.org/abs/1905.10044",
+    "title": "BoolQ: Exploring the Surprising Difficulty of Natural Yes/No Questions",
+    "first_version_date": "2019-05-24",
+    "retrieved_on": "2026-10-11",
+    "locator": "arXiv submission history, v1",
+    "response_sha256": "4cb14c1118ac4b37e5ffd7f4ab6bdd06a7c1cff43c05b4ba4b4385c86daa8f6e",
+    "source_keys": [
+      "llm-stats:boolq"
+    ]
+  },
+  {
+    "source_url": "https://arxiv.org/abs/2305.03111",
+    "title": "Can LLM Already Serve as A Database Interface? A BIg Bench for Large-Scale Database Grounded Text-to-SQLs",
+    "first_version_date": "2023-05-04",
+    "retrieved_on": "2026-10-11",
+    "locator": "arXiv submission history, v1",
+    "response_sha256": "8c75f6d2460b9c62626fa53b98bb2ff9fc5fdef5c2ab22744ec4b2c380d2a8c2",
+    "source_keys": [
+      "llm-stats:bird-sql-(dev)"
+    ]
+  },
+  {
+    "source_url": "https://arxiv.org/abs/2203.10244",
+    "title": "ChartQA: A Benchmark for Question Answering about Charts with Visual and Logical Reasoning",
+    "first_version_date": "2022-03-19",
+    "retrieved_on": "2026-10-11",
+    "locator": "arXiv submission history, v1",
+    "response_sha256": "1df9d6c906549a1ebb703a95452843fe186c672b1ba2457c53d9ec7e8ae182da",
+    "source_keys": [
+      "llm-stats:chartqa"
+    ]
+  },
+  {
+    "source_url": "https://arxiv.org/abs/2408.08926",
+    "title": "Cybench: A Framework for Evaluating Cybersecurity Capabilities and Risks of Language Models",
+    "first_version_date": "2024-08-15",
+    "retrieved_on": "2026-10-11",
+    "locator": "arXiv submission history, v1",
+    "response_sha256": "0859303a47a64370de75a039a97d1dfe482a31a9dee4cd8e8793cdc0abdfd102",
+    "source_keys": [
+      "llm-stats:cybench"
+    ]
+  },
+  {
+    "source_url": "https://arxiv.org/abs/2403.03163",
+    "title": "Design2Code: Benchmarking Multimodal Code Generation for Automated Front-End Engineering",
+    "first_version_date": "2024-03-05",
+    "retrieved_on": "2026-10-11",
+    "locator": "arXiv submission history, v1",
+    "response_sha256": "1215f69458036e64690b8c69adc7a7e47aa0e1135eec4afacb3764d875c23d7d",
+    "source_keys": [
+      "llm-stats:design2code"
+    ]
+  },
+  {
+    "source_url": "https://arxiv.org/abs/2007.00398",
+    "title": "DocVQA: A Dataset for VQA on Document Images",
+    "first_version_date": "2020-07-01",
+    "retrieved_on": "2026-10-11",
+    "locator": "arXiv submission history, v1",
+    "response_sha256": "0d4e87ad924941ae9767a08377046895652b26ff7372a471925f4be294924837",
+    "source_keys": [
+      "llm-stats:docvqa"
+    ]
+  },
+  {
+    "source_url": "https://arxiv.org/abs/2308.09126",
+    "title": "EgoSchema: A Diagnostic Benchmark for Very Long-form Video Language Understanding",
+    "first_version_date": "2023-08-17",
+    "retrieved_on": "2026-10-11",
+    "locator": "arXiv submission history, v1",
+    "response_sha256": "48cedb6e2629c8b835f4317e32caf285d768be1a6a28a205ae3c8b6e56568bc3",
+    "source_keys": [
+      "llm-stats:egoschema"
+    ]
+  },
+  {
+    "source_url": "https://arxiv.org/abs/2109.00122",
+    "title": "FinQA: A Dataset of Numerical Reasoning over Financial Data",
+    "first_version_date": "2021-09-01",
+    "retrieved_on": "2026-10-11",
+    "locator": "arXiv submission history, v1",
+    "response_sha256": "5a7f338514146b4f603b66b88a5a98e4d54932398059f6f04511c819410c998b",
+    "source_keys": [
+      "llm-stats:finqa"
+    ]
+  },
+  {
+    "source_url": "https://arxiv.org/abs/2409.12941",
+    "title": "Fact, Fetch, and Reason: A Unified Evaluation of Retrieval-Augmented Generation",
+    "first_version_date": "2024-09-19",
+    "retrieved_on": "2026-10-11",
+    "locator": "arXiv submission history, v1",
+    "response_sha256": "13092a181f099804b3ddef885afe2a98ec46105ff1c482ea6709725e7b5d782f",
+    "source_keys": [
+      "llm-stats:frames"
+    ]
+  },
+  {
+    "source_url": "https://arxiv.org/abs/2505.08775",
+    "title": "HealthBench: Evaluating Large Language Models Towards Improved Human Health",
+    "first_version_date": "2025-05-13",
+    "retrieved_on": "2026-10-11",
+    "locator": "arXiv submission history, v1",
+    "response_sha256": "bd90fc8a8c199c6ff044a443317646199e2a208419f55f5e964950dd9bc41d9a",
+    "source_keys": [
+      "llm-stats:healthbench",
+      "llm-stats:healthbench-hard",
+      "llm-stats:healthbench-consensus"
+    ]
+  },
+  {
+    "source_url": "https://arxiv.org/abs/2310.14566",
+    "title": "HallusionBench: An Advanced Diagnostic Suite for Entangled Language Hallucination and Visual Illusion in Large Vision-Language Models",
+    "first_version_date": "2023-10-23",
+    "retrieved_on": "2026-10-11",
+    "locator": "arXiv submission history, v1",
+    "response_sha256": "0825f07fa8d68b5db2bb68fc54e64a9e2c8f4f4ac31d4e2438e0bcff09d26115",
+    "source_keys": [
+      "llm-stats:hallusion-bench"
+    ]
+  },
+  {
+    "source_url": "https://arxiv.org/abs/2412.15204",
+    "title": "LongBench v2: Towards Deeper Understanding and Reasoning on Realistic Long-context Multitasks",
+    "first_version_date": "2024-12-19",
+    "retrieved_on": "2026-10-11",
+    "locator": "arXiv submission history, v1",
+    "response_sha256": "55a37ca82f9cdc313322cdc8c24b4694a8a2f898da1b05463f39c7215e2e77aa",
+    "source_keys": [
+      "llm-stats:longbench-v2"
+    ]
+  },
+  {
+    "source_url": "https://arxiv.org/abs/2407.15754",
+    "title": "LongVideoBench: A Benchmark for Long-context Interleaved Video-Language Understanding",
+    "first_version_date": "2024-07-22",
+    "retrieved_on": "2026-10-11",
+    "locator": "arXiv submission history, v1",
+    "response_sha256": "21a544e636f48eef8c3a3e4a962307c87cb3ff3b822eb62db71cdd8e6a7bf49a",
+    "source_keys": [
+      "llm-stats:longvideobench"
+    ]
+  },
+  {
+    "source_url": "https://arxiv.org/abs/2403.14624",
+    "title": "MathVerse: Does Your Multi-modal LLM Truly See the Diagrams in Visual Math Problems?",
+    "first_version_date": "2024-03-21",
+    "retrieved_on": "2026-10-11",
+    "locator": "arXiv submission history, v1",
+    "response_sha256": "1adfa6f5bb0699cd8f2b03ea89fcd84dcea225804c3c2627495ef60e7c026fc7",
+    "source_keys": [
+      "llm-stats:mathverse"
+    ]
+  },
+  {
+    "source_url": "https://arxiv.org/abs/2307.06281",
+    "title": "MMBench: Is Your Multi-modal Model an All-around Player?",
+    "first_version_date": "2023-07-12",
+    "retrieved_on": "2026-10-11",
+    "locator": "arXiv submission history, v1",
+    "response_sha256": "7c9fff3f21d5a9d47a6a01c73637900a8fa3a8894585c577b20e656d6d6786cc",
+    "source_keys": [
+      "llm-stats:mmbench"
+    ]
+  },
+  {
+    "source_url": "https://arxiv.org/abs/2306.13394",
+    "title": "MME: A Comprehensive Evaluation Benchmark for Multimodal Large Language Models",
+    "first_version_date": "2023-06-23",
+    "retrieved_on": "2026-10-11",
+    "locator": "arXiv submission history, v1",
+    "response_sha256": "24b3d778ccb603bf46a7cb87023c647dd3db0bae31e38b135632f888d8db9077",
+    "source_keys": [
+      "llm-stats:mme"
+    ]
+  },
+  {
+    "source_url": "https://arxiv.org/abs/2308.02490",
+    "title": "MM-Vet: Evaluating Large Multimodal Models for Integrated Capabilities",
+    "first_version_date": "2023-08-04",
+    "retrieved_on": "2026-10-11",
+    "locator": "arXiv submission history, v1",
+    "response_sha256": "28bf87984eccfb1a1dc2824de0334d394a544d0bb7411fbc8e9cdb80d5644731",
+    "source_keys": [
+      "llm-stats:mmvet"
+    ]
+  },
+  {
+    "source_url": "https://arxiv.org/abs/2306.05685",
+    "title": "Judging LLM-as-a-Judge with MT-Bench and Chatbot Arena",
+    "first_version_date": "2023-06-09",
+    "retrieved_on": "2026-10-11",
+    "locator": "arXiv submission history, v1",
+    "response_sha256": "77854867787231a84724d8825cb1754bf14a29b8a93629cf9fc00d76a0734123",
+    "source_keys": [
+      "llm-stats:mt-bench"
+    ]
+  },
+  {
+    "source_url": "https://arxiv.org/abs/2310.16049",
+    "title": "MuSR: Testing the Limits of Chain-of-thought with Multistep Soft Reasoning",
+    "first_version_date": "2023-10-24",
+    "retrieved_on": "2026-10-11",
+    "locator": "arXiv submission history, v1",
+    "response_sha256": "e7b22e3885517b0266c5137e5cd3832c6955a5f659264a78a89fd0563bf7fa78",
+    "source_keys": [
+      "llm-stats:musr"
+    ]
+  },
+  {
+    "source_url": "https://arxiv.org/abs/2404.07972",
+    "title": "OSWorld: Benchmarking Multimodal Agents for Open-Ended Tasks in Real Computer Environments",
+    "first_version_date": "2024-04-11",
+    "retrieved_on": "2026-10-11",
+    "locator": "arXiv submission history, v1",
+    "response_sha256": "b647fbf05a6cf37e69afee5ab99152ca57d1af31020cc33a65d1d27a2fe34ede",
+    "source_keys": [
+      "llm-stats:osworld"
+    ]
+  },
+  {
+    "source_url": "https://arxiv.org/abs/2504.01848",
+    "title": "PaperBench: Evaluating AI's Ability to Replicate AI Research",
+    "first_version_date": "2025-04-02",
+    "retrieved_on": "2026-10-11",
+    "locator": "arXiv submission history, v1",
+    "response_sha256": "374c50f583015b33bd97a9353f8577dd6deb319dc27162788d09c037878496c9",
+    "source_keys": [
+      "llm-stats:paperbench"
+    ]
+  },
+  {
+    "source_url": "https://arxiv.org/abs/1911.11641",
+    "title": "PIQA: Reasoning about Physical Commonsense in Natural Language",
+    "first_version_date": "2019-11-26",
+    "retrieved_on": "2026-10-11",
+    "locator": "arXiv submission history, v1",
+    "response_sha256": "cb22ae346daa067e512d94a247eac71325f54b6afeaf857880d1228c7bb80ec1",
+    "source_keys": [
+      "llm-stats:piqa"
+    ]
+  },
+  {
+    "source_url": "https://arxiv.org/abs/2105.03011",
+    "title": "A Dataset of Information-Seeking Questions and Answers Anchored in Research Papers",
+    "first_version_date": "2021-05-07",
+    "retrieved_on": "2026-10-11",
+    "locator": "arXiv submission history, v1",
+    "response_sha256": "e32a69f5d3daa3239cdc77bd8e8acb008cdd101b82af7a0f1dd78a271c4b7c2f",
+    "source_keys": [
+      "llm-stats:qasper"
+    ]
+  },
+  {
+    "source_url": "https://arxiv.org/abs/2104.05938",
+    "title": "QMSum: A New Benchmark for Query-based Multi-domain Meeting Summarization",
+    "first_version_date": "2021-04-13",
+    "retrieved_on": "2026-10-11",
+    "locator": "arXiv submission history, v1",
+    "response_sha256": "a56c01e40786de1b84f8db65f2f33983621ff7bd853cfba1715345769298873d",
+    "source_keys": [
+      "llm-stats:qmsum"
+    ]
+  },
+  {
+    "source_url": "https://arxiv.org/abs/2404.06654",
+    "title": "RULER: What's the Real Context Size of Your Long-Context Language Models?",
+    "first_version_date": "2024-04-09",
+    "retrieved_on": "2026-10-11",
+    "locator": "arXiv submission history, v1",
+    "response_sha256": "fc4d644f649918595252e8e4150770521ea8b6e63b77b9516abf5f9f4afc6622",
+    "source_keys": [
+      "llm-stats:ruler"
+    ]
+  },
+  {
+    "source_url": "https://arxiv.org/abs/2209.09513",
+    "title": "Learn to Explain: Multimodal Reasoning via Thought Chains for Science Question Answering",
+    "first_version_date": "2022-09-20",
+    "retrieved_on": "2026-10-11",
+    "locator": "arXiv submission history, v1",
+    "response_sha256": "38200a7b9c3184478ed39e7bc9370321fa05c2f7c50a11de364e016194a93e7a",
+    "source_keys": [
+      "llm-stats:scienceqa",
+      "llm-stats:scienceqa-visual"
+    ]
+  },
+  {
+    "source_url": "https://arxiv.org/abs/1809.08887",
+    "title": "Spider: A Large-Scale Human-Labeled Dataset for Complex and Cross-Domain Semantic Parsing and Text-to-SQL Task",
+    "first_version_date": "2018-09-24",
+    "retrieved_on": "2026-10-11",
+    "locator": "arXiv submission history, v1",
+    "response_sha256": "164f2f0f0b76764d5048ade7d6045af632dbca7ea36c2b7de8008256b2e6f65c",
+    "source_keys": [
+      "llm-stats:spider"
+    ]
+  },
+  {
+    "source_url": "https://arxiv.org/abs/1905.00537",
+    "title": "SuperGLUE: A Stickier Benchmark for General-Purpose Language Understanding Systems",
+    "first_version_date": "2019-05-02",
+    "retrieved_on": "2026-10-11",
+    "locator": "arXiv submission history, v1",
+    "response_sha256": "b1b7f9081f1ceb1906035e22a882e900bcff1e7b05655b8234bc0929cf6c3c92",
+    "source_keys": [
+      "llm-stats:superglue",
+      "opencompass:507",
+      "opencompass:528",
+      "opencompass:529"
+    ]
+  },
+  {
+    "source_url": "https://arxiv.org/abs/2406.12045",
+    "title": "$\\tau$-bench: A Benchmark for Tool-Agent-User Interaction in Real-World Domains",
+    "first_version_date": "2024-06-17",
+    "retrieved_on": "2026-10-11",
+    "locator": "arXiv submission history, v1",
+    "response_sha256": "d82d45164e1bc9743a8d56201542a17d023b151d510f04aa024b6af25bd07ad3",
+    "source_keys": [
+      "llm-stats:tau-bench",
+      "llm-stats:tau-bench-airline",
+      "llm-stats:tau-bench-retail"
+    ]
+  },
+  {
+    "source_url": "https://arxiv.org/abs/1904.08920",
+    "title": "Towards VQA Models That Can Read",
+    "first_version_date": "2019-04-18",
+    "retrieved_on": "2026-10-11",
+    "locator": "arXiv submission history, v1",
+    "response_sha256": "c625b3b00059ac49885afae4558f36c57bfcc1a08f3d3a781c4c3bd7f8769bde",
+    "source_keys": [
+      "llm-stats:textvqa"
+    ]
+  },
+  {
+    "source_url": "https://arxiv.org/abs/2305.12524",
+    "title": "TheoremQA: A Theorem-driven Question Answering dataset",
+    "first_version_date": "2023-05-21",
+    "retrieved_on": "2026-10-11",
+    "locator": "arXiv submission history, v1",
+    "response_sha256": "77d5727204968fd469ef0e5fd407d57aab6cbbfbbe30386831aec2acf4facaa7",
+    "source_keys": [
+      "llm-stats:theoremqa"
+    ]
+  },
+  {
+    "source_url": "https://arxiv.org/abs/1705.03551",
+    "title": "TriviaQA: A Large Scale Distantly Supervised Challenge Dataset for Reading Comprehension",
+    "first_version_date": "2017-05-09",
+    "retrieved_on": "2026-10-11",
+    "locator": "arXiv submission history, v1",
+    "response_sha256": "b7b6ec7c089bc8d76a18d9748db7a6394c59b591049c9ff5fa20bc05a20275be",
+    "source_keys": [
+      "llm-stats:triviaqa"
+    ]
+  },
+  {
+    "source_url": "https://arxiv.org/abs/2109.07958",
+    "title": "TruthfulQA: Measuring How Models Mimic Human Falsehoods",
+    "first_version_date": "2021-09-08",
+    "retrieved_on": "2026-10-11",
+    "locator": "arXiv submission history, v1",
+    "response_sha256": "5a2f6d5867ac15485e7be55e49eb1116aaa1b9af6ceb20c12ce936dbcddf7fc3",
+    "source_keys": [
+      "llm-stats:truthfulqa"
+    ]
+  },
+  {
+    "source_url": "https://arxiv.org/abs/2405.21075",
+    "title": "Video-MME: The First-Ever Comprehensive Evaluation Benchmark of Multi-modal LLMs in Video Analysis",
+    "first_version_date": "2024-05-31",
+    "retrieved_on": "2026-10-11",
+    "locator": "arXiv submission history, v1",
+    "response_sha256": "effdbcea8df68bac3258c98df59dc7aeb8128775f18894305a8987e6cd49667f",
+    "source_keys": [
+      "llm-stats:video-mme"
+    ]
+  },
+  {
+    "source_url": "https://arxiv.org/abs/2403.03218",
+    "title": "The WMDP Benchmark: Measuring and Reducing Malicious Use With Unlearning",
+    "first_version_date": "2024-03-05",
+    "retrieved_on": "2026-10-11",
+    "locator": "arXiv submission history, v1",
+    "response_sha256": "335908dae28e3bdbd181d5a4bb97239d778db530ca581e74009c5ea4d60c6048",
+    "source_keys": [
+      "llm-stats:wmdp"
+    ]
+  },
+  {
+    "source_url": "https://arxiv.org/abs/2401.13919",
+    "title": "WebVoyager: Building an End-to-End Web Agent with Large Multimodal Models",
+    "first_version_date": "2024-01-25",
+    "retrieved_on": "2026-10-11",
+    "locator": "arXiv submission history, v1",
+    "response_sha256": "eff47aae1f506166a6a10e6e3497edbfa3ebb791cdd54657d55b8657f45d57d5",
+    "source_keys": [
+      "llm-stats:webvoyager"
+    ]
+  },
+  {
+    "source_url": "https://arxiv.org/abs/2503.05244",
+    "title": "WritingBench: A Comprehensive Benchmark for Generative Writing",
+    "first_version_date": "2025-03-07",
+    "retrieved_on": "2026-10-11",
+    "locator": "arXiv submission history, v1",
+    "response_sha256": "fee5a47a95c8857ae51c9ebbb78ff1a7c522cced7570f55b68f667ec99578191",
+    "source_keys": [
+      "llm-stats:writingbench"
+    ]
+  },
+  {
+    "source_url": "https://arxiv.org/abs/2502.12115",
+    "title": "SWE-Lancer: Can Frontier LLMs Earn $1 Million from Real-World Freelance Software Engineering?",
+    "first_version_date": "2025-02-17",
+    "retrieved_on": "2026-10-11",
+    "locator": "arXiv submission history, v1",
+    "response_sha256": "5803ddbfe10a73f2e08c4b8e46d0b98088867b4380e079201307d2321f539db8",
+    "source_keys": [
+      "model-reports:swe_lancer",
+      "llm-stats:swe-lancer"
+    ]
+  },
+  {
+    "source_url": "https://arxiv.org/abs/1803.05457",
+    "title": "Think you have Solved Question Answering? Try ARC, the AI2 Reasoning Challenge",
+    "first_version_date": "2018-03-14",
+    "retrieved_on": "2026-10-11",
+    "locator": "arXiv submission history, v1",
+    "response_sha256": "7d1ce5a72c426974aa10b02f132e11f204ad8faa529c111ec5e34bbff293617d",
+    "source_keys": [
+      "llm-stats:ai2-reasoning-challenge-(arc)",
+      "llm-stats:arc-e"
+    ]
+  },
+  {
+    "source_url": "https://arxiv.org/abs/2305.08322",
+    "title": "C-Eval: A Multi-Level Multi-Discipline Chinese Evaluation Suite for Foundation Models",
+    "first_version_date": "2023-05-15",
+    "retrieved_on": "2026-10-11",
+    "locator": "arXiv submission history, v1",
+    "response_sha256": "1c8a8eb27468c666a96ae6a330d1c702962810c1e0c3185c823be55e6cd5c301",
+    "source_keys": [
+      "llm-stats:c-eval"
+    ]
+  },
+  {
+    "source_url": "https://arxiv.org/abs/2306.09212",
+    "title": "CMMLU: Measuring massive multitask language understanding in Chinese",
+    "first_version_date": "2023-06-15",
+    "retrieved_on": "2026-10-11",
+    "locator": "arXiv submission history, v1",
+    "response_sha256": "c597c6b56ee8f202d2ab890718a4881196c98aa87556a24d7c7b378c152d773b",
+    "source_keys": [
+      "llm-stats:cmmlu"
+    ]
+  },
+  {
+    "source_url": "https://arxiv.org/abs/1811.00937",
+    "title": "CommonsenseQA: A Question Answering Challenge Targeting Commonsense Knowledge",
+    "first_version_date": "2018-11-02",
+    "retrieved_on": "2026-10-11",
+    "locator": "arXiv submission history, v1",
+    "response_sha256": "e287c6dad5775eb70021ee2b2cbb6e53a074aec0126b6316510f417841b51744",
+    "source_keys": [
+      "llm-stats:commonsenseqa"
+    ]
+  },
+  {
+    "source_url": "https://arxiv.org/abs/1809.02789",
+    "title": "Can a Suit of Armor Conduct Electricity? A New Dataset for Open Book Question Answering",
+    "first_version_date": "2018-09-08",
+    "retrieved_on": "2026-10-11",
+    "locator": "arXiv submission history, v1",
+    "response_sha256": "8eccad5843681d2db0473cf69fef01cf998635a7c3697379f7a111353d838cde",
+    "source_keys": [
+      "llm-stats:openbookqa"
+    ]
+  },
+  {
+    "source_url": "https://arxiv.org/abs/2003.05002",
+    "title": "TyDi QA: A Benchmark for Information-Seeking Question Answering in Typologically Diverse Languages",
+    "first_version_date": "2020-03-10",
+    "retrieved_on": "2026-10-11",
+    "locator": "arXiv submission history, v1",
+    "response_sha256": "9ffde4aa47fb1c61ed80c60b4723474b8238d97345cb78490a374641ca74001e",
+    "source_keys": [
+      "llm-stats:tydiqa"
+    ]
+  },
+  {
+    "source_url": "https://arxiv.org/abs/2502.09696",
+    "title": "ZeroBench: An Impossible Visual Benchmark for Contemporary Large Multimodal Models",
+    "first_version_date": "2025-02-13",
+    "retrieved_on": "2026-10-11",
+    "locator": "arXiv submission history, v1",
+    "response_sha256": "8cada9d2505fdcf661080706611e3e94de264eda0746dc8fa602a7bfc659b3ec",
+    "source_keys": [
+      "model-reports:zerobench",
+      "llm-stats:zerobench"
+    ]
+  },
+  {
+    "source_url": "https://arxiv.org/abs/2504.16074",
+    "title": "PHYBench: Holistic Evaluation of Physical Perception and Reasoning in Large Language Models",
+    "first_version_date": "2025-04-22",
+    "retrieved_on": "2026-10-11",
+    "locator": "arXiv submission history, v1",
+    "response_sha256": "886aa78a7a64836f6dfa72b956b2579054ff84d2281878b8076175df5e94e14c",
+    "source_keys": [
+      "model-reports:phybench",
+      "llm-stats:phybench"
+    ]
+  },
+  {
+    "source_url": "https://arxiv.org/abs/2305.01210",
+    "title": "Is Your Code Generated by ChatGPT Really Correct? Rigorous Evaluation of Large Language Models for Code Generation",
+    "first_version_date": "2023-05-02",
+    "retrieved_on": "2026-10-11",
+    "locator": "arXiv submission history, v1",
+    "response_sha256": "570b56cda244c325ef61ef5e3630513a83c4564c05c9ba4d8a4c40cd4294091e",
+    "source_keys": [
+      "llm-stats:evalplus",
+      "llm-stats:humaneval-plus",
+      "llm-stats:humaneval+"
+    ]
+  },
+  {
+    "source_url": "https://arxiv.org/abs/2311.12022",
+    "title": "GPQA: A Graduate-Level Google-Proof Q&A Benchmark",
+    "first_version_date": "2023-11-20",
+    "retrieved_on": "2026-10-11",
+    "locator": "arXiv submission history, v1",
+    "response_sha256": "89060474bd78a41ae61ce1575ecdaaff81478bddeea9a8a6da5fcc1669315afa",
+    "source_keys": [
+      "llm-stats:gpqa-biology",
+      "llm-stats:gpqa-chemistry",
+      "llm-stats:gpqa-physics"
+    ]
+  },
+  {
+    "source_url": "https://arxiv.org/abs/2104.12756",
+    "title": "InfographicVQA",
+    "first_version_date": "2021-04-26",
+    "retrieved_on": "2026-10-11",
+    "locator": "arXiv submission history, v1",
+    "response_sha256": "c4746944d0f534d7a924cb0be9e15dd6d82e83b5412c5e757e819760f7d54be8",
+    "source_keys": [
+      "llm-stats:infographicsqa",
+      "llm-stats:infovqa"
+    ]
+  },
+  {
+    "source_url": "https://arxiv.org/abs/2407.17436",
+    "title": "AIR-Bench 2024: A Safety Benchmark Based on Risk Categories from Regulations and Policies",
+    "first_version_date": "2024-07-11",
+    "retrieved_on": "2026-10-11",
+    "locator": "arXiv submission history, v1",
+    "response_sha256": "ab19b83e8dc97186bd423e0d47875353f5566d13880bb8475a4eb9b936107c70",
+    "source_keys": [
+      "llm-stats:air-bench"
+    ]
+  },
+  {
+    "source_url": "https://arxiv.org/abs/2104.02112",
+    "title": "Efficient Attentions for Long Document Summarization",
+    "first_version_date": "2021-04-05",
+    "retrieved_on": "2026-10-11",
+    "locator": "arXiv submission history, v1",
+    "response_sha256": "146900536fbcebec46c087df1bc40a31894bcebb2a19562393e7a035e43a0665",
+    "source_keys": [
+      "llm-stats:govreport"
+    ]
+  },
+  {
+    "source_url": "https://arxiv.org/abs/2410.06526",
+    "title": "KOR-Bench: Benchmarking Language Models on Knowledge-Orthogonal Reasoning Tasks",
+    "first_version_date": "2024-10-09",
+    "retrieved_on": "2026-10-11",
+    "locator": "arXiv submission history, v1",
+    "response_sha256": "add77aef4b14f145d23b5be162b733102f7c606cd551c1893da60be677bc8d55",
+    "source_keys": [
+      "model-reports:korbench"
+    ]
+  },
+  {
+    "source_url": "https://arxiv.org/abs/2504.02605",
+    "title": "Multi-SWE-bench: A Multilingual Benchmark for Issue Resolving",
+    "first_version_date": "2025-04-03",
+    "retrieved_on": "2026-10-11",
+    "locator": "arXiv submission history, v1",
+    "response_sha256": "c2d648b8f74eef0d5d3e3cdf909174bdc0fdf5560c7614997b584f594ff103fa",
+    "source_keys": [
+      "model-reports:multi_swe_bench",
+      "llm-stats:multi-swe-bench"
+    ]
+  },
+  {
+    "source_url": "https://arxiv.org/abs/2307.08689",
+    "title": "COLLIE: Systematic Construction of Constrained Text Generation Tasks",
+    "first_version_date": "2023-07-17",
+    "retrieved_on": "2026-10-11",
+    "locator": "arXiv submission history, v1",
+    "response_sha256": "616036d9739a60d20154042a743c05b3eba4ae41c6eb08f96d85ee573c421689",
+    "source_keys": [
+      "model-reports:collie",
+      "llm-stats:collie"
+    ]
+  },
+  {
+    "source_url": "https://arxiv.org/abs/2212.10511",
+    "title": "When Not to Trust Language Models: Investigating Effectiveness of Parametric and Non-Parametric Memories",
+    "first_version_date": "2022-12-20",
+    "retrieved_on": "2026-10-11",
+    "locator": "arXiv submission history, v1",
+    "response_sha256": "aaaf2e65eeeb0f0e3e099b8f4efc336ed1c60d39127361ffa6d9028608e75d4f",
+    "source_keys": [
+      "llm-stats:popqa"
+    ]
+  },
+  {
+    "source_url": "https://openai.com/index/healthbench/",
+    "title": "Introducing HealthBench",
+    "release_date": "2025-05-12",
+    "retrieved_on": "2026-10-11",
+    "locator": "Dated article header and HealthBench Hard / HealthBench Consensus sections",
+    "source_keys": [
+      "llm-stats:healthbench",
+      "llm-stats:healthbench-hard",
+      "llm-stats:healthbench-consensus"
+    ]
+  },
+  {
+    "source_url": "https://arxiv.org/abs/1911.01547",
+    "title": "On the Measure of Intelligence",
+    "first_version_date": "2019-11-05",
+    "retrieved_on": "2026-10-11",
+    "locator": "arXiv submission history, v1",
+    "response_sha256": "4835c5bc09c8393cd29e7c6434e9341a6e7b704fe7b8ea8e5ba06860ae8ca910",
+    "source_keys": [
+      "llm-stats:arc-agi"
+    ]
+  },
+  {
+    "source_url": "https://arxiv.org/abs/2210.09261",
+    "title": "Challenging BIG-Bench Tasks and Whether Chain-of-Thought Can Solve Them",
+    "first_version_date": "2022-10-17",
+    "retrieved_on": "2026-10-11",
+    "locator": "arXiv submission history, v1",
+    "response_sha256": "dd2b69520f279659f64785f4d9b3b8de16e282be156e7e2e582a9583d007bc61",
+    "source_keys": [
+      "llm-stats:bbh"
+    ]
+  },
+  {
+    "source_url": "https://arxiv.org/abs/2206.04615",
+    "title": "Beyond the Imitation Game: Quantifying and extrapolating the capabilities of language models",
+    "first_version_date": "2022-06-09",
+    "retrieved_on": "2026-10-11",
+    "locator": "arXiv submission history, v1",
+    "response_sha256": "bca36d0edd9982042dbb9b38545f2a02c0da2a6f14987d503fe4a061dfffcb4c",
+    "source_keys": [
+      "llm-stats:big-bench"
+    ]
+  },
+  {
+    "source_url": "https://arxiv.org/abs/2502.19187",
+    "title": "BIG-Bench Extra Hard",
+    "first_version_date": "2025-02-26",
+    "retrieved_on": "2026-10-11",
+    "locator": "arXiv submission history, v1",
+    "response_sha256": "350ddacfd45489e1af07d0d550c56e369433fa58ec529d9a690b76f5d86468df",
+    "source_keys": [
+      "llm-stats:big-bench-extra-hard"
+    ]
+  },
+  {
+    "source_url": "https://arxiv.org/abs/1901.07031",
+    "title": "CheXpert: A Large Chest Radiograph Dataset with Uncertainty Labels and Expert Comparison",
+    "first_version_date": "2019-01-21",
+    "retrieved_on": "2026-10-11",
+    "locator": "arXiv submission history, v1",
+    "response_sha256": "cffeccf0bf2658a90860e6be76323e0f23a8fdf8a4854e74e0be7b6f50432e0f",
+    "source_keys": [
+      "llm-stats:chexpert-cxr"
+    ]
+  },
+  {
+    "source_url": "https://arxiv.org/abs/2004.05986",
+    "title": "CLUE: A Chinese Language Understanding Evaluation Benchmark",
+    "first_version_date": "2020-04-13",
+    "retrieved_on": "2026-10-11",
+    "locator": "arXiv submission history, v1",
+    "response_sha256": "419dc5b600a90ca5eadeb837362205bf3c662919718466b9427a04374f238291",
+    "source_keys": [
+      "llm-stats:cluewsc",
+      "opencompass:524"
+    ]
+  },
+  {
+    "source_url": "https://arxiv.org/abs/2007.10310",
+    "title": "CoVoST 2 and Massively Multilingual Speech-to-Text Translation",
+    "first_version_date": "2020-07-20",
+    "retrieved_on": "2026-10-11",
+    "locator": "arXiv submission history, v1",
+    "response_sha256": "607c9ca3ba187356184b14ab95424c471da674a7d8e1f303bc261be1b90b2572",
+    "source_keys": [
+      "llm-stats:covost2",
+      "llm-stats:covost2-en-zh"
+    ]
+  },
+  {
+    "source_url": "https://arxiv.org/abs/2401.03065",
+    "title": "CRUXEval: A Benchmark for Code Reasoning, Understanding and Execution",
+    "first_version_date": "2024-01-05",
+    "retrieved_on": "2026-10-11",
+    "locator": "arXiv submission history, v1",
+    "response_sha256": "25b9e2cc8f7b6f0131391971f502c138694226bdb8bce6ad459669f5d35f1011",
+    "source_keys": [
+      "llm-stats:crux-o",
+      "llm-stats:cruxeval-o"
+    ]
+  },
+  {
+    "source_url": "https://arxiv.org/abs/2305.14251",
+    "title": "FActScore: Fine-grained Atomic Evaluation of Factual Precision in Long Form Text Generation",
+    "first_version_date": "2023-05-23",
+    "retrieved_on": "2026-10-11",
+    "locator": "arXiv submission history, v1",
+    "response_sha256": "33e20f090ca265fb3bbbcaa20b073c4c566c0684e7838340a66765c2429465b0",
+    "source_keys": [
+      "llm-stats:factscore"
+    ]
+  },
+  {
+    "source_url": "https://arxiv.org/abs/2205.12446",
+    "title": "FLEURS: Few-shot Learning Evaluation of Universal Representations of Speech",
+    "first_version_date": "2022-05-25",
+    "retrieved_on": "2026-10-11",
+    "locator": "arXiv submission history, v1",
+    "response_sha256": "5677a7c4030171b138ba33fd90ab63034b24e816aea4a7febd99038f4b13dafe",
+    "source_keys": [
+      "llm-stats:fleurs"
+    ]
+  },
+  {
+    "source_url": "https://arxiv.org/abs/2412.03304",
+    "title": "Global MMLU: Understanding and Addressing Cultural and Linguistic Biases in Multilingual Evaluation",
+    "first_version_date": "2024-12-04",
+    "retrieved_on": "2026-10-11",
+    "locator": "arXiv submission history, v1",
+    "response_sha256": "46ac6fe2136af05ae7453aa7263d48a784c7f28998bbacee7ba63accbed7eda7",
+    "source_keys": [
+      "llm-stats:global-mmlu"
+    ]
+  },
+  {
+    "source_url": "https://arxiv.org/abs/2305.15334",
+    "title": "Gorilla: Large Language Model Connected with Massive APIs",
+    "first_version_date": "2023-05-24",
+    "retrieved_on": "2026-10-11",
+    "locator": "arXiv submission history, v1",
+    "response_sha256": "ec15f3a1f50f8f2ee136c9c464bb6b465610017450d7be1141c1feff10701538",
+    "source_keys": [
+      "llm-stats:gorilla-benchmark-api-bench"
+    ]
+  },
+  {
+    "source_url": "https://arxiv.org/abs/2501.14249",
+    "title": "Humanity's Last Exam",
+    "first_version_date": "2025-01-24",
+    "retrieved_on": "2026-10-11",
+    "locator": "arXiv submission history, v1",
+    "response_sha256": "7121c90ce1eff0048140d3d49adcbd9ecfbbfa1bedc6d49c0600dfd4b0049d9c",
+    "source_keys": [
+      "llm-stats:humanity's-last-exam-(no-tools,-text-only)",
+      "llm-stats:humanity's-last-exam-(with-tools,-text-only)"
+    ]
+  },
+  {
+    "source_url": "https://arxiv.org/abs/2305.20050",
+    "title": "Let's Verify Step by Step",
+    "first_version_date": "2023-05-31",
+    "retrieved_on": "2026-10-11",
+    "locator": "arXiv submission history, v1",
+    "response_sha256": "6573b62ef7138d7afb2f047db67142f5f6a362dec612411379985c1b628e8c2b",
+    "source_keys": [
+      "llm-stats:math-500"
+    ]
+  },
+  {
+    "source_url": "https://arxiv.org/abs/1810.02508",
+    "title": "MELD: A Multimodal Multi-Party Dataset for Emotion Recognition in Conversations",
+    "first_version_date": "2018-10-05",
+    "retrieved_on": "2026-10-11",
+    "locator": "arXiv submission history, v1",
+    "response_sha256": "8cbeda081801c0fe04ec75179b1858acdad15aa7380489218fa31ad04c52b84a",
+    "source_keys": [
+      "llm-stats:meld"
+    ]
+  },
+  {
+    "source_url": "https://arxiv.org/abs/2406.04264",
+    "title": "MLVU: Benchmarking Multi-task Long Video Understanding",
+    "first_version_date": "2024-06-06",
+    "retrieved_on": "2026-10-11",
+    "locator": "arXiv submission history, v1",
+    "response_sha256": "a599d8d3990e24e2abb69f310d68cb21ac71e21ec11361561f211fbbafd74c1e",
+    "source_keys": [
+      "llm-stats:mlvu"
+    ]
+  },
+  {
+    "source_url": "https://arxiv.org/abs/2009.03300",
+    "title": "Measuring Massive Multitask Language Understanding",
+    "first_version_date": "2020-09-07",
+    "retrieved_on": "2026-10-11",
+    "locator": "arXiv submission history, v1",
+    "response_sha256": "ffb542b1cf065c035f978c04346b0fd159498856223020214a0193499c7f6460",
+    "source_keys": [
+      "llm-stats:mmlu-base"
+    ]
+  },
+  {
+    "source_url": "https://arxiv.org/abs/2311.16502",
+    "title": "MMMU: A Massive Multi-discipline Multimodal Understanding and Reasoning Benchmark for Expert AGI",
+    "first_version_date": "2023-11-27",
+    "retrieved_on": "2026-10-11",
+    "locator": "arXiv submission history, v1",
+    "response_sha256": "85fd6a90544ed216d08f7aae4c5f6deef14edaf82b2b03a6daf4ffb24eb6595b",
+    "source_keys": [
+      "llm-stats:mmmu-(val)",
+      "llm-stats:mmmu-(validation)",
+      "llm-stats:mmmuval"
+    ]
+  },
+  {
+    "source_url": "https://arxiv.org/abs/2406.09411",
+    "title": "MuirBench: A Comprehensive Benchmark for Robust Multi-image Understanding",
+    "first_version_date": "2024-06-13",
+    "retrieved_on": "2026-10-11",
+    "locator": "arXiv submission history, v1",
+    "response_sha256": "5a2fd919c75e59d406e489a7d9eb752d2c337be0b94de132b962a5d72cabef63",
+    "source_keys": [
+      "llm-stats:muirbench"
+    ]
+  },
+  {
+    "source_url": "https://arxiv.org/abs/2311.17005",
+    "title": "MVBench: A Comprehensive Multi-modal Video Understanding Benchmark",
+    "first_version_date": "2023-11-28",
+    "retrieved_on": "2026-10-11",
+    "locator": "arXiv submission history, v1",
+    "response_sha256": "2cda6bf9ad87f94564b37ab3ba029091775f060a30ff86c470c31b58aa3ec2a4",
+    "source_keys": [
+      "llm-stats:mvbench"
+    ]
+  },
+  {
+    "source_url": "https://arxiv.org/abs/1903.11027",
+    "title": "nuScenes: A multimodal dataset for autonomous driving",
+    "first_version_date": "2019-03-26",
+    "retrieved_on": "2026-10-11",
+    "locator": "arXiv submission history, v1",
+    "response_sha256": "f4905a521214705e8c3dfd000bb37a6b158ab66c750592e58e0f87eb1108b5a3",
+    "source_keys": [
+      "llm-stats:nuscene"
+    ]
+  },
+  {
+    "source_url": "https://arxiv.org/abs/2402.14008",
+    "title": "OlympiadBench: A Challenging Benchmark for Promoting AGI with Olympiad-Level Bilingual Multimodal Scientific Problems",
+    "first_version_date": "2024-02-21",
+    "retrieved_on": "2026-10-11",
+    "locator": "arXiv submission history, v1",
+    "response_sha256": "d5090c62e7f591fbd59b5953ebda7ddcc0f756fbb6e4d4779b6b6411c5341896",
+    "source_keys": [
+      "llm-stats:olympiadbench"
+    ]
+  },
+  {
+    "source_url": "https://arxiv.org/abs/2305.13786",
+    "title": "Perception Test: A Diagnostic Benchmark for Multimodal Video Models",
+    "first_version_date": "2023-05-23",
+    "retrieved_on": "2026-10-11",
+    "locator": "arXiv submission history, v1",
+    "response_sha256": "a27fa9a8f692c95f500c1555c083bf7f423c62504adda9cda17b829c9fb2d99e",
+    "source_keys": [
+      "llm-stats:perceptiontest"
+    ]
+  },
+  {
+    "source_url": "https://arxiv.org/abs/2305.10355",
+    "title": "Evaluating Object Hallucination in Large Vision-Language Models",
+    "first_version_date": "2023-05-17",
+    "retrieved_on": "2026-10-11",
+    "locator": "arXiv submission history, v1",
+    "response_sha256": "48b82ffc2d1f60b8b68622b1871bec0580209271c1ee6dea6d77634bd94e8fe5",
+    "source_keys": [
+      "llm-stats:pope"
+    ]
+  },
+  {
+    "source_url": "https://arxiv.org/abs/2306.03091",
+    "title": "RepoBench: Benchmarking Repository-Level Code Auto-Completion Systems",
+    "first_version_date": "2023-06-05",
+    "retrieved_on": "2026-10-11",
+    "locator": "arXiv submission history, v1",
+    "response_sha256": "180d81cb7c87889ee653972e0ebc2996b67d74b1fe9efbc1c68bb3d5e3d49525",
+    "source_keys": [
+      "llm-stats:repobench"
+    ]
+  },
+  {
+    "source_url": "https://arxiv.org/abs/2406.06025",
+    "title": "RepoQA: Evaluating Long Context Code Understanding",
+    "first_version_date": "2024-06-10",
+    "retrieved_on": "2026-10-11",
+    "locator": "arXiv submission history, v1",
+    "response_sha256": "878d2e44d5364d969c6ebd0a05936f3cb779b8291cdb7b173f47cc12dc4e80a8",
+    "source_keys": [
+      "llm-stats:repoqa"
+    ]
+  },
+  {
+    "source_url": "https://arxiv.org/abs/1904.09728",
+    "title": "SocialIQA: Commonsense Reasoning about Social Interactions",
+    "first_version_date": "2019-04-22",
+    "retrieved_on": "2026-10-11",
+    "locator": "arXiv submission history, v1",
+    "response_sha256": "05887b73d41bbcbd0a830daf3d903b79638a2cf1ed3cbab2042234595f436c07",
+    "source_keys": [
+      "llm-stats:social-iqa"
+    ]
+  },
+  {
+    "source_url": "https://arxiv.org/abs/2403.00476",
+    "title": "TempCompass: Do Video LLMs Really Understand Videos?",
+    "first_version_date": "2024-03-01",
+    "retrieved_on": "2026-10-11",
+    "locator": "arXiv submission history, v1",
+    "response_sha256": "0aff139c4baf57751de726e43a9967db86c0f9a79621e94c4d28b9265b536349",
+    "source_keys": [
+      "llm-stats:tempcompass"
+    ]
+  },
+  {
+    "source_url": "https://arxiv.org/abs/1612.00837",
+    "title": "Making the V in VQA Matter: Elevating the Role of Image Understanding in Visual Question Answering",
+    "first_version_date": "2016-12-02",
+    "retrieved_on": "2026-10-11",
+    "locator": "arXiv submission history, v1",
+    "response_sha256": "574859678f95383f3da86fb2032d37e963810a8c67c5b589954f06e8619de22b",
+    "source_keys": [
+      "llm-stats:vqav2",
+      "llm-stats:vqav2-(test)",
+      "llm-stats:vqav2-(val)"
+    ]
+  },
+  {
+    "source_url": "https://arxiv.org/abs/2106.13822",
+    "title": "XL-Sum: Large-Scale Multilingual Abstractive Summarization for 44 Languages",
+    "first_version_date": "2021-06-25",
+    "retrieved_on": "2026-10-11",
+    "locator": "arXiv submission history, v1",
+    "response_sha256": "906fc1df9317c73e2aa64f3d77ef115963717885665c560e59cf6b3a753cf4d0",
+    "source_keys": [
+      "llm-stats:xlsum-english"
+    ]
+  },
+  {
+    "source_url": "https://arxiv.org/abs/2308.01263",
+    "title": "XSTest: A Test Suite for Identifying Exaggerated Safety Behaviours in Large Language Models",
+    "first_version_date": "2023-08-02",
+    "retrieved_on": "2026-10-11",
+    "locator": "arXiv submission history, v1",
+    "response_sha256": "03dc1192ab9eedbc8ee7e80e3149c40aff05154158326bc802da827f62d58d01",
+    "source_keys": [
+      "llm-stats:xstest"
+    ]
+  },
+  {
+    "source_url": "https://arxiv.org/abs/1905.00537",
+    "retrieved_on": "2026-10-12",
+    "source_keys": [
+      "opencompass:507",
+      "opencompass:528",
+      "opencompass:529"
+    ],
+    "status": "release_attribution_withdrawn",
+    "note": "Correction to the preceding SuperGLUE review: this paper supplies score-publication evidence for these pre-existing component tasks, not their original benchmark release. The benchmark date facts restore the prior cited score evidence; release dates remain unknown. The SuperGLUE source record itself retains its introducing-paper date."
+  },
+  {
+    "source_url": "https://arxiv.org/abs/1603.07396",
+    "title": "A Diagram Is Worth A Dozen Images",
+    "first_version_date": "2016-03-24",
+    "retrieved_on": "2026-10-11",
+    "locator": "arXiv submission history, v1",
+    "response_sha256": "a629e3825f63b90e8ae99ea96fba5ffba458f34d18e8db6670959e98aadfd01e",
+    "source_keys": [
+      "llm-stats:ai2d"
+    ]
+  },
+  {
+    "source_url": "https://arxiv.org/abs/2111.08897",
+    "title": "ARKitScenes: A Diverse Real-World Dataset For 3D Indoor Scene Understanding Using Mobile RGB-D Data",
+    "first_version_date": "2021-11-17",
+    "retrieved_on": "2026-10-11",
+    "locator": "arXiv submission history, v1",
+    "response_sha256": "f0c06f496b5a5493a8ed6bde8038fe336f9418f00dacbe64266b5267f98b30f4",
+    "source_keys": [
+      "llm-stats:arkitscenes"
+    ]
+  },
+  {
+    "source_url": "https://arxiv.org/abs/1705.02101",
+    "title": "TALL: Temporal Activity Localization via Language Query",
+    "first_version_date": "2017-05-05",
+    "retrieved_on": "2026-10-11",
+    "locator": "arXiv submission history, v1",
+    "response_sha256": "100b41a421b53ccc410853f36f8a5a1c4552c5b2940fea925308379b912d231c",
+    "source_keys": [
+      "llm-stats:charadessta"
+    ]
+  },
+  {
+    "source_url": "https://arxiv.org/abs/2406.04744",
+    "title": "CRAG -- Comprehensive RAG Benchmark",
+    "first_version_date": "2024-06-07",
+    "retrieved_on": "2026-10-11",
+    "locator": "arXiv submission history, v1",
+    "response_sha256": "3068ad8af78d4a6454030b64381afa16166418aae551187d6391534b1a03989c",
+    "source_keys": [
+      "llm-stats:crag"
+    ]
+  },
+  {
+    "source_url": "https://arxiv.org/abs/2406.08035",
+    "title": "LVBench: An Extreme Long Video Understanding Benchmark",
+    "first_version_date": "2024-06-12",
+    "retrieved_on": "2026-10-11",
+    "locator": "arXiv submission history, v1",
+    "response_sha256": "b5ce0ed85a98477e4f6335174519e88816fc6388f1cd7b14e89ca1009a9aab3d",
+    "source_keys": [
+      "llm-stats:lvbench"
+    ]
+  },
+  {
+    "source_url": "https://arxiv.org/abs/2410.07095",
+    "title": "MLE-bench: Evaluating Machine Learning Agents on Machine Learning Engineering",
+    "first_version_date": "2024-10-09",
+    "retrieved_on": "2026-10-11",
+    "locator": "arXiv submission history, v1",
+    "response_sha256": "42819fcae1726e4f9a3cc8402d9aa5e179b1e2e802d770150b8905ca9fb9c08f",
+    "source_keys": [
+      "llm-stats:mle-bench"
+    ]
+  },
+  {
+    "source_url": "https://arxiv.org/abs/2407.01523",
+    "title": "MMLongBench-Doc: Benchmarking Long-context Document Understanding with Visualizations",
+    "first_version_date": "2024-07-01",
+    "retrieved_on": "2026-10-11",
+    "locator": "arXiv submission history, v1",
+    "response_sha256": "92582b6f8152f30b12f15a6bee11a08cc955e7ca36de54d38a266f894c8dbd39",
+    "source_keys": [
+      "llm-stats:mmlongbench-doc"
+    ]
+  },
+  {
+    "source_url": "https://arxiv.org/abs/2405.11985",
+    "title": "MTVQA: Benchmarking Multilingual Text-Centric Visual Question Answering",
+    "first_version_date": "2024-05-20",
+    "retrieved_on": "2026-10-11",
+    "locator": "arXiv submission history, v1",
+    "response_sha256": "fd040557522689ddf1c6a40ffbe66c738e816e53e1941620cf87f0066fc6c41e",
+    "source_keys": [
+      "llm-stats:mtvqa"
+    ]
+  },
+  {
+    "source_url": "https://arxiv.org/abs/2208.08227",
+    "title": "MultiPL-E: A Scalable and Extensible Approach to Benchmarking Neural Code Generation",
+    "first_version_date": "2022-08-17",
+    "retrieved_on": "2026-10-11",
+    "locator": "arXiv submission history, v1",
+    "response_sha256": "a7e2be2b11831fee8345d9e130c0a6031857cbbc72fcd44a6f9ead8b62021e80",
+    "source_keys": [
+      "llm-stats:multipl-e",
+      "llm-stats:multipl-e-humaneval",
+      "llm-stats:multipl-e-mbpp"
+    ]
+  },
+  {
+    "source_url": "https://arxiv.org/abs/2301.11325",
+    "title": "MusicLM: Generating Music From Text",
+    "first_version_date": "2023-01-26",
+    "retrieved_on": "2026-10-11",
+    "locator": "arXiv submission history, v1",
+    "response_sha256": "9c6d3b866ca96dd4653bd9baa8fea33547e47694de6ec5eced53188e6607bb91",
+    "source_keys": [
+      "llm-stats:musiccaps"
+    ]
+  },
+  {
+    "source_url": "https://arxiv.org/abs/2012.09988",
+    "title": "Objectron: A Large Scale Dataset of Object-Centric Videos in the Wild with Pose Annotations",
+    "first_version_date": "2020-12-18",
+    "retrieved_on": "2026-10-11",
+    "locator": "arXiv submission history, v1",
+    "response_sha256": "549d9618940a3435933294f615f7ba9a7fb2043fab4dc2e742dc5e9ea8b8eadb",
+    "source_keys": [
+      "llm-stats:objectron"
+    ]
+  },
+  {
+    "source_url": "https://arxiv.org/abs/2501.00321",
+    "title": "OCRBench v2: An Improved Benchmark for Evaluating Large Multimodal Models on Visual Text Localization and Reasoning",
+    "first_version_date": "2024-12-31",
+    "retrieved_on": "2026-10-11",
+    "locator": "arXiv submission history, v1",
+    "response_sha256": "a14fb507db36a5c4b18ac18dbf2b276ade839c6d24030c4333e061c95ef5fd49",
+    "source_keys": [
+      "llm-stats:ocrbench-v2"
+    ]
+  },
+  {
+    "source_url": "https://arxiv.org/abs/2412.07626",
+    "title": "OmniDocBench: Benchmarking Diverse PDF Document Parsing with Comprehensive Annotations",
+    "first_version_date": "2024-12-10",
+    "retrieved_on": "2026-10-11",
+    "locator": "arXiv submission history, v1",
+    "response_sha256": "32925ca10606243ae1fddc79917251675bd4147a0354b2f1a37f95d2dece5e81",
+    "source_keys": [
+      "llm-stats:omnidocbench"
+    ]
+  },
+  {
+    "source_url": "https://arxiv.org/abs/2501.05510",
+    "title": "OVO-Bench: How Far is Your Video-LLMs from Real-World Online Video Understanding?",
+    "first_version_date": "2025-01-09",
+    "retrieved_on": "2026-10-11",
+    "locator": "arXiv submission history, v1",
+    "response_sha256": "f1f868d5cf12fe1aca9d7c6d4b22e1fd38511e971d31cc8290aa9fe96792dba9",
+    "source_keys": [
+      "llm-stats:ovobench"
+    ]
+  },
+  {
+    "source_url": "https://arxiv.org/abs/2305.10415",
+    "title": "PMC-VQA: Visual Instruction Tuning for Medical Visual Question Answering",
+    "first_version_date": "2023-05-17",
+    "retrieved_on": "2026-10-11",
+    "locator": "arXiv submission history, v1",
+    "response_sha256": "f8ffdd5580d0220c5df3003aaef497f1b3864628c0073a2529d4b93521091c78",
+    "source_keys": [
+      "llm-stats:pmc-vqa"
+    ]
+  },
+  {
+    "source_url": "https://arxiv.org/abs/2107.09609",
+    "title": "QVHighlights: Detecting Moments and Highlights in Videos via Natural Language Queries",
+    "first_version_date": "2021-07-20",
+    "retrieved_on": "2026-10-11",
+    "locator": "arXiv submission history, v1",
+    "response_sha256": "483f51672867f17a539b7afc9ccb59e80c85ea960e3b22803b3e9f4197530631",
+    "source_keys": [
+      "llm-stats:qvhighlights"
+    ]
+  },
+  {
+    "source_url": "https://arxiv.org/abs/2401.10935",
+    "title": "SeeClick: Harnessing GUI Grounding for Advanced Visual GUI Agents",
+    "first_version_date": "2024-01-17",
+    "retrieved_on": "2026-10-11",
+    "locator": "arXiv submission history, v1",
+    "response_sha256": "2ae3b3a4e6eb1dd6b85e377804db2e201e666ac91d0f70401d996dc8b1dc6384",
+    "source_keys": [
+      "llm-stats:screenspot"
+    ]
+  },
+  {
+    "source_url": "https://arxiv.org/abs/2504.07981",
+    "title": "ScreenSpot-Pro: GUI Grounding for Professional High-Resolution Computer Use",
+    "first_version_date": "2025-04-04",
+    "retrieved_on": "2026-10-11",
+    "locator": "arXiv submission history, v1",
+    "response_sha256": "7772e4a6f46fbe46cb1f6e8436376e80e92ff238845edc8db0f99295773a9f6d",
+    "source_keys": [
+      "llm-stats:screenspot-pro"
+    ]
+  },
+  {
+    "source_url": "https://arxiv.org/abs/2312.14135",
+    "title": "V*: Guided Visual Search as a Core Mechanism in Multimodal LLMs",
+    "first_version_date": "2023-12-21",
+    "retrieved_on": "2026-10-11",
+    "locator": "arXiv submission history, v1",
+    "response_sha256": "2f7b3930cc13f65358f28027aca6ef505b9fa5e90663b0789db4d5b736519f39",
+    "source_keys": [
+      "llm-stats:v-star"
+    ]
+  },
+  {
+    "source_url": "https://arxiv.org/abs/2404.05955",
+    "title": "VisualWebBench: How Far Have Multimodal LLMs Evolved in Web Page Understanding and Grounding?",
+    "first_version_date": "2024-04-09",
+    "retrieved_on": "2026-10-11",
+    "locator": "arXiv submission history, v1",
+    "response_sha256": "2ee1bcd394b85c9a68192e5c183fff1810ab537804dc1e53ca8acfe87b235381",
+    "source_keys": [
+      "llm-stats:visualwebbench"
+    ]
+  },
+  {
+    "source_url": "https://arxiv.org/abs/2407.06581",
+    "title": "Vision language models are blind: Failing to translate detailed visual features into words",
+    "first_version_date": "2024-07-09",
+    "retrieved_on": "2026-10-11",
+    "locator": "arXiv submission history, v1",
+    "response_sha256": "455f5ebc23901d41810304b47c1f8a87b2573cb8c28b8fda51c763e47434f30e",
+    "source_keys": [
+      "llm-stats:vlmsareblind"
+    ]
+  },
+  {
+    "source_url": "https://arxiv.org/abs/2407.01284",
+    "title": "We-Math: Does Your Large Multimodal Model Achieve Human-like Mathematical Reasoning?",
+    "first_version_date": "2024-07-01",
+    "retrieved_on": "2026-10-11",
+    "locator": "arXiv submission history, v1",
+    "response_sha256": "b2358a791bedbdda560c48cddf12f038982133e092ad954b6b89d6c332202bce",
+    "source_keys": [
+      "llm-stats:we-math"
+    ]
+  },
+  {
+    "source_url": "https://arxiv.org/abs/2406.04770",
+    "title": "WildBench: Benchmarking LLMs with Challenging Tasks from Real Users in the Wild",
+    "first_version_date": "2024-06-07",
+    "retrieved_on": "2026-10-11",
+    "locator": "arXiv submission history, v1",
+    "response_sha256": "8639c332d7440d31c90313a6baef71e94ccff16f50a0c20c505f265539e87cfe",
+    "source_keys": [
+      "llm-stats:wild-bench"
+    ]
+  }
+]
