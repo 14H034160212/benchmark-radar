@@ -2054,6 +2054,11 @@ def test_digest_overlap_recovers_a_missed_collection_then_emits_changes_once(mon
     assert len(first.items) == 1
     original_discovery = first.items[0].discovered_at
     row["citations"] = 7
+    engagement_only = run_pipeline(
+        _digest_config(), now + timedelta(minutes=30), previous_snapshot=snapshot_for_run(first)
+    )
+    assert engagement_only.items == []
+    row["abstract"] = "An updated planning benchmark description"
     second = run_pipeline(
         _digest_config(), now + timedelta(hours=1), previous_snapshot=snapshot_for_run(first)
     )

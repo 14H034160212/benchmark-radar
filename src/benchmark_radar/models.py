@@ -181,7 +181,7 @@ class RadarRun:
 
 
 def digest_evidence_version(item: RadarItem) -> str:
-    """Stable material digest evidence, excluding collection-time metadata."""
+    """Stable material digest evidence, excluding collection-time and engagement metadata."""
     material = {
         "title": item.title,
         "url": item.url,
@@ -190,7 +190,6 @@ def digest_evidence_version(item: RadarItem) -> str:
         "updated": item.updated_at.isoformat() if item.updated_at else None,
         "authors": sorted(item.authors),
         "links": sorted(item.artifact_urls),
-        "metrics": item.metrics,
         "tags": sorted(item.source_tags),
     }
     return hashlib.sha256(json.dumps(material, sort_keys=True).encode()).hexdigest()

@@ -1789,3 +1789,49 @@ def test_primary_release_survives_high_adoption_digest_and_merges_evidence(rever
     assert record["total_score"] == primary.total_score
     assert record["recommended"] is True
     assert first["evidence_items"][0]["metrics"] == {"stars": 1}
+
+
+@pytest.mark.parametrize("reverse", [False, True])
+def test_primary_revision_retains_previously_merged_digest_evidence(reverse):
+    from benchmark_radar.pipeline import score_item
+
+    taxonomy = {"benchmark": ["benchmark"]}
+    original_run = radar_run(27)
+    original_run.items[0].event_kind = "released"
+    score_item(original_run.items[0], taxonomy, now=original_run.generated_at)
+    digest_run = radar_run(27)
+    digest_run.generated_at += timedelta(hours=1)
+    digest = digest_run.items[0]
+    digest.source = "XBsleepy"
+    digest.metrics = {"citations": 5000}
+    digest.artifact_urls = ["https://arxiv.org/pdf/2607.0027"]
+    digest.authors = ["Digest Author"]
+    score_item(digest, taxonomy, now=digest_run.generated_at)
+    merged = merge_snapshots(snapshot_for_run(original_run), snapshot_for_run(digest_run))
+    revision_run = radar_run(27)
+    revision_run.generated_at += timedelta(hours=2)
+    revision = revision_run.items[0]
+    revision.updated_at = revision_run.generated_at
+    revision.event_kind = "updated"
+    revision.metrics = {}
+    revision.artifact_urls = []
+    revision.authors = ["Revision Author"]
+    score_item(revision, taxonomy, now=revision_run.generated_at)
+    incoming = snapshot_for_run(revision_run)
+    incoming["selection"] = {"recommendation_score": 0}
+    result = merge_snapshots(incoming, merged) if reverse else merge_snapshots(merged, incoming)
+    record = result["evidence_items"][0]
+    assert record["source"] == "arXiv"
+    assert record["event_kind"] == "updated"
+    assert record["updated_at"] == revision.updated_at.isoformat()
+    assert record["metrics"]["citations"] == 5000
+    assert record["artifact_urls"] == ["https://arxiv.org/pdf/2607.0027"]
+    assert "Digest Author" in record["authors"]
+    assert "Revision Author" in record["authors"]
+    assert record["contributing_sources"] == ["XBsleepy", "arXiv"]
+    revision.metrics = record["metrics"]
+    revision.artifact_urls = record["artifact_urls"]
+    revision.authors = record["authors"]
+    score_item(revision, taxonomy, now=revision_run.generated_at)
+    assert record["total_score"] == revision.total_score
+    assert record["recommended"] is True
