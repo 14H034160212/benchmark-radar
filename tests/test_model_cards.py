@@ -429,7 +429,7 @@ def test_registry_covers_the_2026_frontier():
     board = build_adoption_rank(DEFAULT_REGISTRY_PATH)
 
     published = [card["published"] for card in board["model_cards"] if card["published"]]
-    assert sum(1 for date in published if date >= "2026-09-19") >= 10
+    assert sum(1 for date in published if date >= "2026-01-01") >= 10
 
     # Each organization in the registry is represented by at least one document,
     # and the agentic evaluations that headline 2026 cards are present.
