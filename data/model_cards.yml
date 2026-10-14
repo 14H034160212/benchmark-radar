@@ -66,7 +66,7 @@ source_documents:
     retrieved_at: 2026-09-19
 
   - id: brain_to_text_25_kaggle_leaderboard
-    name: Brain-to-Text '25 private leaderboard
+    name: Brain-to-Text '25 private leaderboard (2026-09-19 public snapshot)
     publisher: UC Davis Neuroprosthetics Lab
     document_type: benchmark_leaderboard
     url: https://www.kaggle.com/competitions/brain-to-text-25/leaderboard

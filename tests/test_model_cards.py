@@ -429,7 +429,7 @@ def test_registry_covers_the_2026_frontier():
     board = build_adoption_rank(DEFAULT_REGISTRY_PATH)
 
     published = [card["published"] for card in board["model_cards"] if card["published"]]
-    assert sum(1 for date in published if date >= "2026-01-01") >= 10
+    assert sum(1 for date in published if date >= "2026-09-19") >= 10
 
     # Each organization in the registry is represented by at least one document,
     # and the agentic evaluations that headline 2026 cards are present.
@@ -910,9 +910,9 @@ def test_shipped_registry_tracks_brain_to_text_score_evidence():
 
     btot25 = progression["brain_to_text_25"]
     assert btot25["observation_count"] >= 6
-    assert btot25["evidence"]["id"] == "multi_organization_trend"
-    assert btot25["first_reported_at"] == "2025-07-05"
-    assert btot25["last_reported_at"] == "2026-01-01"
+    assert btot25["evidence"]["id"] == "same_day_comparison"
+    assert btot25["first_reported_at"] == "2026-09-19"
+    assert btot25["last_reported_at"] == "2026-09-19"
     assert btot25["saturation"]["best_value"] == 0.01537
     assert [point["value"] for point in btot25["historical_best_frontier"]["points"]][-1] == 0.01537
     assert {row["organization"] for row in btot25["observations"]} == {
