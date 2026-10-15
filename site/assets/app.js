@@ -417,6 +417,23 @@ const I18N = {
     "Data": "数据",
     "Sort": "排序",
     "Models": "模型",
+    "New benchmarks by research direction": "各研究方向的新 benchmark",
+    "Research direction": "研究方向",
+    "New": "新增",
+    "Previous": "上一期",
+    "Change": "变化",
+    "Undated": "无日期",
+    "A record counts in every direction it is filed under, so rows overlap and do not add up to a total.": "一条记录会计入它所属的每个方向，因此各行有重叠，不能相加得到总数。",
+    "Weekly new records, oldest first: {values}": "每周新增记录（从早到晚）：{values}",
+    "no data": "无数据",
+    "16-week trend": "16 周趋势",
+    "All groups": "全部分组",
+    "Last 30 days": "最近 30 天",
+    "Last 60 days": "最近 60 天",
+    "Last 90 days": "最近 90 天",
+    "New benchmark records by release date, {days} days to {date}.": "按发布日期统计的新 benchmark 记录，截至 {date} 的 {days} 天。",
+    "The latest days are still filling in as new papers are collected.": "最近几天的数据仍在随新论文的收录陆续补全。",
+    "No comparison: the previous {days} days start before the discovery stream ({since}).": "无法比较：上一个 {days} 天早于发现数据的起始日期（{since}）。",
     "models.note": "目录中所有有报告成绩的模型，按实验室分组，以及每个模型有成绩的 benchmark。选择一个实验室，还可以看到它自己的模型卡，其中该实验室首次报告的 benchmark 会高亮。成绩见各 benchmark 页面。",
     "AI labs": "AI 实验室",
     "All labs": "全部实验室",
@@ -1344,6 +1361,9 @@ const state = {
   modelsVisibleLimit: 100,
   // undefined until /data/models.json settles; null when it failed.
   modelRegistry: undefined,
+  // Trends direction table (#420): window in days and an optional group.
+  directionTrendWindow: 30,
+  directionTrendGroup: "",
   leaderboardShowAll: false,
   leaderboardTopExpanded: false,
   // Issue #530: the leaderboard opens on the latest releases; the cumulative
@@ -3182,6 +3202,7 @@ function coverageNote(day) {
 
 function renderTrends() {
   if (!state.data) return;
+  renderDirectionTrends();
   const categories = state.data.facets.categories;
   byId("trend-released-only").checked = state.trendReleasedOnly;
   replaceChildren(
@@ -6069,6 +6090,183 @@ function initModels() {
   more.addEventListener("click", () => {
     state.modelsVisibleLimit += MODEL_PAGE_SIZE;
     renderModels();
+  });
+}
+
+// --- Research-direction trends ------------------------------------------------
+// The direction table merged from benchmark-radar.com's Trends (#420): new
+// benchmark records per taxonomy-v5 direction, by each record's own release
+// date. Mirrors direction_trend_rows in library_directions.py, and a test holds
+// the two equal. Nearly every recent record comes from Claire Radar's discovery
+// stream, so a window or week starting before that stream does would undercount
+// and fake growth: those comparisons and bars are absent, not zero. .com's
+// "attention growth" tab has no counterpart: no attention history is recorded.
+const DIRECTION_TREND_WINDOWS = [30, 60, 90];
+const DIRECTION_TREND_WEEKS = 16;
+const DISCOVERY_SOURCE = "claire_radar";
+
+function dayNumber(value) {
+  const [year, month, day] = value.split("-").map(Number);
+  return Math.round(Date.UTC(year, month - 1, day) / 86400000);
+}
+
+// The day the catalog's discovery stream was last collected. Windows end here,
+// not at the daily radar's latest day: the radar advances every day while the
+// catalog stays pinned to its crawl, so windows would slide over unchanged
+// data and publish declines that never happened.
+function discoveryAnchor(records) {
+  const dates = records
+    .filter((record) => record.source === DISCOVERY_SOURCE && record.collected_at)
+    .map((record) => String(record.collected_at).slice(0, 10))
+    .sort();
+  return dates.length ? dates[dates.length - 1] : null;
+}
+
+function directionTrendRows(records, taxonomy, anchor, windowDays) {
+  const end = dayNumber(anchor);
+  const discovery = records
+    .filter((record) => record.source === DISCOVERY_SOURCE && record.released)
+    .map((record) => record.released)
+    .sort();
+  const since = discovery[0] || null;
+  const sinceDay = since ? dayNumber(since) : null;
+  const covered = (firstDay) => sinceDay !== null && firstDay >= sinceDay;
+  const comparable = covered(end - 2 * windowDays + 1);
+  const weekCovered = Array.from({ length: DIRECTION_TREND_WEEKS },
+    (_, index) => covered(end - 7 * (DIRECTION_TREND_WEEKS - index) + 1));
+  const empty = (id, name, group) => ({
+    id, name, group, current: 0, previous: comparable ? 0 : null,
+    weekly: weekCovered.map((ok) => (ok ? 0 : null)),
+    undated: 0,
+  });
+  const rows = new Map(taxonomy.categories.map((category) => [category.id, empty(category.id, category.name, category.group)]));
+  rows.set("unclassified", empty("unclassified", "Not yet classified", null));
+  for (const record of records) {
+    const categories = record.library_direction?.categories?.length ? record.library_direction.categories : ["unclassified"];
+    if (!record.released) {
+      // Counted, not dropped: "no new records" and "could not be dated" differ.
+      for (const id of categories) if (rows.has(id)) rows.get(id).undated += 1;
+      continue;
+    }
+    const age = end - dayNumber(record.released);
+    if (age < 0) continue;
+    for (const id of categories) {
+      const row = rows.get(id);
+      if (!row) continue;
+      if (age < windowDays) row.current += 1;
+      else if (age < 2 * windowDays && comparable) row.previous += 1;
+      const week = DIRECTION_TREND_WEEKS - 1 - Math.floor(age / 7);
+      if (week >= 0 && row.weekly[week] !== null) row.weekly[week] += 1;
+    }
+  }
+  const ordered = [...rows.values()]
+    .filter((row) => row.id !== "unclassified")
+    .sort((a, b) => b.current - a.current || (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
+  return { anchor, windowDays, discoverySince: since, comparable, rows: [...ordered, rows.get("unclassified")] };
+}
+
+function directionSparkline(weekly) {
+  const max = Math.max(1, ...weekly.filter((value) => value !== null));
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.setAttribute("viewBox", `0 0 ${weekly.length * 6} 20`);
+  svg.setAttribute("class", "direction-spark");
+  svg.setAttribute("aria-hidden", "true");
+  weekly.forEach((value, index) => {
+    if (value === null) return;
+    const height = Math.max(value ? 1.5 : 0.5, (value / max) * 20);
+    const bar = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+    bar.setAttribute("x", String(index * 6));
+    bar.setAttribute("y", String(20 - height));
+    bar.setAttribute("width", "4");
+    bar.setAttribute("height", String(height));
+    svg.append(bar);
+  });
+  return svg;
+}
+
+function directionChange(row) {
+  if (row.previous === null) return "—";
+  const delta = row.current - row.previous;
+  return delta > 0 ? `+${delta}` : delta < 0 ? `−${Math.abs(delta)}` : "0";
+}
+
+function renderDirectionTrends() {
+  const table = byId("direction-trends-body");
+  if (!table || !state.data) return;
+  if (!state.benchmarkIndexLoaded) {
+    loadBenchmarkIndex().then((records) => {
+      state.benchmarkIndex = records;
+      state.benchmarkIndexLoaded = true;
+      if (state.view === "trends") renderDirectionTrends();
+    });
+    return;
+  }
+  const taxonomy = state.libraryTaxonomy;
+  const section = byId("direction-trends");
+  const anchor = state.benchmarkIndex ? discoveryAnchor(state.benchmarkIndex) : null;
+  if (!state.benchmarkIndex || !taxonomy || !anchor) {
+    // A failed catalog fetch must not silently remove the server-seeded table:
+    // keep it, say it could not be refreshed, and hide only an empty section.
+    const seeded = table.children.length > 0;
+    section.hidden = !seeded;
+    if (seeded) byId("direction-trends-note").textContent = t("The benchmark catalog could not be loaded.");
+    return;
+  }
+  section.hidden = false;
+  initDirectionTrends();
+  byId("direction-trends-window").value = String(state.directionTrendWindow);
+  const groups = byId("direction-trends-group");
+  if (!groups.options.length) {
+    groups.append(element("option", { text: t("All groups"), attrs: { value: "" } }),
+      ...taxonomy.groups.map((group) => element("option", { text: group.name, attrs: { value: group.id } })));
+  }
+  groups.value = state.directionTrendGroup;
+  const model = directionTrendRows(state.benchmarkIndex, taxonomy, anchor, state.directionTrendWindow);
+  const rows = model.rows.filter((row) => !state.directionTrendGroup || row.group === state.directionTrendGroup);
+  byId("direction-trends-note").textContent = [
+    t("New benchmark records by release date, {days} days to {date}.", {
+      days: model.windowDays, date: formatDate(model.anchor, { dateStyle: "medium" }),
+    }),
+    t("The latest days are still filling in as new papers are collected."),
+    t("A record counts in every direction it is filed under, so rows overlap and do not add up to a total."),
+    model.comparable ? "" : t("No comparison: the previous {days} days start before the discovery stream ({since}).", {
+      days: model.windowDays, since: model.discoverySince ? formatDate(model.discoverySince, { dateStyle: "medium" }) : "—",
+    }),
+  ].filter(Boolean).join(" ");
+  replaceChildren(table, rows.map((row) => element("tr", {}, [
+    element("th", { attrs: { scope: "row" } }, [
+      element("a", {
+        text: row.id === "unclassified" ? t("Not yet classified") : row.name,
+        attrs: { href: `/library/?dir=${encodeURIComponent(row.id)}` },
+      }),
+    ]),
+    element("td", { className: "direction-number", text: row.current.toLocaleString() }),
+    element("td", { className: "direction-number", text: row.previous === null ? "—" : row.previous.toLocaleString() }),
+    element("td", { className: "direction-number", text: directionChange(row) }),
+    element("td", { className: "direction-number", text: row.undated.toLocaleString() }),
+    // The bars are drawn for sighted readers; the same sixteen values are
+    // given as text so the column is not empty to a screen reader.
+    element("td", {}, [
+      directionSparkline(row.weekly),
+      element("span", { className: "visually-hidden", text: t("Weekly new records, oldest first: {values}", {
+        values: row.weekly.map((value) => (value === null ? t("no data") : value)).join(", "),
+      }) }),
+    ]),
+  ])));
+}
+
+function initDirectionTrends() {
+  const windowSelect = byId("direction-trends-window");
+  if (!windowSelect || windowSelect.dataset.bound === "1") return;
+  windowSelect.dataset.bound = "1";
+  windowSelect.addEventListener("change", () => {
+    const value = Number(windowSelect.value);
+    state.directionTrendWindow = DIRECTION_TREND_WINDOWS.includes(value) ? value : 30;
+    renderDirectionTrends();
+  });
+  byId("direction-trends-group").addEventListener("change", (event) => {
+    state.directionTrendGroup = event.target.value;
+    renderDirectionTrends();
   });
 }
 

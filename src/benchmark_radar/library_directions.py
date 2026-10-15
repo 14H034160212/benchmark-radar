@@ -25,6 +25,7 @@ remain in the corpus; the Library lists them as not yet classified.
 from __future__ import annotations
 
 import json
+from datetime import date
 from pathlib import Path
 from typing import Any
 
@@ -192,3 +193,126 @@ def library_taxonomy(document: dict[str, Any] | None) -> dict[str, Any] | None:
     if not document:
         return None
     return {**document["taxonomy"], "source": document["source"]}
+
+
+DIRECTION_TREND_WINDOWS = (30, 60, 90)
+DIRECTION_TREND_WEEKS = 16
+# The source whose daily discovery stream supplies nearly every recent record.
+# Its first release date bounds what a window comparison can claim.
+DISCOVERY_SOURCE = "claire_radar"
+
+
+def _day_number(value: str) -> int:
+    return date.fromisoformat(value).toordinal()
+
+
+def discovery_since(records: list[dict[str, Any]]) -> str | None:
+    """The earliest release date in the discovery stream, or None without one."""
+    dates = [
+        record["released"]
+        for record in records
+        if record.get("source") == DISCOVERY_SOURCE and record.get("released")
+    ]
+    return min(dates) if dates else None
+
+
+def discovery_anchor(records: list[dict[str, Any]]) -> str | None:
+    """The day the catalog's discovery stream was last collected.
+
+    Windows end here rather than at the daily radar's latest day: the radar
+    advances every day while the catalog stays pinned to its crawl, and windows
+    sliding over an unchanged catalog would publish declines that never happened.
+    """
+    dates = [
+        str(record["collected_at"])[:10]
+        for record in records
+        if record.get("source") == DISCOVERY_SOURCE and record.get("collected_at")
+    ]
+    return max(dates) if dates else None
+
+
+def direction_trend_rows(
+    records: list[dict[str, Any]],
+    taxonomy: dict[str, Any],
+    anchor: str,
+    window_days: int,
+) -> dict[str, Any]:
+    """New benchmark records per research direction, by their own release date.
+
+    `current` counts records released in the `window_days` ending at `anchor`
+    (inclusive), `previous` the equal window before it, and `weekly` the
+    sixteen seven-day weeks ending at `anchor`, oldest first. A record counts in
+    every direction it is filed under, as the Library's counts do, and records
+    without a direction form their own row so the totals stay honest.
+
+    Nearly every recent record comes from Claire Radar's discovery stream, which
+    starts at `discovery_since`. A window or week that begins before that date
+    would undercount and fake growth, so `previous` is None and such weeks are
+    None rather than zero. directionTrendRows in app.js computes the same rows;
+    a test holds them equal.
+    """
+    end = _day_number(anchor)
+    since = discovery_since(records)
+    since_day = _day_number(since) if since else None
+
+    def covered(first_day: int) -> bool:
+        return since_day is not None and first_day >= since_day
+
+    comparable = covered(end - 2 * window_days + 1)
+    week_covered = [
+        covered(end - 7 * (DIRECTION_TREND_WEEKS - index) + 1)
+        for index in range(DIRECTION_TREND_WEEKS)
+    ]
+
+    def empty(category_id: str, name: str, group: str | None) -> dict[str, Any]:
+        return {
+            "id": category_id,
+            "name": name,
+            "group": group,
+            "current": 0,
+            "previous": 0 if comparable else None,
+            "weekly": [0 if ok else None for ok in week_covered],
+            "undated": 0,
+        }
+
+    rows = {
+        category["id"]: empty(category["id"], category["name"], category["group"])
+        for category in taxonomy["categories"]
+    }
+    rows["unclassified"] = empty("unclassified", "Not yet classified", None)
+    for record in records:
+        direction = record.get("library_direction") or {}
+        categories = direction.get("categories") or ["unclassified"]
+        released = record.get("released")
+        if not released:
+            # Counted, not dropped: a reader must be able to tell "no new
+            # records" from "records that could not be dated".
+            for category_id in categories:
+                if category_id in rows:
+                    rows[category_id]["undated"] += 1
+            continue
+        age = end - _day_number(released)
+        if age < 0:
+            continue
+        for category_id in categories:
+            row = rows.get(category_id)
+            if row is None:
+                continue
+            if age < window_days:
+                row["current"] += 1
+            elif age < 2 * window_days and comparable:
+                row["previous"] += 1
+            week = DIRECTION_TREND_WEEKS - 1 - age // 7
+            if 0 <= week and row["weekly"][week] is not None:
+                row["weekly"][week] += 1
+    ordered = sorted(
+        (row for key, row in rows.items() if key != "unclassified"),
+        key=lambda row: (-row["current"], row["name"]),
+    )
+    return {
+        "anchor": anchor,
+        "window_days": window_days,
+        "discovery_since": since,
+        "comparable": comparable,
+        "rows": [*ordered, rows["unclassified"]],
+    }

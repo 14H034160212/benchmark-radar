@@ -1037,6 +1037,76 @@ def _models_seed(
     }
 
 
+DIRECTION_TREND_SECTION = (
+    '<section class="direction-trends" id="direction-trends" '
+    'aria-labelledby="direction-trends-heading"'
+)
+
+
+def weekly_summary(weekly: list[int | None]) -> str:
+    """The 16-week bars as text for screen readers; uncovered weeks say so."""
+    return "Weekly new records, oldest first: " + ", ".join(
+        "no data" if value is None else str(value) for value in weekly
+    )
+
+
+def _direction_trends_seed(
+    dashboard: dict[str, Any],
+    catalog_index: list[dict[str, Any]],
+    taxonomy: dict[str, Any] | None,
+) -> dict[str, str]:
+    """The Trends direction table at its default 30-day window, as HTML."""
+    from .library_directions import direction_trend_rows, discovery_anchor
+
+    anchor = discovery_anchor(catalog_index)
+    if not catalog_index or not taxonomy or not anchor:
+        return {}
+    model = direction_trend_rows(catalog_index, taxonomy, anchor, 30)
+    body = ""
+    for row in model["rows"]:
+        previous = "—" if row["previous"] is None else f"{row['previous']:,}"
+        if row["previous"] is None:
+            change = "—"
+        else:
+            delta = row["current"] - row["previous"]
+            change = f"+{delta}" if delta > 0 else (f"−{-delta}" if delta < 0 else "0")
+        body += (
+            f'<tr><th scope="row"><a href="/library/?dir={esc(row["id"])}">'
+            f"{esc(row['name'])}</a></th>"
+            f'<td class="direction-number">{row["current"]:,}</td>'
+            f'<td class="direction-number">{previous}</td>'
+            f'<td class="direction-number">{change}</td>'
+            f'<td class="direction-number">{row["undated"]:,}</td>'
+            '<td><span class="visually-hidden">'
+            f"{esc(weekly_summary(row['weekly']))}</span></td></tr>"
+        )
+    # The same caveats the live renderer writes: without them the seeded counts
+    # have no anchor date and read as complete and additive.
+    note = " ".join(
+        part
+        for part in (
+            f"New benchmark records by release date, 30 days to {_medium_date(anchor)}.",
+            "The latest days are still filling in as new papers are collected.",
+            "A record counts in every direction it is filed under, so rows overlap and do not "
+            "add up to a total.",
+            ""
+            if model["comparable"]
+            else "No comparison: the previous 30 days start before the discovery stream "
+            f"({_medium_date(model['discovery_since']) if model['discovery_since'] else '—'}).",
+        )
+        if part
+    )
+    return {
+        '<p class="section-note" id="direction-trends-note"></p>': (
+            f'<p class="section-note" id="direction-trends-note" data-seed>{esc(note)}</p>'
+        ),
+        f"{DIRECTION_TREND_SECTION} hidden>": f"{DIRECTION_TREND_SECTION} data-seed>",
+        '<tbody id="direction-trends-body"></tbody>': (
+            f'<tbody id="direction-trends-body" data-seed>{body}</tbody>'
+        ),
+    }
+
+
 def view_seeds(
     dashboard: dict[str, Any],
     palette: tuple[dict[str, str], list[str]],
@@ -1047,12 +1117,17 @@ def view_seeds(
     documents: dict[str, Any] | None = None,
 ) -> dict[str, dict[str, str]]:
     """Every view's seed, keyed by view. An empty dict means nothing to publish."""
+    trends = _trends_seed(dashboard, palette)
+    if trends:
+        # The direction table rides on the Trends page; it never publishes the
+        # page on its own.
+        trends |= _direction_trends_seed(dashboard, catalog_index or [], library_taxonomy)
     return {
         "library": _library_seed(catalog_index or [], library_taxonomy),
         "models": _models_seed(catalog_index or [], model_registry, documents),
         "leaderboard": _leaderboard_seed(dashboard, catalog_index or []),
         "saturation": _score_browser_seed(dashboard, catalog_index or []),
-        "trends": _trends_seed(dashboard, palette),
+        "trends": trends,
         "map": _map_seed(dashboard),
     }
 

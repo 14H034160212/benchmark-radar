@@ -6007,3 +6007,53 @@ dialog {
   color: var(--muted);
   font-size: 0.88rem;
 }
+
+/* Trends: new benchmarks by research direction (#420). */
+.direction-trends {
+  margin-bottom: 1.25rem;
+}
+
+.direction-trends-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+}
+
+.direction-trends-frame {
+  overflow-x: auto;
+}
+
+.direction-trends-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+}
+
+.direction-trends-table th,
+.direction-trends-table td {
+  padding: 0.3rem 0.5rem;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+  font-weight: normal;
+}
+
+.direction-trends-table thead th {
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.direction-trends-table a {
+  color: var(--ink);
+}
+
+.direction-trends-table .direction-number {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.direction-spark {
+  width: 96px;
+  height: 20px;
+  fill: var(--blue);
+}
