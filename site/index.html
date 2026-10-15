@@ -239,6 +239,7 @@
                from the first response. app.js intercepts the click and keeps the
                navigation client-side for anyone whose script has loaded. -->
           <a href="/library/" data-view="library" aria-controls="library-view" data-i18n="Library">Library</a>
+          <a href="/models/" data-view="models" aria-controls="models-view" data-i18n="Models">Models</a>
           <a href="/leaderboard/" data-view="leaderboard" aria-controls="leaderboard-view" data-i18n="Leaderboard">
             Leaderboard
           </a>
@@ -554,6 +555,25 @@
           <div class="library-results">
             <div id="library-list" class="library-list"></div>
             <button id="library-more" class="clear-button" type="button" data-i18n="Show more" hidden>Show more</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- Models, merged from benchmark-radar.com's Model Evals (#420): every model
+           with a reported score in the catalog, by lab, and each lab's own model
+           documents. Which benchmarks, never a cross-source score; the numbers
+           stay on each benchmark's page with their sources. -->
+      <section class="view" id="models-view" aria-labelledby="models-heading" hidden>
+        <div class="library-toolbar">
+          <h1 id="models-heading" class="library-heading" data-i18n="Models">Models</h1>
+          <p class="models-note" data-i18n="models.note">Every model with a reported score in the catalog, by lab, and the benchmarks it has scores on. Pick a lab to also see its own model cards, with benchmarks new for that lab highlighted. Scores are on each benchmark's page.</p>
+          <p id="models-status" class="library-status" aria-live="polite"></p>
+        </div>
+        <div class="library-layout">
+          <nav id="models-labs" class="library-directions" aria-label="AI labs" data-i18n-aria="AI labs"></nav>
+          <div class="library-results">
+            <div id="models-list" class="models-list"></div>
+            <button id="models-more" class="clear-button" type="button" data-i18n="Show more" hidden>Show more</button>
           </div>
         </div>
       </section>

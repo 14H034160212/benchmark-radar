@@ -912,16 +912,144 @@ def _library_seed(
     }
 
 
+MODEL_SEED_ROWS = 100
+MODEL_UNRECORDED = "Organization not recorded"
+
+
+def _preferred_name(a: str, b: str) -> str:
+    return min(a, b, key=lambda value: (value.lower(), value))
+
+
+def model_catalog(
+    catalog_index: list[dict[str, Any]], registry: dict[str, Any] | None
+) -> list[dict[str, Any]]:
+    """Every model with a reported score in the catalog, newest first.
+
+    The same population and order as modelCatalog in app.js. A model is any
+    `scored_models` name on any record; case-only spellings are one model, as
+    the registry treats them, named by the registry where it lists them. Its labs
+    come from the registry (a name filed under two labs keeps both), and the list
+    sorts by latest reported date, then name.
+    """
+    labs: dict[str, set[str]] = {}
+    names: dict[str, str] = {}
+    for entry in (registry or {}).get("models", []):
+        identity = entry["model"].lower()
+        labs.setdefault(identity, set()).add(entry["organization"])
+        names[identity] = _preferred_name(names.get(identity, entry["model"]), entry["model"])
+    models: dict[str, dict[str, Any]] = {}
+    for record in catalog_index:
+        for scored in record.get("scored_models") or []:
+            identity = scored["name"].lower()
+            model = models.setdefault(
+                identity,
+                {
+                    "name": names.get(identity, scored["name"]),
+                    "organizations": sorted(labs.get(identity, ())),
+                    "records": [],
+                    "keys": set(),
+                    "sources": set(),
+                    "latest": "",
+                },
+            )
+            model["sources"].add(record["source"])
+            if identity not in names:
+                model["name"] = _preferred_name(model["name"], scored["name"])
+            key = record.get("key") or record["slug"]
+            if key not in model["keys"]:
+                model["keys"].add(key)
+                model["records"].append(record)
+            model["latest"] = max(model["latest"], scored.get("date") or "")
+    by_name = sorted(models.values(), key=lambda model: model["name"])
+    return sorted(by_name, key=lambda model: model["latest"], reverse=True)
+
+
+MODEL_DOCUMENT_TYPES = ("model_card", "system_card", "technical_report", "release_post")
+
+
+def _models_seed(
+    catalog_index: list[dict[str, Any]],
+    registry: dict[str, Any] | None,
+    documents: dict[str, Any] | None = None,
+) -> dict[str, str]:
+    """Every scored model by lab, as crawlable HTML; scores stay on benchmark pages."""
+    models = model_catalog(catalog_index, registry)
+    if not models:
+        return {}
+    labs: dict[str, int] = {}
+    for model in models:
+        for lab in model["organizations"] or [MODEL_UNRECORDED]:
+            labs[lab] = labs.get(lab, 0) + 1
+    # Labs with model documents but no scored model under that name, as in
+    # the live list, so their documents stay reachable.
+    for document in (documents or {}).get("documents") or []:
+        if document.get("document_type") in MODEL_DOCUMENT_TYPES and document.get("organization"):
+            labs.setdefault(document["organization"], 0)
+    nav = "".join(
+        f'<a class="library-direction" href="/models/?lab={esc(lab)}">'
+        f'<span class="library-direction-name">{esc(lab)}</span>'
+        f'<span class="library-direction-count">{count:,}</span></a>'
+        for lab, count in sorted(
+            labs.items(), key=lambda item: (item[0] == MODEL_UNRECORDED, -item[1], item[0])
+        )
+        if lab != MODEL_UNRECORDED
+    )
+    rows = ""
+    for model in models[:MODEL_SEED_ROWS]:
+        count = len(model["records"])
+        facts = [
+            " / ".join(model["organizations"] or [MODEL_UNRECORDED]),
+            "scores on 1 benchmark record"
+            if count == 1
+            else f"scores on {count:,} benchmark records",
+            ", ".join(SOURCE_LABELS.get(source, source) for source in sorted(model["sources"])),
+            _medium_date(model["latest"]) if model["latest"] else "Date unknown",
+        ]
+        links = "".join(
+            f'<a class="model-benchmark" href="/benchmarks/{esc(record["slug"])}/">'
+            f"{esc(record['name'])}</a>"
+            for record in sorted(model["records"], key=lambda record: record["name"])
+        )
+        rows += (
+            '<details class="model-row"><summary class="model-row-summary">'
+            f'<span class="model-document-name">{esc(model["name"])}</span>'
+            f'<span class="model-document-facts">{esc(" · ".join(facts))}</span></summary>'
+            f'<p class="model-benchmarks">{links}</p></details>'
+        )
+    scored = sum(1 for record in catalog_index if record.get("scored_models"))
+    return {
+        '<nav id="models-labs" class="library-directions" aria-label="AI labs" '
+        'data-i18n-aria="AI labs"></nav>': (
+            '<nav id="models-labs" class="library-directions" aria-label="AI labs" '
+            f'data-i18n-aria="AI labs" data-seed>{nav}</nav>'
+        ),
+        '<div id="models-list" class="models-list"></div>': (
+            f'<div id="models-list" class="models-list" data-seed>{rows}'
+            '<p class="models-unscored">'
+            f"{len(catalog_index) - scored:,} benchmark records have no reported model score. "
+            '<a href="/library/">Browse them in the Library</a></p></div>'
+        ),
+        '<p id="models-status" class="library-status" aria-live="polite"></p>': (
+            '<p id="models-status" class="library-status" aria-live="polite" data-seed>'
+            f"{len(models):,} models with a reported score on {scored:,} of "
+            f"{len(catalog_index):,} benchmark records</p>"
+        ),
+    }
+
+
 def view_seeds(
     dashboard: dict[str, Any],
     palette: tuple[dict[str, str], list[str]],
     catalog_index: list[dict[str, Any]] | None = None,
     *,
     library_taxonomy: dict[str, Any] | None = None,
+    model_registry: dict[str, Any] | None = None,
+    documents: dict[str, Any] | None = None,
 ) -> dict[str, dict[str, str]]:
     """Every view's seed, keyed by view. An empty dict means nothing to publish."""
     return {
         "library": _library_seed(catalog_index or [], library_taxonomy),
+        "models": _models_seed(catalog_index or [], model_registry, documents),
         "leaderboard": _leaderboard_seed(dashboard, catalog_index or []),
         "saturation": _score_browser_seed(dashboard, catalog_index or []),
         "trends": _trends_seed(dashboard, palette),
