@@ -79,10 +79,25 @@ def _direction(assignment: dict[str, Any], record_id: str, join: str) -> dict[st
     }
 
 
-def _agreed(record_ids: set[str], assignments: dict[str, Any]) -> str | None:
-    """The one record to cite when every candidate shares a primary direction."""
-    primaries = {assignments[record_id]["primary"] for record_id in record_ids}
-    return min(record_ids) if len(primaries) == 1 else None
+def _agreed(record_ids: set[str], assignments: dict[str, Any]) -> dict[str, Any] | None:
+    """What every candidate agrees on, or None when their primaries differ.
+
+    Candidates sharing a primary can still list different secondary
+    directions (arxiv:2409.02813 maps to two .com rows for MMMU-Pro). Copying
+    one row's list would assert a secondary the other row does not, so only the
+    directions every candidate lists are kept, primary first.
+    """
+    rows = [assignments[record_id] for record_id in sorted(record_ids)]
+    primaries = {row["primary"] for row in rows}
+    if len(primaries) != 1:
+        return None
+    shared = set.intersection(*(set(row["categories"]) for row in rows))
+    first = rows[0]
+    return {
+        **first,
+        "categories": [first["primary"], *sorted(shared - {first["primary"]})],
+        "id": sorted(record_ids)[0],
+    }
 
 
 def assign_library_directions(
@@ -114,7 +129,7 @@ def assign_library_directions(
             candidates = by_llm_stats.get(key.split(":", 1)[1], set())
             chosen = _agreed(candidates, assignments) if candidates else None
             if chosen:
-                directions[key] = _direction(assignments[chosen], chosen, "llm_stats_id")
+                directions[key] = _direction(chosen, chosen["id"], "llm_stats_id")
                 continue
         matched: set[str] = set()
         anchors: list[str] = []
@@ -127,7 +142,7 @@ def assign_library_directions(
                 anchors.append(identifier)
         chosen = _agreed(matched, assignments) if matched else None
         if chosen:
-            directions[key] = _direction(assignments[chosen], chosen, f"artifact:{min(anchors)}")
+            directions[key] = _direction(chosen, chosen["id"], f"artifact:{min(anchors)}")
 
     # A reviewed equivalent group says its members are one benchmark, so a
     # member without a direction may show the one its siblings agree on.

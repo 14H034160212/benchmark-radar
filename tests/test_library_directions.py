@@ -189,3 +189,17 @@ def test_export_keeps_only_assigned_records_with_their_exact_anchors():
         "llm_stats_ids": ["aime"],
     }
     json.dumps(exported)
+
+
+def test_candidates_agreeing_on_primary_keep_only_shared_secondaries():
+    # Two .com rows for one paper agree on the primary but list different
+    # secondaries; copying either row's list would assert one the other lacks.
+    records = [
+        {"key": "model-reports:x", "source": "model_reports", "artifacts": [{"id": "arxiv:1"}]}
+    ]
+    first = assignment("math", artifacts=["arxiv:1"])
+    first["categories"] = ["math", "science"]
+    second = assignment("math", artifacts=["arxiv:1"])
+    directions = assign_library_directions(records, document({"bm_a": first, "bm_b": second}))
+    assert directions["model-reports:x"]["categories"] == ["math"]
+    assert directions["model-reports:x"]["source_record"] == "bm_a"
