@@ -56,11 +56,28 @@ def _claire_radar_v1(
         raise CatalogSnapshotAdapterError(
             f"{snapshot_id}: first_public_evidence must map source ids to URLs"
         )
-    unknown_options = set(options) - {"first_public_evidence"}
+    unknown_options = set(options) - {"first_public_evidence", "carried_forward"}
     if unknown_options:
         raise CatalogSnapshotAdapterError(
             f"{snapshot_id}: unsupported adapter options: {', '.join(sorted(unknown_options))}"
         )
+
+    # Rows the exporter carried forward from an earlier snapshot were collected
+    # then, not in this crawl, which no longer listed them. Keep that crawl time
+    # so `collected_at` does not claim a fresh collection.
+    carried = options.get("carried_forward")
+    if carried is not None:
+        if (
+            not isinstance(carried, Mapping)
+            or not isinstance(carried.get("crawled_at"), str)
+            or not isinstance(carried.get("from_snapshot"), str)
+            or not isinstance(carried.get("benchmark_ids"), list)
+        ):
+            raise CatalogSnapshotAdapterError(
+                f"{snapshot_id}: carried_forward needs from_snapshot, crawled_at and benchmark_ids"
+            )
+        if source_id in carried["benchmark_ids"]:
+            adapted["crawled_at"] = carried["crawled_at"]
 
     metadata = adapted.get("source_metadata") or {}
     release_dates = metadata.get("releaseDates") or {}

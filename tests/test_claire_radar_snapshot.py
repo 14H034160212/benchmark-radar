@@ -328,3 +328,19 @@ def test_registered_snapshot_keeps_every_record_of_the_previous_export():
     # Records only the previous export listed, kept by carry-forward.
     for source_id in ("2605.22034", "2605.22304", "2605.24043"):
         assert source_id in ids
+
+
+def test_carried_forward_rows_keep_their_original_crawl_time():
+    # The upstream 2026-10-14 export no longer listed these rows, so they were
+    # last collected on 2026-09-25; labelling them with the new crawl would
+    # claim a collection that never happened.
+    snapshot = next(
+        row for row in load_snapshots()["snapshots"] if row["id"] == "claire_radar_2026-10-14"
+    )
+    records = {
+        row["source_benchmark_id"]: row for row in normalize_snapshot(snapshot)["source_records"]
+    }
+    carried = snapshot["adapter_options"]["carried_forward"]
+    assert len(carried["benchmark_ids"]) == 156
+    assert records["2605.22034"]["provenance"]["crawled_at"] == "2026-09-25T04:40:22Z"
+    assert records["2608.16081"]["provenance"]["crawled_at"] == "2026-10-14T09:44:51Z"

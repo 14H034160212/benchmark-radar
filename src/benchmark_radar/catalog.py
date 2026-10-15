@@ -529,7 +529,9 @@ def normalize_snapshot(snapshot: dict[str, Any]) -> dict[str, Any]:
             _source_record(
                 row,
                 slugs[key],
-                crawled_at,
+                # An adapter may carry a row's own collection time, for a row
+                # kept from an earlier crawl; every other row was collected now.
+                str(row.get("crawled_at") or crawled_at),
                 source=source,
                 key_prefix=key_prefix,
                 snapshot_id=snapshot_id,
