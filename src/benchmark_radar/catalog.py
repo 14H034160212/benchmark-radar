@@ -46,7 +46,7 @@ ARTIFICIAL_ANALYSIS_KEY_PREFIX = "artificial-analysis"
 SOURCES = {
     LLM_STATS_SNAPSHOT_ID: (LLM_STATS_SOURCE, LLM_STATS_KEY_PREFIX),
     ARTIFICIAL_ANALYSIS_SNAPSHOT_ID: (ARTIFICIAL_ANALYSIS_SOURCE, ARTIFICIAL_ANALYSIS_KEY_PREFIX),
-    "claire_radar_2026-09-25": ("claire_radar", "claire-radar"),
+    "claire_radar_2026-10-14": ("claire_radar", "claire-radar"),
 }
 
 _SLUG_STRIP = re.compile(r"[^a-z0-9]+")

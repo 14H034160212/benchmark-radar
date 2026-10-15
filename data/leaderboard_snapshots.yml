@@ -135,19 +135,23 @@ snapshots:
       rank: rank
       score: benchmark_score
 
-  - id: claire_radar_2026-09-25
+  - id: claire_radar_2026-10-14
     source: Claire Radar
     source_url: https://github.com/Claire1217/benchmark-radar
-    crawled_at: "2026-09-25T04:40:22Z"
+    crawled_at: "2026-10-14T09:44:51Z"
     description: >-
-      Immutable export of the complete 1,914-record Claire Radar benchmark
-      working-tree snapshot. The original object is embedded and hashed in each
-      row. Review and display states remain record-level provenance: accepted,
-      deferred, excluded and unreviewed records all remain inspectable. Exact
-      source ids are retained; similar names are not merged.
-    benchmark_file: leaderboard_snapshots/claire_radar_benchmarks_2026-09-25.csv
-    benchmark_sha256: cb15e3e585c4234517f4dfe6f93235980b3acf762f093739caea4338e77f166d
-    benchmark_count: 1914
+      Immutable export of the complete Claire Radar benchmark corpus at upstream
+      commit 522482b200274cf0b6d656df9fc4cd061f5fac23 (data/benchmarks.json,
+      2,291 records), plus the 156 records of the 2026-09-25 export that the
+      upstream rolling window no longer lists, carried forward byte for byte by
+      scripts/export_claire_radar_snapshot.py --carry-forward. The original
+      object is embedded and hashed in each row. Review and display states
+      remain record-level provenance: accepted, deferred, excluded and
+      unreviewed records all remain inspectable. Exact source ids are retained;
+      similar names are not merged.
+    benchmark_file: leaderboard_snapshots/claire_radar_benchmarks_2026-10-14.csv
+    benchmark_sha256: 5ad20a5b953e93b2f05b0b53be731f48d88fa84d8667800551df67bdd8077af0
+    benchmark_count: 2447
     score_series_policy: observed_only
     catalog_adapter: claire_radar_v1
     adapter_options:
