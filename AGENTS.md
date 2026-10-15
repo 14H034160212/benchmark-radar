@@ -85,9 +85,11 @@ Applies to `README*`, `docs/**`, `.github/ISSUE_TEMPLATE/**`, `site/**`,
       git switch --no-track -c <branch> main
       git push -u origin <branch>
 
-  The first command updates local `main` without a checkout. If it fails,
-  local `main` has diverged: stop and report it. Keep `--no-track` so a bare
-  `git push` never targets `main`.
+  The first command updates local `main` without a checkout. If git refuses
+  because `main` is checked out in another worktree, run
+  `git -C <that worktree> pull --ff-only` instead. If either command fails
+  because local `main` has diverged, stop and report it. Keep `--no-track` so
+  a bare `git push` never targets `main`.
 - To update an existing branch, run `git fetch origin main:main`, then
   `git rebase main`. Re-read the diff before you push.
 - Never merge a pull request unless the user asks. When asked, use a merge
