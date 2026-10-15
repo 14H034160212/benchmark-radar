@@ -18,9 +18,9 @@ merges through GitHub, not through `git branch --merged`.
    with `gh pr view <n> --json state,headRefOid`.
 4. Classify:
    - `MERGED`: remove the local branch, worktree, and tracking ref.
-   - `CLOSED` without merge: tag the tip first with
-     `git tag legacy/<branch> <ref>` (local only, never pushed), then remove
-     the tracking ref. The remote keeps the branch too.
+   - `CLOSED` without merge: when you remove the ref, tag its tip first with
+     `git tag legacy/<branch> <ref>` (local only, never pushed). Do this
+     automatically and do not list it as a finding. If the ref stays, add no tag.
    - `OPEN`: keep.
    - `star-history` (any remote): automation branch. Always keep, never report.
    - Any other branch with no PR: keep, and report it.
