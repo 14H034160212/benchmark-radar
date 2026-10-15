@@ -405,6 +405,7 @@ const I18N = {
     "Newest": "最新",
     "Most documented": "引用文档最多",
     "A–Z": "按名称",
+    "Relevance (search)": "相关度（搜索时）",
     "Saved": "已收藏",
     "Save benchmark": "收藏这个 benchmark",
     "Remove from saved": "取消收藏",
@@ -5640,12 +5641,15 @@ function renderLibrary() {
     return;
   }
   if (!state.benchmarkIndex) {
+    // The server-seeded rows are the fallback for exactly this case: keep
+    // them and say the live list could not be loaded.
     status.textContent = t("The benchmark catalog could not be loaded.");
-    replaceChildren(list, []);
     return;
   }
   byId("library-search").value = state.libraryQuery;
-  byId("library-sort").value = state.librarySort;
+  // A query lists results by search relevance, so the selector says so rather
+  // than showing a sort the list is not in.
+  byId("library-sort").value = state.libraryQuery ? "relevance" : state.librarySort;
   byId("library-sort").disabled = Boolean(state.libraryQuery);
   const saved = librarySavedSlugs();
   const savedToggle = byId("library-saved");
