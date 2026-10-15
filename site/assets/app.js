@@ -1,3 +1,4 @@
+import { searchCatalog } from "./catalog-search.js";
 import { SKYLINE_DOMAINS, SKYLINE_START_DATE, benchmarkDateLabel, skylineModel, skylineGeometry, skylineDateLanes, skylineScoreLanes, skylineCapPositions, skylineFrontierSteps, scorePopulation, matchesScoreCutoff, scoreBrowserSummary } from "./skyline.js";
 import {
   CATEGORY_COLORS,
@@ -4657,42 +4658,10 @@ function foldName(value) {
   return String(value || "").toLowerCase().replace(/[^a-z0-9]+/g, "");
 }
 
-// Names and aliases use the same matching rules for every source.
+// The site ranks the catalog with QueryService's lexical algorithm, so a task
+// described only in a record's prose is found here as it is by the CLI (#710).
 function searchBenchmarkIndex(records, query) {
-  const needle = foldName(query);
-  if (!needle) return [];
-  const scored = [];
-  for (const record of records) {
-    const name = foldName(record.name);
-    // The crawled catalog carries no domain, so publisher and modality are the
-    // fields a "tasks, domains" query can land on here.
-    const names = [record.name, ...(record.aliases || [])].map(foldName);
-    const named = names.some((value) => value.includes(needle));
-    if (!named && !foldName(record.publisher).includes(needle) && !foldName(record.modality).includes(needle)
-      && !(record.categories || []).some((value) => foldName(value).includes(needle))) {
-      continue;
-    }
-    // Prefix beats substring, then a record that can answer more of the
-    // reader's questions beats one that cannot, then shorter names first so
-    // "MMLU" outranks "MMLU-Pro-Extended" for the query "mmlu".
-    const answers =
-      (record.publisher ? 1 : 0) +
-      (record.openness !== "unknown" ? 1 : 0) +
-      (record.has_size ? 1 : 0) +
-      (record.score_count > 0 ? 1 : 0);
-    scored.push({
-      record,
-      rank: [names.includes(needle) ? 0 : named ? (names.some((value) => value.startsWith(needle)) ? 1 : 2) : 3, -answers, name.length],
-    });
-  }
-  scored.sort(
-    (a, b) =>
-      a.rank[0] - b.rank[0] ||
-      a.rank[1] - b.rank[1] ||
-      a.rank[2] - b.rank[2] ||
-      a.record.name.localeCompare(b.record.name),
-  );
-  return scored.map((item) => item.record);
+  return searchCatalog(records, query);
 }
 
 // Openness is a three-state answer and `unknown` is the common one. It renders
@@ -4791,7 +4760,11 @@ function saturationRows() {
   // Search is a lookup across the whole catalog. It temporarily bypasses the
   // browsing cutoff without changing the shared slider value.
   const rows = scoreBrowseRows(matches || state.benchmarkModel ? 100 : state.lscore);
-  const named = matches ? rows.filter((row) => matches.has(row.id)) : rows;
+  // A query lists results in search rank. The search keeps weak candidates that
+  // share one query word (#710), so browse order would put an unrelated scored
+  // benchmark above the description match the reader was looking for.
+  const rank = matches ? new Map([...matches].map((id, index) => [id, index])) : null;
+  const named = rank ? rows.filter((row) => rank.has(row.id)).sort((a, b) => rank.get(a.id) - rank.get(b.id)) : rows;
   if (!state.benchmarkModel) return named;
   const needle = foldName(state.benchmarkModel);
   if (!needle) return [];
