@@ -79,19 +79,8 @@ Applies to `README*`, `docs/**`, `.github/ISSUE_TEMPLATE/**`, `site/**`,
 ## Branches and pull requests
 
 - Never push to `main`. Every change goes through a pull request.
-- Start each task from the latest `main`:
-
-      git fetch origin main:main
-      git switch --no-track -c <branch> main
-      git push -u origin <branch>
-
-  The first command updates local `main` without a checkout. If git refuses
-  because `main` is checked out in another worktree, run
-  `git -C <that worktree> pull --ff-only` instead. If either command fails
-  because local `main` has diverged, stop and report it. Keep `--no-track` so
-  a bare `git push` never targets `main`.
-- To update an existing branch, run `git fetch origin main:main`, then
-  `git rebase main`. Re-read the diff before you push.
+- Start each branch from the latest `main`, and keep it on the latest `main`
+  until it merges. Re-read the diff before you push.
 - Never merge a pull request unless the user asks. When asked, use a merge
   commit. Do not squash.
 - Agents: comment `330226 <model-id>` on every pull request you open, for
