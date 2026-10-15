@@ -6056,8 +6056,11 @@ dialog {
 }
 
 .library-direction-count {
+  flex: none;
   color: var(--muted);
   font-variant-numeric: tabular-nums;
+  overflow-wrap: normal;
+  white-space: nowrap;
 }
 
 .library-list {
