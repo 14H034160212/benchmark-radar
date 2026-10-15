@@ -20,6 +20,7 @@ the constraint that holds whether or not you open it.
 | [`docs/query-surfaces.md`](docs/query-surfaces.md) | Changing search, detail lookup, the CLI or HTTP query surface, or the consumer Skill | `QueryService` is the single source of truth. No interface-specific ranking, and no silent network fallback. |
 | [`principle.md`](principle.md) | Changing any benchmark-facing surface | Start from the full corpus across all sources. |
 | [`docs/agent-gotchas.md`](docs/agent-gotchas.md) | Verifying locally, merging, or answering a literature question | A local result counts only from a clean worktree with its own venv. |
+| [`maintainer-review.md`](maintainer-review.md) | Reviewing or merging a contributor PR | The human contributor answers the four questions, and the change takes the least resource-intensive route. |
 
 ## Glob rule: showcase and UI communication
 
