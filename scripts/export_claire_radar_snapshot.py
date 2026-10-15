@@ -226,8 +226,8 @@ def carry_forward(
 
     The rows carry no crawl time of their own. Record each carried set as a
     `carried_forward` cohort (snapshot, crawl time, ids) in
-    data/leaderboard_snapshots.yml; a later refresh appends a cohort for the
-    rows it newly carries and keeps the existing ones.
+    data/leaderboard_snapshots.yml; `update_cohorts` computes that list for a
+    refresh.
     """
     current = {row["benchmark_id"] for row in rows}
     kept = [row for row in previous if row["benchmark_id"] not in current]
@@ -235,6 +235,37 @@ def carry_forward(
         if list(row) != list(FIELDS):
             raise ValueError(f"previous row {row.get('benchmark_id')!r} has a different layout")
     return sorted([*rows, *kept], key=lambda row: row["benchmark_id"])
+
+
+def update_cohorts(
+    cohorts: list[dict[str, Any]],
+    upstream_ids: set[str],
+    carried_ids: set[str],
+    *,
+    from_snapshot: str,
+    crawled_at: str,
+) -> list[dict[str, Any]]:
+    """The carried_forward cohorts after a refresh.
+
+    A record upstream lists again was just recollected, so it leaves every older
+    cohort; keeping it there would stamp the fresh row with the old crawl time.
+    Records newly carried this time form a cohort dated to the crawl they were
+    last seen in (the previous snapshot), and records already in a cohort keep
+    the one they have.
+    """
+    updated = []
+    claimed: set[str] = set()
+    for cohort in cohorts:
+        ids = sorted(set(cohort["benchmark_ids"]) - upstream_ids)
+        claimed.update(ids)
+        if ids:
+            updated.append({**cohort, "benchmark_ids": ids})
+    fresh = sorted(carried_ids - claimed)
+    if fresh:
+        updated.append(
+            {"from_snapshot": from_snapshot, "crawled_at": crawled_at, "benchmark_ids": fresh}
+        )
+    return updated
 
 
 def main() -> None:

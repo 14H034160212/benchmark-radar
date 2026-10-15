@@ -58,7 +58,8 @@ def test_seed_publishes_crawlable_direction_links_and_newest_rows():
     # Newest first, each row a link to the benchmark's own page, names escaped.
     assert rows.index("/benchmarks/new/") < rows.index("/benchmarks/old/")
     assert "Old &lt;Bench&gt;" in rows
-    assert "Math Reasoning" in rows
+    # Every filed direction, as the live row shows it, not only the primary.
+    assert "Math Reasoning · Science" in rows
     assert "2 of 2 benchmarks" in status
 
 

@@ -368,3 +368,25 @@ def test_a_row_in_two_carried_forward_cohorts_is_rejected():
         snapshot_id="s",
     )
     assert adapted["crawled_at"] == "2026-01-01T00:00:00Z"
+
+
+def test_refresh_moves_returned_records_out_of_old_cohorts():
+    # A carried record that upstream lists again was just recollected; leaving
+    # it in its old cohort would stamp the fresh row with the old crawl time.
+    module = _export_module()
+    cohorts = [
+        {"from_snapshot": "s1", "crawled_at": "2026-09-25T00:00:00Z", "benchmark_ids": ["a", "b"]}
+    ]
+
+    updated = module.update_cohorts(
+        cohorts,
+        upstream_ids={"b", "x"},
+        carried_ids={"a", "c"},
+        from_snapshot="s2",
+        crawled_at="2026-10-14T00:00:00Z",
+    )
+
+    assert updated == [
+        {"from_snapshot": "s1", "crawled_at": "2026-09-25T00:00:00Z", "benchmark_ids": ["a"]},
+        {"from_snapshot": "s2", "crawled_at": "2026-10-14T00:00:00Z", "benchmark_ids": ["c"]},
+    ]

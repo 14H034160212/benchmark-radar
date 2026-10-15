@@ -874,7 +874,12 @@ def _library_seed(
     rows = ""
     for record in newest:
         direction = record.get("library_direction")
-        facts = [names.get(direction["primary"], direction["primary"])] if direction else []
+        # Every filed direction, primary first, as the live row lists them.
+        facts = (
+            [" · ".join(names.get(item, item) for item in direction["categories"])]
+            if direction
+            else []
+        )
         if record.get("released"):
             facts.append(_medium_date(record["released"]))
         facts.append(SOURCE_LABELS.get(record["source"], record["source"]))
