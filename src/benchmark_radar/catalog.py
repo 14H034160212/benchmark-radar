@@ -676,6 +676,7 @@ def build_benchmark_index(
     records: list[dict[str, Any]],
     series_by_key: dict[str, dict[str, Any]] | None = None,
     observations: list[dict[str, Any]] | None = None,
+    directions_by_key: dict[str, dict[str, Any]] | None = None,
 ) -> list[dict[str, Any]]:
     """The small search payload: one entry per source record, never per merge.
 
@@ -685,6 +686,7 @@ def build_benchmark_index(
     it is invisible. One row per record keeps a bad grouping a display bug.
     """
     series_by_key = series_by_key or {}
+    directions_by_key = directions_by_key or {}
     models_by_key: dict[str, dict[str, dict[str, Any]]] = {}
     for observation in observations or []:
         name = observation.get("model_name")
@@ -772,6 +774,10 @@ def build_benchmark_index(
                 "repo_resolution_status": repository.get("resolution_status"),
                 "has_dataset": any(item["kind"] == "dataset" for item in artifacts),
                 "has_size": bool(record.get("sizes")),
+                # A reviewed classification from benchmark-radar.com's Library,
+                # kept apart from the source `categories` that search ranks on
+                # and labelled with its basis and join (library_directions.py).
+                "library_direction": directions_by_key.get(record["key"]),
             }
         )
     index.sort(key=lambda item: (item["name"].lower(), item["key"]))
@@ -779,7 +785,11 @@ def build_benchmark_index(
 
 
 def write_benchmark_index(
-    index: list[dict[str, Any]], output: Path, *, documents: dict[str, Any] | None = None
+    index: list[dict[str, Any]],
+    output: Path,
+    *,
+    documents: dict[str, Any] | None = None,
+    library_taxonomy: dict[str, Any] | None = None,
 ) -> Path:
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(
@@ -789,6 +799,7 @@ def write_benchmark_index(
                 "count": len(index),
                 "benchmarks": index,
                 **({"document_registry": documents} if documents is not None else {}),
+                **({"library_taxonomy": library_taxonomy} if library_taxonomy else {}),
             },
             ensure_ascii=False,
             sort_keys=True,
