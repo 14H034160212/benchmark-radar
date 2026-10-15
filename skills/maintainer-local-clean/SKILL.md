@@ -18,9 +18,12 @@ merges through GitHub, not through `git branch --merged`.
    with `gh pr view <n> --json state,headRefOid`.
 4. Classify:
    - `MERGED`: remove the local branch, worktree, and tracking ref.
-   - `CLOSED` without merge: remove the tracking ref only. The remote keeps it.
+   - `CLOSED` without merge: tag the tip first with
+     `git tag legacy/<branch> <ref>` (local only, never pushed), then remove
+     the tracking ref. The remote keeps the branch too.
    - `OPEN`: keep.
-   - No PR: keep, and report it. `star-history` is an automation branch.
+   - `star-history` (any remote): automation branch. Always keep, never report.
+   - Any other branch with no PR: keep, and report it.
 5. Before removing a worktree, check `git -C <path> status --short` is empty.
    A worktree whose directory is gone is removed by `git worktree prune`.
 6. Present the plan and wait for approval. Remove in this order: worktrees,
