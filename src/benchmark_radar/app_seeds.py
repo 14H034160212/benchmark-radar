@@ -876,7 +876,10 @@ def _library_seed(
         direction = record.get("library_direction")
         # Every filed direction, primary first, as the live row lists them.
         facts = (
-            [" · ".join(names.get(item, item) for item in direction["categories"])]
+            [
+                " · ".join(names.get(item, item) for item in direction["categories"])
+                + (" (provisional)" if direction.get("basis") == "keyword-provisional" else "")
+            ]
             if direction
             else []
         )

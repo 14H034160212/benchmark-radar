@@ -135,7 +135,13 @@ def assign_library_directions(
         anchors: list[str] = []
         for artifact in record.get("artifacts") or []:
             # Curated records carry only a URL; derive the same exact identifier.
-            identifier = artifact.get("id") or artifact_identifier(str(artifact.get("url") or ""))
+            # Canonicalize like the export does: a source can keep repository
+            # casing in its stored id (OpenCompass gh:OSU-NLP-Group/...), and the
+            # exported anchors are artifact_identifier's lowercase form.
+            identifier = (
+                artifact_identifier(str(artifact.get("url") or ""))
+                or str(artifact.get("id") or "").lower()
+            )
             hits = by_artifact.get(identifier or "")
             if hits:
                 matched |= hits

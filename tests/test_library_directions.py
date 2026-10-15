@@ -203,3 +203,24 @@ def test_candidates_agreeing_on_primary_keep_only_shared_secondaries():
     directions = assign_library_directions(records, document({"bm_a": first, "bm_b": second}))
     assert directions["model-reports:x"]["categories"] == ["math"]
     assert directions["model-reports:x"]["source_record"] == "bm_a"
+
+
+def test_mixed_case_artifact_ids_are_canonicalized_before_joining():
+    # OpenCompass keeps repository casing in stored ids; the export's anchors
+    # are artifact_identifier's lowercase form.
+    records = [
+        {
+            "key": "opencompass:1125",
+            "source": "opencompass_hub",
+            "artifacts": [
+                {
+                    "id": "gh:OSU-NLP-Group/Mind2Web",
+                    "url": "https://github.com/OSU-NLP-Group/Mind2Web",
+                }
+            ],
+        }
+    ]
+    directions = assign_library_directions(
+        records, document({"bm": assignment("math", artifacts=["gh:osu-nlp-group/mind2web"])})
+    )
+    assert directions["opencompass:1125"]["join"] == "artifact:gh:osu-nlp-group/mind2web"

@@ -406,6 +406,7 @@ const I18N = {
     "Most documented": "引用文档最多",
     "A–Z": "按名称",
     "Relevance (search)": "相关度（搜索时）",
+    "provisional": "待审核",
     "Saved": "已收藏",
     "Save benchmark": "收藏这个 benchmark",
     "Remove from saved": "取消收藏",
@@ -5610,7 +5611,10 @@ function libraryRow(record, names, saved) {
     // under a secondary direction shows why it matched.
     direction ? element("span", {
       className: "library-chip",
-      text: direction.categories.map((id) => names.get(id) || id).join(" · "),
+      text: direction.categories.map((id) => names.get(id) || id).join(" · ")
+        // A keyword match awaiting review is labelled as such, not presented
+        // like a reviewed assignment.
+        + (direction.basis === "keyword-provisional" ? ` (${t("provisional")})` : ""),
     }) : null,
     record.released ? element("span", { text: formatDate(record.released, { dateStyle: "medium" }) }) : null,
     element("span", { text: scoreSourceLabel(record.source) }),
