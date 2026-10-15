@@ -886,6 +886,23 @@ def _library_seed(
         if record.get("released"):
             facts.append(_medium_date(record["released"]))
         facts.append(SOURCE_LABELS.get(record["source"], record["source"]))
+        # The same artifact and star facts the live row shows.
+        facts.extend(
+            label
+            for field, label in (
+                ("has_paper", "Paper"),
+                ("has_repo", "Code"),
+                ("has_dataset", "Data"),
+            )
+            if record.get(field)
+        )
+        signals = record.get("attention_signals") or {}
+        if signals.get("github_stars") is not None:
+            gain = signals.get("github_stars_30d")
+            facts.append(
+                f"★ {signals['github_stars']:,} GitHub"
+                + (f" · +{gain:,} in 30 days" if gain is not None else "")
+            )
         description = (
             f'<p class="library-row-description">{esc(record["description"])}</p>'
             if record.get("description")
@@ -1077,6 +1094,8 @@ def _direction_trends_seed(
             f'<td class="direction-number">{previous}</td>'
             f'<td class="direction-number">{change}</td>'
             f'<td class="direction-number">{row["undated"]:,}</td>'
+            f'<td class="direction-number">'
+            f"{'+' + format(row['stars_30d'], ',') if row['stars_tracked'] else '—'}</td>"
             '<td><span class="visually-hidden">'
             f"{esc(weekly_summary(row['weekly']))}</span></td></tr>"
         )

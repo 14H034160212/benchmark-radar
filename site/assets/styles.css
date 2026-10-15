@@ -6086,3 +6086,8 @@ dialog {
   height: 20px;
   fill: var(--blue);
 }
+
+.library-signal {
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}

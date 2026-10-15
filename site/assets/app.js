@@ -408,6 +408,13 @@ const I18N = {
     "A–Z": "按名称",
     "Relevance (search)": "相关度（搜索时）",
     "provisional": "待审核",
+    "Most GitHub stars": "GitHub 星标最多",
+    "Most stars gained (30 days)": "30 天新增星标最多",
+    "in 30 days": "（30 天）",
+    "Stars of the linked GitHub repository, which several benchmarks can share; observed by benchmark-radar.com on {date}": "所链接 GitHub 仓库的星标数（多个 benchmark 可能共用一个仓库）；benchmark-radar.com 于 {date} 观测",
+    "My directions": "我关注的方向",
+    "Following": "已关注",
+    "Follow this direction": "关注这个方向",
     "Saved": "已收藏",
     "Save benchmark": "收藏这个 benchmark",
     "Remove from saved": "取消收藏",
@@ -424,6 +431,8 @@ const I18N = {
     "Previous": "上一期",
     "Change": "变化",
     "Undated": "无日期",
+    "Stars gained, 30 days": "30 天新增星标",
+    "GitHub stars gained in 30 days across {n} records with a tracked repository": "{n} 条有追踪仓库的记录在 30 天内新增的 GitHub 星标",
     "A record counts in every direction it is filed under, so rows overlap and do not add up to a total.": "一条记录会计入它所属的每个方向，因此各行有重叠，不能相加得到总数。",
     "Weekly new records, oldest first: {values}": "每周新增记录（从早到晚）：{values}",
     "no data": "无数据",
@@ -1355,6 +1364,7 @@ const state = {
   libraryDirection: "",
   librarySort: "latest",
   librarySaved: false,
+  libraryFollowing: false,
   libraryVisibleLimit: 120,
   libraryTaxonomy: null,
   // Models (#420): the lab whose model documents are shown; empty is every lab.
@@ -1616,6 +1626,7 @@ function readUrl() {
   state.libraryDirection = params.get("dir") || "";
   state.librarySort = LIBRARY_SORTS.includes(params.get("lsort")) ? params.get("lsort") : "latest";
   state.librarySaved = params.get("saved") === "1";
+  state.libraryFollowing = params.get("following") === "1";
   state.libraryVisibleLimit = LIBRARY_PAGE_SIZE;
   state.modelsLab = (params.get("lab") || "").trim();
   state.lfrontier = params.get("lfrontier") || "";
@@ -1730,6 +1741,7 @@ function writeUrl(mode = "replace") {
     if (state.libraryDirection) params.set("dir", state.libraryDirection);
     if (state.librarySort !== "latest") params.set("lsort", state.librarySort);
     if (state.librarySaved) params.set("saved", "1");
+    if (state.libraryFollowing) params.set("following", "1");
   }
   if (!utility && state.view === "models" && state.modelsLab) params.set("lab", state.modelsLab);
   if (utility === "rubric" && state.rubric && state.rubric !== "current") {
@@ -5537,9 +5549,43 @@ function setLibrarySaved(slug, saved) {
   else slugs.delete(slug);
   try {
     window.localStorage.setItem(LIBRARY_SAVED_KEY, JSON.stringify([...slugs].sort()));
+    // Storage holds the list again, so a stale in-memory copy must not win.
+    librarySavedMemory = null;
   } catch {
     librarySavedMemory = slugs;
   }
+}
+
+// Followed directions (#420, .com's interest list): research directions a
+// reader follows, kept in this browser like saved benchmarks, with the same
+// guarded storage and in-memory fallback.
+const LIBRARY_FOLLOWED_KEY = "benchmark-radar:followed-directions:v1";
+let libraryFollowedMemory = null;
+
+function libraryFollowedDirections() {
+  if (libraryFollowedMemory) return new Set(libraryFollowedMemory);
+  try {
+    const followed = JSON.parse(window.localStorage.getItem(LIBRARY_FOLLOWED_KEY) || "[]");
+    return new Set(Array.isArray(followed) ? followed.filter((item) => typeof item === "string") : []);
+  } catch {
+    return new Set();
+  }
+}
+
+function setLibraryFollowed(direction, followed) {
+  const directions = libraryFollowedDirections();
+  if (followed) directions.add(direction);
+  else directions.delete(direction);
+  try {
+    window.localStorage.setItem(LIBRARY_FOLLOWED_KEY, JSON.stringify([...directions].sort()));
+    libraryFollowedMemory = null;
+  } catch {
+    libraryFollowedMemory = directions;
+  }
+}
+
+function libraryInFollowed(record, followed) {
+  return (record.library_direction?.categories || []).some((id) => followed.has(id));
 }
 
 function libraryCategoryNames() {
@@ -5567,6 +5613,20 @@ function libraryCompare(sort) {
     const documents = (record) => record.evidence_summary?.document_count || 0;
     return (a, b) => documents(b) - documents(a) || tie(a, b);
   }
+  // Observed GitHub stars, or stars gained in 30 days. Records with no
+  // observation are listed after every observed one, never dropped.
+  if (sort === "stars" || sort === "stars30") {
+    const field = sort === "stars" ? "github_stars" : "github_stars_30d";
+    const value = (record) => record.attention_signals?.[field];
+    return (a, b) => {
+      const va = value(a);
+      const vb = value(b);
+      if ((va ?? null) === null || (vb ?? null) === null) {
+        return ((va ?? null) === null) - ((vb ?? null) === null) || tie(a, b);
+      }
+      return vb - va || tie(a, b);
+    };
+  }
   return (a, b) => codePointCompare(b.released || "", a.released || "") || tie(a, b);
 }
 
@@ -5580,17 +5640,22 @@ function libraryMatches() {
 
 function libraryRows() {
   const saved = state.librarySaved ? librarySavedSlugs() : null;
+  const followed = state.libraryFollowing ? libraryFollowedDirections() : null;
   const rows = libraryMatches().filter(
-    (record) => libraryInDirection(record, state.libraryDirection) && (!saved || saved.has(record.key)),
+    (record) => libraryInDirection(record, state.libraryDirection)
+      && (!saved || saved.has(record.key))
+      && (!followed || libraryInFollowed(record, followed)),
   );
   return state.libraryQuery ? rows : rows.sort(libraryCompare(state.librarySort));
 }
 
 function libraryDirectionCounts() {
   const saved = state.librarySaved ? librarySavedSlugs() : null;
+  const followed = state.libraryFollowing ? libraryFollowedDirections() : null;
   const counts = new Map([["", 0], [LIBRARY_UNCLASSIFIED, 0]]);
   for (const record of libraryMatches()) {
     if (saved && !saved.has(record.key)) continue;
+    if (followed && !libraryInFollowed(record, followed)) continue;
     counts.set("", counts.get("") + 1);
     const categories = record.library_direction?.categories || [];
     if (!categories.length) counts.set(LIBRARY_UNCLASSIFIED, counts.get(LIBRARY_UNCLASSIFIED) + 1);
@@ -5621,10 +5686,15 @@ function renderLibraryDirections() {
   const taxonomy = state.libraryTaxonomy;
   if (!host || !taxonomy) return;
   const counts = libraryDirectionCounts();
+  const followedDirections = libraryFollowedDirections();
   const groups = taxonomy.groups.map((group) => {
     const buttons = taxonomy.categories
       .filter((category) => category.group === group.id)
-      .map((category) => libraryDirectionButton(category.id, category.name, counts.get(category.id) || 0));
+      .map((category) => libraryDirectionButton(
+        category.id,
+        `${followedDirections.has(category.id) ? "★ " : ""}${category.name}`,
+        counts.get(category.id) || 0,
+      ));
     return element("div", { className: "library-direction-group" }, [
       element("h3", { className: "library-direction-heading", text: group.name }),
       ...buttons,
@@ -5646,6 +5716,20 @@ function libraryArtifactLinks(record) {
   return kinds
     .filter(([field]) => record[field])
     .map(([, label]) => element("span", { className: "library-artifact", text: label }));
+}
+
+// Observed GitHub stars and the 30-day gain, dated and attributed, so the
+// number reads as an observation of the repository rather than a score.
+function librarySignalFact(record) {
+  const signals = record.attention_signals;
+  if (!signals || signals.github_stars === null || signals.github_stars === undefined) return null;
+  const gain = signals.github_stars_30d;
+  return element("span", {
+    className: "library-signal",
+    text: `★ ${signals.github_stars.toLocaleString()} GitHub`
+      + (gain !== null && gain !== undefined ? ` · +${gain.toLocaleString()} ${t("in 30 days")}` : ""),
+    attrs: { title: t("Stars of the linked GitHub repository, which several benchmarks can share; observed by benchmark-radar.com on {date}", { date: signals.as_of || "—" }) },
+  });
 }
 
 function libraryRow(record, names, saved) {
@@ -5678,6 +5762,7 @@ function libraryRow(record, names, saved) {
     record.released ? element("span", { text: formatDate(record.released, { dateStyle: "medium" }) }) : null,
     element("span", { text: scoreSourceLabel(record.source) }),
     ...libraryArtifactLinks(record),
+    librarySignalFact(record),
   ];
   return element("article", { className: "library-row" }, [
     star,
@@ -5718,6 +5803,19 @@ function renderLibrary() {
   const savedToggle = byId("library-saved");
   savedToggle.setAttribute("aria-pressed", String(state.librarySaved));
   savedToggle.textContent = `${t("Saved")} (${saved.size.toLocaleString()})`;
+  const followed = libraryFollowedDirections();
+  const followingToggle = byId("library-following");
+  followingToggle.setAttribute("aria-pressed", String(state.libraryFollowing));
+  followingToggle.textContent = `${t("My directions")} (${followed.size.toLocaleString()})`;
+  // Follow is offered for a real direction only, not "All" or "Not yet classified".
+  const followButton = byId("library-follow");
+  const followable = state.libraryDirection && state.libraryDirection !== LIBRARY_UNCLASSIFIED;
+  followButton.hidden = !followable;
+  if (followable) {
+    const following = followed.has(state.libraryDirection);
+    followButton.setAttribute("aria-pressed", String(following));
+    followButton.textContent = following ? `★ ${t("Following")}` : `☆ ${t("Follow this direction")}`;
+  }
   renderLibraryDirections();
   const rows = libraryRows();
   const shown = rows.slice(0, state.libraryVisibleLimit);
@@ -5755,6 +5853,18 @@ function initLibrary() {
     state.libraryVisibleLimit = LIBRARY_PAGE_SIZE;
     renderLibrary();
     writeUrl();
+  });
+  byId("library-following").addEventListener("click", () => {
+    state.libraryFollowing = !state.libraryFollowing;
+    state.libraryVisibleLimit = LIBRARY_PAGE_SIZE;
+    renderLibrary();
+    writeUrl();
+  });
+  byId("library-follow").addEventListener("click", () => {
+    const direction = state.libraryDirection;
+    if (!direction || direction === LIBRARY_UNCLASSIFIED) return;
+    setLibraryFollowed(direction, !libraryFollowedDirections().has(direction));
+    renderLibrary();
   });
   byId("library-more").addEventListener("click", () => {
     state.libraryVisibleLimit += LIBRARY_PAGE_SIZE;
@@ -6139,11 +6249,21 @@ function directionTrendRows(records, taxonomy, anchor, windowDays) {
     id, name, group, current: 0, previous: comparable ? 0 : null,
     weekly: weekCovered.map((ok) => (ok ? 0 : null)),
     undated: 0,
+    stars_30d: 0,
+    stars_tracked: 0,
   });
   const rows = new Map(taxonomy.categories.map((category) => [category.id, empty(category.id, category.name, category.group)]));
   rows.set("unclassified", empty("unclassified", "Not yet classified", null));
   for (const record of records) {
     const categories = record.library_direction?.categories?.length ? record.library_direction.categories : ["unclassified"];
+    const gain = record.attention_signals?.github_stars_30d;
+    if (gain !== null && gain !== undefined) {
+      for (const id of categories) {
+        if (!rows.has(id)) continue;
+        rows.get(id).stars_30d += gain;
+        rows.get(id).stars_tracked += 1;
+      }
+    }
     if (!record.released) {
       // Counted, not dropped: "no new records" and "could not be dated" differ.
       for (const id of categories) if (rows.has(id)) rows.get(id).undated += 1;
@@ -6245,6 +6365,11 @@ function renderDirectionTrends() {
     element("td", { className: "direction-number", text: row.previous === null ? "—" : row.previous.toLocaleString() }),
     element("td", { className: "direction-number", text: directionChange(row) }),
     element("td", { className: "direction-number", text: row.undated.toLocaleString() }),
+    element("td", {
+      className: "direction-number",
+      text: row.stars_tracked ? `+${row.stars_30d.toLocaleString()}` : "—",
+      attrs: { title: t("GitHub stars gained in 30 days across {n} records with a tracked repository", { n: row.stars_tracked }) },
+    }),
     // The bars are drawn for sighted readers; the same sixteen values are
     // given as text so the column is not empty to a screen reader.
     element("td", {}, [
@@ -8799,7 +8924,7 @@ function renderLeaderboardTop(board) {
 const LATEST_WINDOWS = ["7d", "30d", "90d"];
 // The Library's address parameters, read and written with the other views'.
 const LIBRARY_PAGE_SIZE = 120;
-const LIBRARY_SORTS = ["latest", "documented", "name"];
+const LIBRARY_SORTS = ["latest", "documented", "stars", "stars30", "name"];
 const LATEST_WINDOW_DAYS = { "7d": 7, "30d": 30, "90d": 90 };
 // Order and wording follow the signals issue #530 names. Each component's
 // weight is read from the payload rather than restated here, so a re-weighted
