@@ -2,12 +2,12 @@
 
 Answer these questions, in order, before you merge a contributor PR. Stop at the
 first "no" and request changes. These checks add to the rules in
-[`CONTRIBUTING.md`](../CONTRIBUTING.md#1-what-we-merge). They do not replace them.
+[`CONTRIBUTING.md`](CONTRIBUTING.md#1-what-we-merge). They do not replace them.
 
 ## 1. Did the human contributor answer the four questions?
 
 - The contributor answers the four questions in
-  [`CONTRIBUTING.md`](../CONTRIBUTING.md#before-you-start-a-pr) themselves.
+  [`CONTRIBUTING.md`](CONTRIBUTING.md#before-you-start-a-pr) themselves.
   Answers written by their agent do not count, even on the contributor's
   instruction.
 - For agent-assisted work, check for the `330226 <model-id>` comment.
@@ -26,9 +26,9 @@ already does the job.
   gzipped. Prefer a page that reads a file the site already loads, such as
   `/data/benchmark-index.json`. A returning visitor then downloads nothing new
   while that file is unchanged. Pages has a 100 GB/month soft limit; see
-  [`docs/agent-gotchas.md`](agent-gotchas.md#github-and-hosting).
+  [`docs/agent-gotchas.md`](docs/agent-gotchas.md#github-and-hosting).
 - **Stored data.** A new field in a daily snapshot is stored every day, forever.
-  See [Technical burden without a real failure](../CONTRIBUTING.md#2-what-we-dont-merge).
+  See [Technical burden without a real failure](CONTRIBUTING.md#2-what-we-dont-merge).
 - **Code to maintain.** A second copy of existing logic, such as a browser copy
   of `QueryService` ranking, must be updated by hand. Reuse the existing code,
   or keep the simpler behavior.
@@ -37,7 +37,7 @@ already does the job.
   builds the catalog.
 
 A heavier page or a longer menu slows both readers named in
-[`AGENTS.md`](../AGENTS.md): the newcomer and the benchmark expert.
+[`AGENTS.md`](AGENTS.md): the newcomer and the benchmark expert.
 
 ## 3. If it is a bug fix, does it link a failure that already happened?
 
@@ -49,7 +49,7 @@ user report. A review-bot comment or a possible case is not a failure.
 Every benchmark-facing surface covers all records across all sources. Missing
 measurements never remove a record. Benchmark Frontier and its linked score
 ranking exclude records without a numeric reported score, and count them. See
-[`principle.md`](../principle.md).
+[`principle.md`](principle.md).
 
 ## 5. Is the daily snapshot safe?
 
@@ -66,6 +66,6 @@ them in the merge comment.
 
 A "verified head" in the description goes stale with each new commit. Merge the
 current head onto the latest `main` in a clean worktree with its own venv. Run
-the full CI sequence from [`AGENTS.md`](../AGENTS.md). When the user asks you to
+the full CI sequence from [`AGENTS.md`](AGENTS.md). When the user asks you to
 merge, run `gh pr merge --merge --admin --match-head-commit <sha>`. A push after
 your check then cannot slip in. Never squash.
