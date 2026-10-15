@@ -340,7 +340,31 @@ def test_carried_forward_rows_keep_their_original_crawl_time():
     records = {
         row["source_benchmark_id"]: row for row in normalize_snapshot(snapshot)["source_records"]
     }
-    carried = snapshot["adapter_options"]["carried_forward"]
+    [carried] = snapshot["adapter_options"]["carried_forward"]
     assert len(carried["benchmark_ids"]) == 156
     assert records["2605.22034"]["provenance"]["crawled_at"] == "2026-09-25T04:40:22Z"
     assert records["2608.16081"]["provenance"]["crawled_at"] == "2026-10-14T09:44:51Z"
+
+
+def test_a_row_in_two_carried_forward_cohorts_is_rejected():
+    from benchmark_radar.catalog_snapshot_adapters import (
+        CatalogSnapshotAdapterError,
+        adapt_catalog_row,
+    )
+
+    row = {"benchmark_id": "x", "extra_json": "{}"}
+    cohort = {"from_snapshot": "a", "crawled_at": "2026-01-01T00:00:00Z", "benchmark_ids": ["x"]}
+    with pytest.raises(CatalogSnapshotAdapterError):
+        adapt_catalog_row(
+            row,
+            adapter="claire_radar_v1",
+            adapter_options={"carried_forward": [cohort, {**cohort, "from_snapshot": "b"}]},
+            snapshot_id="s",
+        )
+    adapted = adapt_catalog_row(
+        row,
+        adapter="claire_radar_v1",
+        adapter_options={"carried_forward": [cohort]},
+        snapshot_id="s",
+    )
+    assert adapted["crawled_at"] == "2026-01-01T00:00:00Z"

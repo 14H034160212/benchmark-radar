@@ -223,6 +223,11 @@ def carry_forward(
     catalog, and a record must not leave the corpus because a source stopped
     repeating it. Carried rows are copied byte for byte, so their embedded
     original object and its hash still verify.
+
+    The rows carry no crawl time of their own. Record each carried set as a
+    `carried_forward` cohort (snapshot, crawl time, ids) in
+    data/leaderboard_snapshots.yml; a later refresh appends a cohort for the
+    rows it newly carries and keeps the existing ones.
     """
     current = {row["benchmark_id"] for row in rows}
     kept = [row for row in previous if row["benchmark_id"] not in current]
