@@ -1,4 +1,4 @@
-import { searchCatalog } from "./catalog-search.js";
+import { searchCatalog, searchCatalogMatches } from "./catalog-search.js";
 import { SKYLINE_DOMAINS, SKYLINE_START_DATE, benchmarkDateLabel, skylineModel, skylineGeometry, skylineDateLanes, skylineScoreLanes, skylineCapPositions, skylineFrontierSteps, scorePopulation, matchesScoreCutoff, scoreBrowserSummary } from "./skyline.js";
 import {
   CATEGORY_COLORS,
@@ -1222,6 +1222,8 @@ const I18N = {
     "data quality": "数据质量",
     "no scores collected": "未采集到分数",
     "{shown} of {total} matches": "共 {total} 条匹配，已显示 {shown} 条",
+    "{full} match every word · {partial} share only some": "{full} 条包含全部关键词 · {partial} 条只包含部分",
+    "No benchmark matches every word; these share only some": "没有 benchmark 包含全部关键词，以下只包含部分",
     "No benchmark matches that name": "没有匹配该名称的benchmark",
     "Benchmark search is unavailable right now": "benchmark搜索暂时不可用",
     "not recorded": "未记录",
@@ -4664,6 +4666,33 @@ function searchBenchmarkIndex(records, query) {
   return searchCatalog(records, query);
 }
 
+// Slugs that contain every query word. The search also keeps candidates that
+// share only one word, as QueryService does; a status line must not call those
+// matches (QueryService reports them as partial_candidates_only).
+let fullMatchCache = { records: null, query: "", slugs: new Set() };
+function fullMatchSlugs(records, query) {
+  if (fullMatchCache.records !== records || fullMatchCache.query !== query) {
+    const slugs = new Set(searchCatalogMatches(records, query)
+      .filter((match) => !match.missing.length).map((match) => match.record.slug));
+    fullMatchCache = { records, query, slugs };
+  }
+  return fullMatchCache.slugs;
+}
+
+// "12 match every word · 30 share only some", or nothing when every candidate
+// is a full match.
+function partialMatchNote(rows, query, idOf) {
+  if (!query || !rows.length) return "";
+  const full = fullMatchSlugs(state.benchmarkIndex || [], query);
+  const fullCount = rows.filter((row) => full.has(idOf(row))).length;
+  if (fullCount === rows.length) return "";
+  return fullCount
+    ? t("{full} match every word · {partial} share only some", {
+      full: fullCount.toLocaleString(), partial: (rows.length - fullCount).toLocaleString(),
+    })
+    : t("No benchmark matches every word; these share only some");
+}
+
 // Openness is a three-state answer and `unknown` is the common one. It renders
 // as a neutral chip, never a warning: the reader is being told what we know,
 // not that something is wrong with the benchmark.
@@ -4902,6 +4931,7 @@ function renderBenchmarkSearch() {
   status.textContent = [t("{shown} of {total} matches")
     .replace("{shown}", shown.length.toLocaleString())
     .replace("{total}", rows.length.toLocaleString()),
+    partialMatchNote(rows, state.benchmarkQuery, (row) => row.id),
     state.benchmarkQuery || state.benchmarkModel ? t("Searching all benchmarks (score cutoff paused)") : "", coverage].filter(Boolean).join(" · ");
   if (!rows.length) {
     container.append(element("p", { className: "empty-state", text: loading

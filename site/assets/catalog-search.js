@@ -162,7 +162,8 @@ function present(value) {
 }
 
 // Mirrors the Python sort key: retrieval score, IDF coverage, name tier,
-// completeness, name length, folded name, key.
+// completeness, name length, folded name, key. Also returns the query words the
+// record lacks, QueryService's `missing_tokens`.
 function sortKey(document, queryTokens, corpus) {
   if (!queryTokens.some((token) => document.allTokens.has(token))) return null;
   const matched = new Set();
@@ -187,7 +188,10 @@ function sortKey(document, queryTokens, corpus) {
     ["publisher", "released", "modality"].filter((field) => present(record[field])).length +
     ["has_paper", "has_repo", "has_dataset"].filter((field) => record[field]).length;
   const name = String(record.name || "");
-  return [-retrievalScore, -idfCoverage, nameTier, -completeness, Array.from(name).length, casefold(name), String(record.key || "")];
+  return {
+    key: [-retrievalScore, -idfCoverage, nameTier, -completeness, Array.from(name).length, casefold(name), String(record.key || "")],
+    missing: queryTokens.filter((token) => !matched.has(token)),
+  };
 }
 
 function compareKeys(a, b) {
@@ -201,8 +205,10 @@ function compareKeys(a, b) {
 const corpusCache = new WeakMap();
 
 // Every record sharing one query token is a candidate, as in QueryService;
-// the ranking puts full matches and exact names first.
-export function searchCatalog(records, query) {
+// the ranking puts full matches and exact names first. Each result keeps the
+// query words it lacks, so a surface can tell a full match from a partial
+// candidate instead of calling both a match.
+export function searchCatalogMatches(records, query) {
   const queryTokens = [...new Set(searchTokens(String(query || "").split(/\s+/).filter(Boolean).join(" ")))];
   if (!queryTokens.length) return [];
   let corpus = corpusCache.get(records);
@@ -212,9 +218,13 @@ export function searchCatalog(records, query) {
   }
   const scored = [];
   for (const document of corpus.documents) {
-    const key = sortKey(document, queryTokens, corpus);
-    if (key) scored.push({ key, record: document.record });
+    const match = sortKey(document, queryTokens, corpus);
+    if (match) scored.push({ ...match, record: document.record });
   }
   scored.sort((a, b) => compareKeys(a.key, b.key));
-  return scored.map((item) => item.record);
+  return scored.map(({ record, missing }) => ({ record, missing }));
+}
+
+export function searchCatalog(records, query) {
+  return searchCatalogMatches(records, query).map((match) => match.record);
 }

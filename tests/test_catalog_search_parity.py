@@ -41,19 +41,23 @@ def site_ranking(records: list[dict], queries: list[str]) -> dict[str, list[str]
     return json.loads(completed.stdout)
 
 
-def service_ranking(records: list[dict], query: str) -> list[str]:
-    """QueryService.search without filters or a result limit."""
+def service_ranking(records: list[dict], query: str) -> dict[str, list[str]]:
+    """QueryService.search without filters or a result limit: ranked keys, and
+    the keys with no missing query token (full rather than partial matches)."""
     query_tokens = tuple(dict.fromkeys(_tokens(" ".join(query.split()))))
     if not query_tokens:
-        return []
+        return {"keys": [], "full": []}
     corpus = _build_search_corpus(records)
     scored = []
     for document in corpus.documents:
         match = _match(document, query_tokens=query_tokens, corpus=corpus)
         if match is not None:
-            scored.append((match[0], document.record["key"]))
+            scored.append((match[0], document.record["key"], not match[1]["missing_tokens"]))
     scored.sort(key=lambda value: value[0])
-    return [key for _, key in scored]
+    return {
+        "keys": [key for _, key, _ in scored],
+        "full": [key for _, key, full in scored if full],
+    }
 
 
 def record(key: str, name: str, **fields) -> dict:
@@ -153,8 +157,16 @@ def test_site_search_matches_queryservice_on_rule_cases():
 def test_description_only_matches_are_found_on_the_site():
     # The regression in #710: these records match only through prose.
     site = site_ranking(SYNTHETIC, ["weather forecasting", "robot grasp planning"])
-    assert site["weather forecasting"][0] == "a"
-    assert "h" in site["robot grasp planning"]
+    assert site["weather forecasting"]["keys"][0] == "a"
+    assert "h" in site["robot grasp planning"]["keys"]
+
+
+def test_partial_candidates_are_distinguished_from_full_matches():
+    # Search keeps records sharing one query word; only records containing every
+    # word are full matches, as QueryService's missing_tokens reports.
+    site = site_ranking(SYNTHETIC, ["weather forecasting"])["weather forecasting"]
+    assert site["full"] == ["a", "b"]
+    assert "c" in site["keys"] and "c" not in site["full"]
 
 
 def fixture_queries() -> list[str]:
