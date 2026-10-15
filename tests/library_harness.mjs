@@ -10,7 +10,8 @@ function fn(name) {
   return source.slice(start, source.indexOf("\n}\n", start) + 2);
 }
 const constants = [
-  source.match(/const LIBRARY_UNCLASSIFIED = .*;\nconst LIBRARY_SAVED_KEY = .*;/)[0],
+  source.match(/const LIBRARY_UNCLASSIFIED = .*;/)[0],
+  source.match(/const LIBRARY_SAVED_KEY = .*;/)[0],
   source.match(/let librarySavedMemory = null;/)[0],
 ].join("\n");
 const names = ["librarySavedSlugs", "setLibrarySaved", "libraryInDirection", "codePointCompare", "libraryCompare", "libraryMatches", "libraryRows", "libraryDirectionCounts"];
@@ -62,16 +63,16 @@ assert.deepEqual(lib.libraryRows().map((row) => row.slug), ["a", "b", "c"]);
 state.libraryQuery = "";
 
 // Saved benchmarks persist per browser, and the saved filter narrows the list.
-lib.setLibrarySaved("c", true);
-assert.deepEqual([...lib.librarySavedSlugs()], ["c"]);
+lib.setLibrarySaved("k:c", true);
+assert.deepEqual([...lib.librarySavedSlugs()], ["k:c"]);
 state.librarySaved = true;
 assert.deepEqual(lib.libraryRows().map((row) => row.slug), ["c"]);
-lib.setLibrarySaved("c", false);
+lib.setLibrarySaved("k:c", false);
 assert.deepEqual(lib.libraryRows(), []);
 state.librarySaved = false;
 
 // Corrupt storage reads as an empty list instead of breaking the page.
-store = { "benchmark-radar:saved:v1": "{not json" };
+store = { "benchmark-radar:saved-keys:v1": "{not json" };
 assert.equal(lib.librarySavedSlugs().size, 0);
 // Blocked storage: the click still sticks for the rest of the visit, because a
 // reread of the blocked store would otherwise undo the star immediately.

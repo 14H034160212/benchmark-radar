@@ -5449,7 +5449,10 @@ function initBenchmarkSearch() {
 // controls above the first row; here the controls are one line and the
 // directions sit beside the rows, so the first screen is benchmarks.
 const LIBRARY_UNCLASSIFIED = "unclassified";
-const LIBRARY_SAVED_KEY = "benchmark-radar:saved:v1";
+// Saved entries are catalog keys, not slugs: a refresh can hand an existing
+// slug to a newly added record that sorts first (assign_slugs), and a saved
+// slug would then star a different benchmark.
+const LIBRARY_SAVED_KEY = "benchmark-radar:saved-keys:v1";
 
 // Saved benchmarks live in this browser only. Storage can be blocked (private
 // windows, strict settings, a full quota), so every access is guarded. Once a
@@ -5517,7 +5520,7 @@ function libraryMatches() {
 function libraryRows() {
   const saved = state.librarySaved ? librarySavedSlugs() : null;
   const rows = libraryMatches().filter(
-    (record) => libraryInDirection(record, state.libraryDirection) && (!saved || saved.has(record.slug)),
+    (record) => libraryInDirection(record, state.libraryDirection) && (!saved || saved.has(record.key)),
   );
   return state.libraryQuery ? rows : rows.sort(libraryCompare(state.librarySort));
 }
@@ -5526,7 +5529,7 @@ function libraryDirectionCounts() {
   const saved = state.librarySaved ? librarySavedSlugs() : null;
   const counts = new Map([["", 0], [LIBRARY_UNCLASSIFIED, 0]]);
   for (const record of libraryMatches()) {
-    if (saved && !saved.has(record.slug)) continue;
+    if (saved && !saved.has(record.key)) continue;
     counts.set("", counts.get("") + 1);
     const categories = record.library_direction?.categories || [];
     if (!categories.length) counts.set(LIBRARY_UNCLASSIFIED, counts.get(LIBRARY_UNCLASSIFIED) + 1);
@@ -5585,7 +5588,7 @@ function libraryArtifactLinks(record) {
 }
 
 function libraryRow(record, names, saved) {
-  const isSaved = saved.has(record.slug);
+  const isSaved = saved.has(record.key);
   const star = element("button", {
     className: "library-save",
     text: isSaved ? "★" : "☆",
@@ -5597,12 +5600,17 @@ function libraryRow(record, names, saved) {
     },
   });
   star.addEventListener("click", () => {
-    setLibrarySaved(record.slug, !librarySavedSlugs().has(record.slug));
+    setLibrarySaved(record.key, !librarySavedSlugs().has(record.key));
     renderLibrary();
   });
   const direction = record.library_direction;
   const facts = [
-    direction ? element("span", { className: "library-chip", text: names.get(direction.primary) || direction.primary }) : null,
+    // Every direction the record is filed under, primary first, so a row listed
+    // under a secondary direction shows why it matched.
+    direction ? element("span", {
+      className: "library-chip",
+      text: direction.categories.map((id) => names.get(id) || id).join(" · "),
+    }) : null,
     record.released ? element("span", { text: formatDate(record.released, { dateStyle: "medium" }) }) : null,
     element("span", { text: scoreSourceLabel(record.source) }),
     ...libraryArtifactLinks(record),
