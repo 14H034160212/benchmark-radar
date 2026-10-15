@@ -318,6 +318,11 @@ def direction_trend_rows(
             "previous": 0 if comparable else None,
             "weekly": [0 if ok else None for ok in week_covered],
             "undated": 0,
+            # .com's "attention growth": GitHub stars gained in the 30 days to
+            # the observation date, summed over records that have the
+            # observation, with how many records that is.
+            "stars_30d": 0,
+            "stars_tracked": 0,
         }
 
     rows = {
@@ -328,6 +333,12 @@ def direction_trend_rows(
     for record in records:
         direction = record.get("library_direction") or {}
         categories = direction.get("categories") or ["unclassified"]
+        gain = (record.get("attention_signals") or {}).get("github_stars_30d")
+        if gain is not None:
+            for category_id in categories:
+                if category_id in rows:
+                    rows[category_id]["stars_30d"] += gain
+                    rows[category_id]["stars_tracked"] += 1
         released = record.get("released")
         if not released:
             # Counted, not dropped: a reader must be able to tell "no new

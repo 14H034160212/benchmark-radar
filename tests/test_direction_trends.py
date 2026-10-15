@@ -209,7 +209,7 @@ def test_seed_shows_the_section_with_default_window_rows():
     assert "hidden" not in section
     assert '<a href="/library/?dir=math" data-direction="math">Math</a>' in body
     # Grouped, and the top direction is focused in the seeded panel.
-    assert '<tr class="direction-group"><th colspan="6">Group' in body
+    assert '<tr class="direction-group"><th colspan="7">Group' in body
     assert '<tr class="is-focused">' in body
     # The panel's chart values are text for screen readers too.
     # Values the page can re-announce in the reader's language.

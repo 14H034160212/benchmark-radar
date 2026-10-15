@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from benchmark_radar.app_seeds import _library_seed
 from benchmark_radar.library_signals import assign_library_signals, stars_gained
 
 
@@ -57,3 +58,23 @@ def test_signals_join_by_identity_and_skip_disagreeing_candidates():
     assert signals["claire-radar:1"]["join"] == "claire_record_id"
     assert "opencompass:7" not in signals
     assert signals["opencompass:8"]["join"] == "artifact:arxiv:2"
+
+
+def test_seed_rows_carry_artifact_and_star_facts():
+    taxonomy = {
+        "groups": [{"id": "g", "name": "G"}],
+        "categories": [{"id": "m", "group": "g", "name": "M"}],
+    }
+    record = {
+        "slug": "a",
+        "key": "k:a",
+        "name": "A",
+        "source": "claire_radar",
+        "description": "",
+        "released": "2026-10-01",
+        "has_paper": True,
+        "has_repo": True,
+        "attention_signals": {"github_stars": 1275, "github_stars_30d": 676},
+    }
+    rows = _library_seed([record], taxonomy)['<div id="library-list" class="library-list"></div>']
+    assert "Paper · Code · ★ 1,275 GitHub · +676 in 30 days" in rows
