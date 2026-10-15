@@ -417,6 +417,7 @@ const I18N = {
     "Data": "数据",
     "Sort": "排序",
     "Models": "模型",
+    "Landscape": "全景",
     "New benchmarks by research direction": "各研究方向的新 benchmark",
     "Research direction": "研究方向",
     "New": "新增",

@@ -66,7 +66,7 @@ HOME_NAV_INACTIVE = (
 VIEW_LABELS = {
     "library": "Library",
     "models": "Models",
-    "leaderboard": "Leaderboard",
+    "leaderboard": "Landscape",
     "saturation": "Saturation",
     "trends": "Trends",
     "map": "Explore",
