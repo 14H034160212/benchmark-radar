@@ -243,8 +243,11 @@
           <a href="/models/" data-view="models" aria-controls="models-view" data-i18n="Models">Models</a>
           <a href="/trends/" data-view="trends" aria-controls="trends-view" data-i18n="Trends">Trends</a>
           <a href="/saturation/" data-view="saturation" aria-controls="saturation-view" data-i18n="Saturation">Saturation</a>
-          <a href="/leaderboard/" data-view="leaderboard" aria-controls="leaderboard-view" data-i18n="Leaderboard">
-            Leaderboard
+          <!-- Labelled Landscape (#420): the page maps the field -- latest
+               releases, the benchmark frontier, documentation -- more than it
+               ranks. The path stays /leaderboard/, which is already indexed. -->
+          <a href="/leaderboard/" data-view="leaderboard" aria-controls="leaderboard-view" data-i18n="Landscape">
+            Landscape
           </a>
           <!-- Blog and About are documents, not dashboard views, and they live
                in the footer nav instead: this row is for the tools a reader
@@ -610,7 +613,7 @@
 
       <section class="view" id="leaderboard-view" aria-labelledby="leaderboard-heading" hidden>
         <div class="score-browse-header">
-          <h1 id="leaderboard-heading" data-i18n="Leaderboard">Leaderboard</h1>
+          <h1 id="leaderboard-heading" data-i18n="Landscape">Landscape</h1>
         </div>
 
         <!-- Three modes, one page (issue #530). Latest releases opens by

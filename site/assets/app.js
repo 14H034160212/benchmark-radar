@@ -424,6 +424,7 @@ const I18N = {
     "Sort": "排序",
     "Models": "模型",
     "models.note": "目录中所有有报告成绩的模型，并排比较：列是模型，行是 benchmark。点一个分数，查看它的设置和来源。",
+    "Landscape": "全景",
     "New benchmark records by research direction": "各研究方向的新 benchmark 记录",
     "Research direction": "研究方向",
     "New": "新增",

@@ -33,7 +33,7 @@ INDEXABLE_VIEWS: tuple[tuple[str, str], ...] = (
     ("Models", "/models/"),
     ("Trends", "/trends/"),
     ("Saturation", "/saturation/"),
-    ("Leaderboard", "/leaderboard/"),
+    ("Landscape", "/leaderboard/"),
     ("Explore", "/explore/"),
     ("CLI", "/cli/"),
     ("Publications", "/cite/"),
