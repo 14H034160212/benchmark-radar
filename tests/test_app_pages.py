@@ -151,10 +151,32 @@ def _write(tmp_path: Path, dashboard: dict) -> dict:
                         "library_direction": (
                             {"primary": "math", "categories": ["math"]} if i == 0 else None
                         ),
+                        "scored_models": (
+                            [{"name": "Frontier-1", "date": "2026-05-14"}] if i == 0 else []
+                        ),
                     }
                     for i, entry in enumerate(entries)
                 ],
-                "document_registry": {**board, "entries": entries},
+                "document_registry": {
+                    **board,
+                    "entries": entries,
+                    # Model documents exist only where the registry does, so a
+                    # dashboard without model cards publishes no Models page.
+                    "documents": [
+                        {
+                            "id": "model_reports:acme_frontier_1",
+                            "document_type": "model_card",
+                            "organization": "Acme",
+                            "model_name": "Frontier-1",
+                            "title": "Frontier-1",
+                            "published": "2026-05-14",
+                            "source_url": "https://acme.example/frontier-1",
+                            "benchmarks": [{"benchmark_id": "aime", "name": "AIME"}],
+                        }
+                    ]
+                    if entries
+                    else [],
+                },
                 "library_taxonomy": {
                     "groups": [{"id": "reasoning", "name": "Reasoning"}],
                     "categories": [{"id": "math", "group": "reasoning", "name": "Math Reasoning"}],
@@ -170,6 +192,7 @@ def test_view_seo_is_read_from_the_script_the_browser_uses():
     assert {view: entry["canonical"] for view, entry in seo.items()} == {
         "today": "/",
         "library": "/library/",
+        "models": "/models/",
         "leaderboard": "/leaderboard/",
         "saturation": "/saturation/",
         "trends": "/trends/",
@@ -229,6 +252,7 @@ def test_every_view_is_published_at_its_own_path(tmp_path):
     report = _write(tmp_path, _dashboard())
     assert report["paths"] == [
         "/library/",
+        "/models/",
         "/leaderboard/",
         "/saturation/",
         "/trends/",
@@ -263,6 +287,7 @@ def test_only_the_named_view_is_open(tmp_path):
     _write(tmp_path, _dashboard())
     for path, open_id in (
         ("library", "library-view"),
+        ("models", "models-view"),
         ("leaderboard", "leaderboard-view"),
         ("saturation", "saturation-view"),
         ("trends", "trends-view"),
