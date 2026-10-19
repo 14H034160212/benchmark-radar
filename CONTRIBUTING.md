@@ -132,9 +132,6 @@ history.
 
 Stated up front so nobody writes work that has to be turned down.
 
-- **Scores in the adoption registry.** `data/model_cards.yml` records which
-  benchmarks a document mentions; the adoption rank counts mentions. Scores go
-  in [`data/benchmark_scores.yml`](data/benchmark_scores.yml).
 - **Fuzzy matching that silently merges records.** Entities resolve on exact
   identifiers (DOI, arXiv, OpenReview, GitHub, Hugging Face).
 - **Synthesized summaries.** A missing upstream description stays empty.
