@@ -79,6 +79,11 @@ history.
 
 ### Every PR we merge does these things
 
+- **Links an issue.** Write `Closes #N` in the description, or `Related to #N`
+  when the PR is one step of a larger issue. A PR with no link to an existing
+  issue is closed automatically: it is a change nobody asked for. The template
+  asks you to list what the issue requires and which items the PR does. A PR
+  that does a small part of an issue says `Related to`, not `Closes`.
 - **Starts from the full corpus.** Every benchmark-facing chart, search, table,
   count and export covers all records across all sources (1,259+ records across
   4+ sources at minimum). Missing measurements never remove a record. If your
