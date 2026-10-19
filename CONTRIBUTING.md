@@ -132,11 +132,6 @@ history.
 
 Stated up front so nobody writes work that has to be turned down.
 
-- **Scores in the adoption registry.** Vendors differ on prompt, scaffold, tool
-  access, reasoning budget, pass@k and evaluator. A mention survives all of
-  those caveats, which is why it is the unit the ranking publishes.
-- **Any ranking presented as a quality judgement.** Adoption measures vendor
-  attention, not benchmark quality.
 - **Fuzzy matching that silently merges records.** Entities resolve on exact
   identifiers (DOI, arXiv, OpenReview, GitHub, Hugging Face).
 - **Synthesized summaries.** A missing upstream description stays empty.
