@@ -1,3 +1,4 @@
+import json
 from datetime import UTC, datetime
 from pathlib import Path
 from urllib.error import HTTPError
@@ -28,6 +29,7 @@ from benchmark_radar.sources import (
     fetch_openalex,
     fetch_openreview,
     fetch_semantic_scholar,
+    fetch_xbsleepy,
     fetch_zenodo_records,
     github_release_title,
 )
@@ -1045,7 +1047,7 @@ def test_crossref_preserves_doi_metadata_and_bounds_the_query(monkeypatch):
     assert items[0].organizations == ["Radar Lab"]
     assert items[0].artifact_urls == ["https://doi.org/10.1000/radar"]
     assert items[0].metrics == {"citations": 3.0}
-    assert items[0].parser_version == "crossref-works/1"
+    assert items[0].parser_version == "crossref-works/2"
     assert calls[0][0] == "https://api.crossref.org/works"
     assert calls[0][1]["params"]["query.title"] == "agent benchmark"
     assert calls[0][1]["params"]["filter"] == ("from-pub-date:2026-07-26,until-pub-date:2026-07-28")
@@ -1160,7 +1162,7 @@ def test_openaire_preserves_upstream_metadata_and_bounds_the_query(monkeypatch):
     assert item.updated_at == datetime(2026, 7, 27, tzinfo=UTC)
     assert item.raw["dateOfCollection"] == "2026-08-30T00:00:00Z"
     assert item.event_kind == "released"
-    assert item.parser_version == "openaire-graph-v3/1"
+    assert item.parser_version == "openaire-graph-v3/2"
     assert calls[0][0] == "https://api.openaire.eu/graph/v3/research-products"
     assert calls[0][1]["params"] == {
         "mainTitle": '"agent benchmark"',
@@ -1626,7 +1628,7 @@ def test_openaire_stops_at_the_configured_request_budget(monkeypatch):
 
 
 def test_openaire_preserves_a_product_that_carries_almost_nothing(monkeypatch):
-    # An absent public counter is a real zero rather than a missing metric.
+    # Missing public counters stay unknown; the sparse record remains included.
     monkeypatch.setattr(
         "benchmark_radar.sources.get_json",
         lambda url, **kwargs: _openaire_rows_payload(
@@ -1644,7 +1646,7 @@ def test_openaire_preserves_a_product_that_carries_almost_nothing(monkeypatch):
     item = items[0]
     assert item.url == "https://doi.org/10.1000/sparse"
     assert item.artifact_urls == ["https://doi.org/10.1000/sparse"]
-    assert item.metrics == {"citations": 0.0, "downloads": 0.0, "views": 0.0}
+    assert item.metrics == {}
     assert item.authors == []
     assert item.organizations == []
     assert item.summary == ""
@@ -1786,7 +1788,7 @@ def test_datacite_preserves_doi_metadata_and_bounds_the_query(monkeypatch):
     assert item.updated_at == datetime(2026, 7, 27, 9, tzinfo=UTC)
     assert item.raw["attributes"]["updated"] == "2026-07-27T09:00:05.000Z"
     assert item.event_kind == "released"
-    assert item.parser_version == "datacite-dois/1"
+    assert item.parser_version == "datacite-dois/2"
     assert calls[0][0] == "https://api.datacite.org/dois"
     params = calls[0][1]["params"]
     # Both ends of the window travel with the query, second-precise and in UTC.
@@ -2024,7 +2026,7 @@ def test_datacite_truncates_to_the_per_source_limit(monkeypatch):
 
 def test_datacite_preserves_a_deposit_that_carries_almost_nothing(monkeypatch):
     # A DOI, a title and a registration date are all DataCite requires. An
-    # absent public counter is a real zero rather than a missing metric, and a
+    # absent public counter stays unknown, and a
     # deposit whose landing page is its own DOI must not list that URL twice.
     monkeypatch.setattr(
         "benchmark_radar.sources.get_json",
@@ -2045,7 +2047,7 @@ def test_datacite_preserves_a_deposit_that_carries_almost_nothing(monkeypatch):
 
     item = items[0]
     assert item.artifact_urls == ["https://doi.org/10.5281/zenodo.1"]
-    assert item.metrics == {"citations": 0.0, "downloads": 0.0, "views": 0.0}
+    assert item.metrics == {}
     assert item.authors == []
     assert item.organizations == []
     assert item.summary == ""
@@ -2342,7 +2344,7 @@ def test_semantic_scholar_success_preserves_external_ids(monkeypatch):
     assert items[0].summary == "The upstream scholarly abstract."
     assert "https://doi.org/10.1000/radar" in items[0].artifact_urls
     assert "https://arxiv.org/abs/2607.12345" in items[0].artifact_urls
-    assert items[0].parser_version == "semantic-scholar-graph/1"
+    assert items[0].parser_version == "semantic-scholar-graph/2"
 
 
 def test_semantic_scholar_paces_an_individual_api_key(monkeypatch):
@@ -3538,3 +3540,639 @@ def test_arxiv_partial_atom_is_not_evicted_by_newer_rss_at_source_cap(monkeypatc
     assert items[0].parser_version == "arxiv-atom/1"
     assert len(items) == limit
     assert any("arXiv Atom: RequestError" in warning for warning in config["_source_warnings"])
+
+
+XBSLEEPY_INDEX_PAPERS = [
+    {
+        "id": "2609.11115",
+        "title": "Benchmark Radar: A Living Database and Search Engine for AI Benchmarks",
+        "abstract": "We present a living database of AI benchmarks.",
+        "authors": ["Koutian Wu"],
+        "categories": ["cs.AI"],
+        "primary_category": "cs.AI",
+        "published": "2026-09-09T18:00:00Z",
+        "updated": "2026-09-09T18:00:00Z",
+        "announced_date": "2026-09-10",
+        "first_seen": "2026-09-10",
+        "links": {
+            "abs": "https://arxiv.org/abs/2609.11115v1",
+            "pdf": "https://arxiv.org/pdf/2609.11115v1",
+            "html": "https://arxiv.org/html/2609.11115",
+        },
+        "citations": 2,
+        "comment": "Project site: https://benchmark-radar.org/",
+        "field": "coding",
+        "score": 13,
+        "tags": ["coding", "planning"],
+    },
+    {
+        "id": "2607.00001",
+        "title": "An Older Agent Benchmark Paper",
+        "abstract": "An older digest entry.",
+        "authors": ["A. Researcher"],
+        "published": "2026-07-01T12:00:00Z",
+        "announced_date": "2026-07-02",
+        "links": {"abs": "https://arxiv.org/abs/2607.00001v1"},
+        "tags": ["web"],
+        "field": "web",
+    },
+]
+
+
+def test_xbsleepy_maps_index_papers_and_carries_theme_tags(monkeypatch):
+    monkeypatch.setattr(
+        "benchmark_radar.sources.get_json",
+        lambda url, attempts=3, timeout=30: {"papers": XBSLEEPY_INDEX_PAPERS},
+    )
+
+    items = fetch_xbsleepy(
+        {"index_url": "https://digest.example/data/index.json"},
+        datetime(2026, 9, 8, tzinfo=UTC),
+        10,
+    )
+
+    assert [item.source_id for item in items] == ["xbsleepy:2609.11115"]
+    item = items[0]
+    assert item.source == "XBsleepy"
+    assert item.title.startswith("Benchmark Radar:")
+    assert item.url == "https://arxiv.org/abs/2609.11115v1"
+    assert item.published_at == datetime(2026, 9, 9, 18, tzinfo=UTC)
+    assert item.event_kind == "discovered"
+    # The digest's own themes ride in `source_tags`; `categories` stays empty
+    # until the pipeline's taxonomy classifies the record.
+    assert item.source_tags == ["xbsleepy:coding", "xbsleepy:planning"]
+    assert item.categories == []
+    assert item.artifact_urls == [
+        "https://arxiv.org/pdf/2609.11115v1",
+        "https://arxiv.org/html/2609.11115",
+    ]
+    assert item.metrics == {"citations": 2.0}
+    assert item.authors == ["Koutian Wu"]
+    assert item.parser_version == "xbsleepy-index/2"
+
+
+def test_xbsleepy_accepts_date_only_announced_dates(monkeypatch):
+    paper = {
+        "id": "2609.00002",
+        "title": "AgentBoard Revived",
+        "abstract": "A digest entry without full timestamps.",
+        "announced_date": "2026-09-10",
+        "links": {"abs": "https://arxiv.org/abs/2609.00002"},
+        "tags": [],
+        "field": "other",
+    }
+    monkeypatch.setattr(
+        "benchmark_radar.sources.get_json",
+        lambda url, attempts=3, timeout=30: {"papers": [paper]},
+    )
+
+    items = fetch_xbsleepy(
+        {"index_url": "https://digest.example/data/index.json"},
+        datetime(2026, 9, 8, tzinfo=UTC),
+        10,
+    )
+
+    assert items[0].published_at == datetime(2026, 9, 10, tzinfo=UTC)
+    assert items[0].source_tags == []
+
+
+def test_xbsleepy_collects_a_paper_announced_after_it_was_published(monkeypatch):
+    # The digest announces papers after arXiv publishes them. A paper submitted
+    # before a weekend and announced today carries an older `published` and no
+    # `updated`, so a cutoff read off either one alone drops it on its first and
+    # only announcement -- the trap fetch_arxiv's overlap window exists to avoid.
+    paper = {
+        "id": "2609.00003",
+        "title": "A Weekend Agent Benchmark",
+        "abstract": "Announced after it was published.",
+        "published": "2026-09-04T18:00:00Z",
+        "announced_date": "2026-09-10",
+        "links": {"abs": "https://arxiv.org/abs/2609.00003"},
+        "tags": ["planning"],
+    }
+    monkeypatch.setattr(
+        "benchmark_radar.sources.get_json",
+        lambda url, attempts=3, timeout=30: {"papers": [paper]},
+    )
+
+    items = fetch_xbsleepy(
+        {"index_url": "https://digest.example/data/index.json"},
+        datetime(2026, 9, 8, tzinfo=UTC),
+        10,
+    )
+
+    assert [item.source_id for item in items] == ["xbsleepy:2609.00003"]
+    # The announcement decides freshness; the record's own dates stay the
+    # paper's publication provenance rather than being rewritten to it.
+    assert items[0].published_at == datetime(2026, 9, 4, 18, tzinfo=UTC)
+    assert items[0].updated_at == datetime(2026, 9, 4, 18, tzinfo=UTC)
+
+
+def test_xbsleepy_drops_papers_older_than_since(monkeypatch):
+    monkeypatch.setattr(
+        "benchmark_radar.sources.get_json",
+        lambda url, attempts=3, timeout=30: {"papers": XBSLEEPY_INDEX_PAPERS},
+    )
+
+    items = fetch_xbsleepy(
+        {"index_url": "https://digest.example/data/index.json"},
+        datetime(2026, 9, 1, tzinfo=UTC),
+        10,
+    )
+
+    assert [item.source_id for item in items] == ["xbsleepy:2609.11115"]
+
+
+def test_xbsleepy_requires_papers_array(monkeypatch):
+    # Both cases must reach `_payload_rows`. Passing `{}` as config used to
+    # raise on the missing `index_url` first, so the payload validation this
+    # test names was never exercised.
+    config = {"index_url": "https://digest.example/data/index.json"}
+
+    monkeypatch.setattr(
+        "benchmark_radar.sources.get_json",
+        lambda url, attempts=3, timeout=30: {"total": 3},
+    )
+    with pytest.raises(ConnectorPayloadError, match="missing papers"):
+        fetch_xbsleepy(config, datetime(2026, 9, 8, tzinfo=UTC), 10)
+
+    monkeypatch.setattr(
+        "benchmark_radar.sources.get_json",
+        lambda url, attempts=3, timeout=30: {"papers": {"2609.11115": {}}},
+    )
+    with pytest.raises(ConnectorPayloadError, match="invalid papers"):
+        fetch_xbsleepy(config, datetime(2026, 9, 8, tzinfo=UTC), 10)
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("published", "2027-01-01T00:00:00Z"),
+        ("updated", "2027-01-01T00:00:00Z"),
+        # The announcement is a freshness signal too, so a digest row dated
+        # ahead of the run must not be published on the strength of it alone.
+        ("announced_date", "2027-01-01"),
+    ],
+)
+def test_xbsleepy_rejects_future_timestamps_instead_of_publishing_them(monkeypatch, field, value):
+    paper = dict(XBSLEEPY_INDEX_PAPERS[0], **{field: value})
+    monkeypatch.setattr(
+        "benchmark_radar.sources.get_json",
+        lambda url, attempts=3, timeout=30: {"papers": [paper]},
+    )
+    config = {
+        "index_url": "https://digest.example/data/index.json",
+        "_collection_now": datetime(2026, 9, 10, tzinfo=UTC),
+    }
+
+    items = fetch_xbsleepy(config, datetime(2026, 9, 8, tzinfo=UTC), 10)
+
+    assert items == []
+    assert config["_future_rejections"] == 1
+
+
+@pytest.mark.parametrize("cutoff_day, expected", [(10, 1), (11, 0)])
+def test_xbsleepy_date_only_announcement_uses_day_precision(monkeypatch, cutoff_day, expected):
+    paper = {
+        "id": "2609.00003",
+        "title": "Delayed benchmark announcement",
+        "published": "2026-09-04T18:00:00Z",
+        "updated": "2026-09-05T18:00:00Z",
+        "announced_date": "2026-09-10",
+        "links": {"abs": "https://arxiv.org/abs/2609.00003"},
+    }
+    monkeypatch.setattr("benchmark_radar.sources.get_json", lambda *a, **kw: {"papers": [paper]})
+    items = fetch_xbsleepy(
+        {"index_url": "https://digest.example/data/index.json"},
+        datetime(2026, 9, cutoff_day, 5, tzinfo=UTC),
+        10,
+    )
+    assert len(items) == expected
+    if items:
+        assert items[0].published_at == datetime(2026, 9, 4, 18, tzinfo=UTC)
+        assert items[0].updated_at == datetime(2026, 9, 5, 18, tzinfo=UTC)
+
+
+@pytest.mark.parametrize(
+    "value, expected",
+    [
+        (None, {}),
+        ("", {}),
+        (0, {"citations": 0.0}),
+        ("7", {"citations": 7.0}),
+        ("not-a-count", {}),
+        (float("nan"), {}),
+        (float("inf"), {}),
+        (-1, {}),
+        (True, {}),
+    ],
+)
+def test_xbsleepy_citations_require_a_reported_numeric_count(monkeypatch, value, expected):
+    paper = {**XBSLEEPY_INDEX_PAPERS[0], "citations": value}
+    monkeypatch.setattr("benchmark_radar.sources.get_json", lambda *a, **kw: {"papers": [paper]})
+    config = {"index_url": "https://digest.example/data/index.json"}
+    items = fetch_xbsleepy(config, datetime(2026, 9, 8, tzinfo=UTC), 10)
+    assert len(items) == 1
+    assert items[0].to_dict()["metrics"] == expected
+    assert items[0].parser_version == "xbsleepy-index/2"
+    if value not in (None, "", 0, "7"):
+        assert config["_source_warnings"] == ["XBsleepy omitted 1 invalid citation count(s)"]
+
+
+def test_xbsleepy_missing_citations_remain_unknown(monkeypatch):
+    paper = dict(XBSLEEPY_INDEX_PAPERS[0])
+    paper.pop("citations")
+    monkeypatch.setattr("benchmark_radar.sources.get_json", lambda *a, **kw: {"papers": [paper]})
+    items = fetch_xbsleepy(
+        {"index_url": "https://digest.example/data/index.json"},
+        datetime(2026, 9, 8, tzinfo=UTC),
+        10,
+    )
+    assert items[0].metrics == {}
+
+
+def test_xbsleepy_counts_malformed_rows_without_hiding_healthy_records(monkeypatch):
+    healthy = XBSLEEPY_INDEX_PAPERS[0]
+    rows = [
+        healthy,
+        {**healthy, "id": ""},
+        {**healthy, "title": ""},
+        {**healthy, "links": {}},
+        {
+            **healthy,
+            "published": None,
+            "updated": None,
+            "announced_date": "invalid",
+            "first_seen": None,
+        },
+        {},
+    ]
+    monkeypatch.setattr("benchmark_radar.sources.get_json", lambda *a, **kw: {"papers": rows})
+    config = {"index_url": "https://digest.example/data/index.json", "allow_empty": True}
+    items = fetch_xbsleepy(config, datetime(2026, 9, 8, tzinfo=UTC), 10)
+    assert len(items) == 1
+    assert config["_source_warnings"] == [
+        "XBsleepy skipped 5 malformed row(s) (id: 2, links.abs: 2, title: 2, valid date: 2)"
+    ]
+
+
+def test_xbsleepy_all_malformed_rows_fail_even_when_empty_is_allowed(monkeypatch):
+    monkeypatch.setattr("benchmark_radar.sources.get_json", lambda *a, **kw: {"papers": [{}]})
+    config = {"index_url": "https://digest.example/data/index.json", "allow_empty": True}
+    with pytest.raises(ConnectorPayloadError, match="no valid paper rows"):
+        fetch_xbsleepy(config, datetime(2026, 9, 8, tzinfo=UTC), 10)
+    assert config["_source_warnings"] == [
+        "XBsleepy skipped 1 malformed row(s) (id: 1, links.abs: 1, title: 1, valid date: 1)"
+    ]
+
+
+@pytest.mark.parametrize(
+    "first_seen, cutoff, expected",
+    [
+        ("2026-09-10", datetime(2026, 9, 10, 5, tzinfo=UTC), 1),
+        ("2026-09-10", datetime(2026, 9, 11, 5, tzinfo=UTC), 0),
+        ("2026-09-10T06:00:00Z", datetime(2026, 9, 10, 5, tzinfo=UTC), 1),
+        ("2026-09-10T04:00:00Z", datetime(2026, 9, 10, 5, tzinfo=UTC), 0),
+    ],
+)
+def test_xbsleepy_collects_newly_discovered_old_papers(monkeypatch, first_seen, cutoff, expected):
+    paper = {
+        **XBSLEEPY_INDEX_PAPERS[0],
+        "published": "2026-07-01T12:00:00Z",
+        "updated": "2026-07-02T12:00:00Z",
+        "announced_date": "2026-07-02",
+        "first_seen": first_seen,
+    }
+    monkeypatch.setattr("benchmark_radar.sources.get_json", lambda *a, **kw: {"papers": [paper]})
+    items = fetch_xbsleepy({"index_url": "https://digest.example/data/index.json"}, cutoff, 10)
+    assert len(items) == expected
+    if items:
+        assert items[0].published_at == datetime(2026, 7, 1, 12, tzinfo=UTC)
+        assert items[0].updated_at == datetime(2026, 7, 2, 12, tzinfo=UTC)
+
+
+def test_xbsleepy_rejects_a_future_first_seen(monkeypatch):
+    paper = {**XBSLEEPY_INDEX_PAPERS[0], "first_seen": "2027-01-01"}
+    monkeypatch.setattr("benchmark_radar.sources.get_json", lambda *a, **kw: {"papers": [paper]})
+    config = {
+        "index_url": "https://digest.example/data/index.json",
+        "_collection_now": datetime(2026, 9, 10, 12, tzinfo=UTC),
+    }
+    assert fetch_xbsleepy(config, datetime(2026, 9, 8, tzinfo=UTC), 10) == []
+    assert config["_future_rejections"] == 1
+
+
+def test_xbsleepy_first_seen_cannot_replace_missing_publication_provenance(monkeypatch):
+    paper = {**XBSLEEPY_INDEX_PAPERS[0], "published": None, "announced_date": None}
+    monkeypatch.setattr("benchmark_radar.sources.get_json", lambda *a, **kw: {"papers": [paper]})
+    config = {"index_url": "https://digest.example/data/index.json"}
+    with pytest.raises(ConnectorPayloadError, match="no valid paper rows"):
+        fetch_xbsleepy(config, datetime(2026, 9, 8, tzinfo=UTC), 10)
+    assert config["_source_warnings"] == ["XBsleepy skipped 1 malformed row(s) (valid date: 1)"]
+
+
+def test_xbsleepy_cap_prefers_digest_activity_over_old_publication_dates(monkeypatch):
+    older = {
+        **XBSLEEPY_INDEX_PAPERS[0],
+        "id": "old-newly-discovered",
+        "published": "2026-07-01T12:00:00Z",
+        "updated": "2026-07-02T12:00:00Z",
+        "announced_date": "2026-07-02",
+        "first_seen": "2026-09-11",
+    }
+    newer = {**XBSLEEPY_INDEX_PAPERS[0], "first_seen": "2026-09-10"}
+    monkeypatch.setattr(
+        "benchmark_radar.sources.get_json", lambda *a, **kw: {"papers": [newer, older]}
+    )
+    items = fetch_xbsleepy(
+        {"index_url": "https://digest.example/data/index.json"},
+        datetime(2026, 9, 8, tzinfo=UTC),
+        1,
+    )
+    assert [item.source_id for item in items] == ["xbsleepy:old-newly-discovered"]
+    assert items[0].published_at == datetime(2026, 7, 1, 12, tzinfo=UTC)
+
+
+def test_xbsleepy_preserves_a_tied_discovery_cohort_past_the_source_cap(monkeypatch):
+    rows = [
+        {
+            **XBSLEEPY_INDEX_PAPERS[0],
+            "id": f"backfill-{n}",
+            "published": "2026-07-01T12:00:00Z",
+            "updated": "2026-07-02T12:00:00Z",
+            "announced_date": "2026-07-02",
+            "first_seen": "2026-09-10",
+        }
+        for n in range(4)
+    ]
+    rows.append({**rows[0], "id": "older-cohort", "first_seen": "2026-09-09"})
+    monkeypatch.setattr("benchmark_radar.sources.get_json", lambda *a, **kw: {"papers": rows})
+    config = {"index_url": "https://digest.example/data/index.json"}
+    items = fetch_xbsleepy(config, datetime(2026, 9, 8, tzinfo=UTC), 2)
+    assert {item.source_id for item in items} == {f"xbsleepy:backfill-{n}" for n in range(4)}
+    assert config["_source_warnings"] == [
+        "XBsleepy kept 4 records at cap 2 to preserve the tied activity cohort"
+    ]
+
+
+@pytest.mark.parametrize("url", ["/abs/2609.1", "ftp://example.org/paper", "https://", "https://["])
+def test_xbsleepy_skips_invalid_urls_before_snapshotting(monkeypatch, url):
+    healthy = XBSLEEPY_INDEX_PAPERS[0]
+    invalid = {**healthy, "id": "invalid-url", "links": {"abs": url}}
+    monkeypatch.setattr(
+        "benchmark_radar.sources.get_json", lambda *a, **kw: {"papers": [healthy, invalid]}
+    )
+    config = {"index_url": "https://digest.example/data/index.json", "allow_empty": True}
+    rows = fetch_xbsleepy(config, datetime(2026, 9, 8, tzinfo=UTC), 10)
+    assert len(rows) == 1
+    assert config["_source_warnings"] == [
+        "XBsleepy skipped 1 malformed row(s) (HTTP(S) links.abs: 1)"
+    ]
+    monkeypatch.setattr("benchmark_radar.sources.get_json", lambda *a, **kw: {"papers": [invalid]})
+    with pytest.raises(ConnectorPayloadError, match="no valid paper rows"):
+        fetch_xbsleepy(config, datetime(2026, 9, 8, tzinfo=UTC), 10)
+
+
+_COUNTER_CONNECTORS = [
+    "huggingface",
+    "github",
+    "github_organizations",
+    "kaggle_datasets",
+    "huggingface_papers",
+    "zenodo_records",
+    "crossref",
+    "openaire",
+    "datacite",
+    "semantic_scholar",
+    "openalex",
+]
+
+
+def _counter_connector_case(connector):
+    """Minimal valid source records, retaining each API's native counter names."""
+    row = {"title": "A benchmark", "publicationDate": "2026-07-27"}
+    config = {
+        "searches": ["benchmark"],
+        "max_requests": 1,
+        "_collection_now": datetime(2026, 7, 28, tzinfo=UTC),
+    }
+    if connector == "huggingface":
+        row = {"id": "lab/benchmark", "lastModified": "2026-07-27T12:00:00Z"}
+        return (
+            fetch_huggingface,
+            config,
+            [row],
+            [(row, {"downloads": "downloads", "likes": "likes"})],
+        )
+    if connector in ("github", "github_organizations"):
+        row = _github_organization_row(1)
+        row.pop("stargazers_count")
+        row.pop("forks_count")
+        config.update(queries=["benchmark"], request_delay_seconds=0, registry_path="ignored.yml")
+        fetcher = fetch_github if connector == "github" else fetch_github_organizations
+        payload = {"items": [row]} if connector == "github" else [row]
+        return (
+            fetcher,
+            config,
+            payload,
+            [(row, {"stars": "stargazers_count", "forks": "forks_count"})],
+        )
+    if connector == "kaggle_datasets":
+        row = {
+            "ref": "lab/benchmark",
+            "url": "https://www.kaggle.com/datasets/lab/benchmark",
+            "title": "A benchmark",
+            "lastUpdated": "2026-07-27T12:00:00Z",
+        }
+        return (
+            fetch_kaggle_datasets,
+            config,
+            [row],
+            [(row, {"downloads": "downloadCount", "votes": "voteCount", "views": "viewCount"})],
+        )
+    if connector == "huggingface_papers":
+        row.update(
+            id="2607.12345",
+            publishedAt="2026-07-27T12:00:00Z",
+            submittedOnDailyAt="2026-07-27T12:00:00Z",
+        )
+        return fetch_huggingface_papers, config, [{"paper": row}], [(row, {"upvotes": "upvotes"})]
+    if connector == "zenodo_records":
+        row = _deposit("1", "A benchmark", "Evaluation", [], 27)
+        row["stats"] = {}
+        return (
+            fetch_zenodo_records,
+            config,
+            {"hits": {"hits": [row]}},
+            [(row["stats"], {"downloads": "downloads", "views": "views"})],
+        )
+    if connector == "crossref":
+        row = {
+            "DOI": "10.1000/benchmark",
+            "title": ["A benchmark"],
+            "published": {"date-parts": [[2026, 7, 27]]},
+        }
+        return (
+            fetch_crossref,
+            config,
+            {"message": {"items": [row]}},
+            [(row, {"citations": "is-referenced-by-count"})],
+        )
+    if connector == "openaire":
+        row = _openaire_row(indicators={"citationImpact": {}, "usageCounts": {}})
+        indicators = row["indicators"]
+        return (
+            fetch_openaire,
+            config,
+            _openaire_rows_payload(row),
+            [
+                (indicators["citationImpact"], {"citations": "citationCount"}),
+                (indicators["usageCounts"], {"downloads": "downloads", "views": "views"}),
+            ],
+        )
+    if connector == "datacite":
+        row = _datacite_row()
+        counters = row["attributes"]
+        for key in ("citationCount", "downloadCount", "viewCount"):
+            counters.pop(key)
+        return (
+            fetch_datacite,
+            config,
+            _datacite_rows_payload(row),
+            [
+                (
+                    counters,
+                    {
+                        "citations": "citationCount",
+                        "downloads": "downloadCount",
+                        "views": "viewCount",
+                    },
+                )
+            ],
+        )
+    if connector == "semantic_scholar":
+        row.update(paperId="s2-benchmark", url="https://example.test/paper")
+        return (
+            fetch_semantic_scholar,
+            config,
+            {"data": [row]},
+            [
+                (
+                    row,
+                    {
+                        "citations": "citationCount",
+                        "influential_citations": "influentialCitationCount",
+                    },
+                )
+            ],
+        )
+    row = {
+        "id": "https://openalex.org/W1",
+        "display_name": "A benchmark",
+        "publication_date": "2026-07-27",
+    }
+    return fetch_openalex, config, {"results": [row]}, [(row, {"citations": "cited_by_count"})]
+
+
+@pytest.mark.parametrize("connector", _COUNTER_CONNECTORS)
+@pytest.mark.parametrize("case", ["missing", "null", "blank", "zero", "positive", "mixed"])
+def test_connectors_preserve_unknown_vs_reported_counters(monkeypatch, connector, case):
+    monkeypatch.setenv("OPENALEX_API_KEY", "test-key")
+    monkeypatch.setattr(
+        "benchmark_radar.sources.load_priority_github_organizations",
+        lambda path: [
+            {"login": "lab", "tier": "priority", "display_name": "Lab"},
+        ],
+    )
+    fetcher, config, payload, counter_groups = _counter_connector_case(connector)
+    expected = {}
+    for counters, fields in counter_groups:
+        for index, (metric, field) in enumerate(fields.items()):
+            if case == "missing":
+                continue
+            value = {
+                "null": None,
+                "blank": "  ",
+                "zero": 0,
+                "positive": "7",
+                "mixed": 0 if index == 0 else None,
+            }[case]
+            counters[field] = value
+            if value in (0, "7"):
+                expected[metric] = float(value)
+    monkeypatch.setattr("benchmark_radar.sources.get_json", lambda *a, **kw: payload)
+    items = fetcher(config, datetime(2026, 7, 26, tzinfo=UTC), 10)
+    assert len(items) == 1  # Missing measurements never discard the source record.
+    item = items[0]
+    assert item.metrics == expected
+    assert item.parser_version.endswith("/2")
+    score_item(item, {"benchmark": ["benchmark"]}, datetime(2026, 7, 28, tzinfo=UTC))
+    assert item.to_dict()["metrics"] == expected
+
+
+@pytest.mark.parametrize(
+    "assets, expected",
+    [
+        ("missing", {}),
+        (None, {}),
+        ([], {"downloads": 0.0}),
+        ([{}], {}),
+        ([{"download_count": None}], {}),
+        ([{"download_count": ""}], {}),
+        ([{"download_count": 0}], {"downloads": 0.0}),
+        ([{"download_count": 3}, {}], {}),
+        ([{"download_count": 3}, {"download_count": 0}], {"downloads": 3.0}),
+    ],
+)
+@pytest.mark.parametrize(
+    "metadata",
+    [{}, {"stargazers_count": 0, "forks_count": None}, {"stargazers_count": 7, "forks_count": 2}],
+)
+def test_github_release_requires_complete_download_counts(monkeypatch, assets, expected, metadata):
+    release = {
+        "tag_name": "v1",
+        "html_url": "https://github.com/lab/benchmark/releases/tag/v1",
+        "published_at": "2026-07-27T12:00:00Z",
+    }
+    if assets != "missing":
+        release["assets"] = assets
+    monkeypatch.setattr(
+        "benchmark_radar.sources.get_json",
+        lambda url, **kw: [release] if url.endswith("/releases") else metadata,
+    )
+    items = fetch_github_releases(
+        {"repositories": ["lab/benchmark"], "max_requests": 1},
+        datetime(2026, 7, 26, tzinfo=UTC),
+        10,
+    )
+    assert len(items) == 1
+    repository_metrics = {
+        metric: float(metadata[field])
+        for metric, field in [("stars", "stargazers_count"), ("forks", "forks_count")]
+        if metadata.get(field) is not None
+    }
+    assert items[0].metrics == {**expected, **repository_metrics}
+    assert items[0].parser_version == "github-releases/4"
+
+
+def test_openaire_real_response_does_not_fabricate_usage_counts(monkeypatch):
+    # Captured 2026-10-11 from Graph v3 /research-products?mainTitle=benchmark&pageSize=3.
+    # This real row reports citations but supplies no usageCounts object.
+    row = json.loads(Path("tests/fixtures/openaire-unreported-usage.json").read_text())
+    assert "usageCounts" not in row["indicators"]
+    monkeypatch.setattr(
+        "benchmark_radar.sources.get_json", lambda *a, **kw: _openaire_rows_payload(row)
+    )
+    items = fetch_openaire(
+        {
+            "searches": ["benchmark"],
+            "max_requests": 1,
+            "_collection_now": datetime(2026, 10, 11, tzinfo=UTC),
+        },
+        datetime(2023, 7, 10, tzinfo=UTC),
+        10,
+    )
+    assert [item.source_id for item in items] == [row["id"]]
+    assert items[0].metrics == {"citations": 4.0}
+    score_item(items[0], {"benchmark": ["benchmark"]}, datetime(2026, 10, 11, tzinfo=UTC))
+    assert items[0].to_dict()["metrics"] == {"citations": 4.0}

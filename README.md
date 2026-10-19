@@ -18,7 +18,6 @@ connector, a first-party feed, or the Hacker News attention source. -->
 
 <p align="center">
   <a href="https://benchmark-radar.org/"><img alt="Benchmarks collected" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fbenchmark-radar.org%2Fdata%2Frecords-badge.json&amp;style=for-the-badge"></a>
-  <a href="https://github.com/ktwu01/benchmark-radar/releases/download/cli-data/benchmark-radar-data.zip"><img alt="Download data" src="https://img.shields.io/badge/%E2%86%93%20DOWNLOAD%20DATA-2f81f7?style=for-the-badge"></a>
   <a href="https://huggingface.co/datasets/ktwu01/benchmark-radar"><img alt="Hugging Face Dataset" src="https://img.shields.io/badge/Hugging%20Face-Dataset-FFD21E?style=for-the-badge&amp;logo=huggingface&amp;logoColor=000"></a>
   <a href="https://arxiv.org/abs/2609.11115"><img src="https://img.shields.io/badge/arXiv-Paper-red?style=for-the-badge&logo=arxiv" alt="arXiv"></a>
   <a href="https://huggingface.co/papers/2609.11115"><img src="https://img.shields.io/badge/Hugging%20Face-Upvote%20us-FFD21E?style=for-the-badge&amp;logo=huggingface&amp;logoColor=000" alt="Upvote Benchmark Radar on Hugging Face"></a>
@@ -35,7 +34,7 @@ Radar for benchmark discovery and score tracking:
 
 I kept running into new benchmarks while doing benchmark research, so I built a
 crawler that continuously collects benchmark-related signals from across the
-web. It pulls evidence from 39 public sources every day, and keeps updating.
+web. It pulls evidence from 40 public sources every day, and keeps updating.
 
 **Find a benchmark in seconds, then see how model scores change over time. Click
 the GIF below to watch SWE-bench Verified move toward saturation.**
@@ -68,7 +67,7 @@ catalog. Each record keeps its scores, test conditions and citations.
 - **[Open the dashboard](https://benchmark-radar.org/)** — today's findings, benchmark trends, scores and model coverage
 - **[Query it locally](https://benchmark-radar.org/cli/)** — install and use the offline CLI
 - **[Subscribe via RSS](https://benchmark-radar.org/feed.xml)** — get new benchmark signals every day
-- **[Download the complete dataset](https://github.com/ktwu01/benchmark-radar/releases/download/cli-data/benchmark-radar-data.zip)** — the benchmark catalog, detail records and daily discovery snapshots in one ZIP
+- **[Download the complete dataset](https://huggingface.co/datasets/ktwu01/benchmark-radar)** — the benchmark catalog, scores and daily discovery records
 - **[Contribute](CONTRIBUTING.md)** — add benchmarks, model cards, sources, or fixes
 
 If Benchmark Radar saves you research time, **[star the repository](https://github.com/ktwu01/benchmark-radar)**. It helps other eval builders find it.
@@ -114,7 +113,9 @@ Scan the QR code to join the WeChat group for daily benchmark updates and eval d
 
 <img src="assets/wechat-group-qr.jpg" alt="WeChat group QR code" width="280" />
 
-<img src="assets/discord-group-qr.jpg" alt="Permanent QR code to join the Benchmark Radar Discord group" width="360" />
+<a href="https://discord.com/invite/JX9Caj4fMF">
+  <img src="assets/discord-group-qr.jpg" alt="Join the Benchmark Radar Discord via the permanent invitation link: https://discord.com/invite/JX9Caj4fMF" width="360" />
+</a>
 
 ## Contributors
 
@@ -160,7 +161,7 @@ benchmark catalog, mentions in model cards and technical reports, and score
 histories. It retains source identities and citations so readers can inspect
 candidate benchmarks and their evaluation evidence.
 
-Daily discovery draws on 39 sources: 15 direct connectors and 24 first-party
+Daily discovery draws on 40 sources: 16 direct connectors and 24 first-party
 research and engineering feeds. The catalog collects source records from four
 benchmark catalogs, with numeric score observations on the records that carry
 them. The project publishes the web dashboard with a benchmark leaderboard, a

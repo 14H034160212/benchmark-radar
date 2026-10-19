@@ -231,15 +231,9 @@ and shapes expanded. Collect counts, coverage, exclusions and method text in
 one closed information note beside the legend. Use [principle.md](principle.md)
 for the full-corpus, missing-data and Frontier filter rules.
 
-## Shared control and reading rhythm
+## Controls and theme
 
-`site/assets/styles.css` owns the existing palette, radar mark, header, and
-page layout. `site/assets/design-system.css` reuses those tokens for shared
-spacing, readable metadata, and controls with a minimum height of 44px.
-Keep secondary metadata at least 13px and keep tabular numerals for counts.
-Use 8/12/16/24px gaps according to the surrounding reading or control group.
-Research-specific components belong in `site/assets/research.css`.
-
-Keep wide benchmark tables inside a keyboard-focusable scroll region; the
-page itself must remain usable at phone width. System dark preference must
-preserve the existing light-only theme until a separate theme is approved.
+Give every button, link-styled control and form field a minimum height of
+44px so it can be hit on a touch screen. The site has one light theme; a dark
+system preference must still render that light theme until a separate dark
+theme is approved, so no page appears half-converted.

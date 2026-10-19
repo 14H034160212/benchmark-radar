@@ -14,7 +14,6 @@
 
 <p align="center">
   <a href="https://benchmark-radar.org/"><img alt="已收集的 benchmark 记录" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fbenchmark-radar.org%2Fdata%2Frecords-badge.json&amp;style=for-the-badge"></a>
-  <a href="https://github.com/ktwu01/benchmark-radar/releases/download/cli-data/benchmark-radar-data.zip"><img alt="下载数据集" src="https://img.shields.io/badge/Dataset-download%20ZIP-2f81f7?style=for-the-badge&amp;logo=json&amp;logoColor=white"></a>
   <a href="https://huggingface.co/datasets/ktwu01/benchmark-radar"><img alt="Hugging Face 数据集" src="https://img.shields.io/badge/Hugging%20Face-Dataset-FFD21E?style=for-the-badge&amp;logo=huggingface&amp;logoColor=000"></a>
   <a href="https://arxiv.org/abs/2609.11115"><img src="https://img.shields.io/badge/arXiv-Paper-red?style=for-the-badge&logo=arxiv" alt="arXiv"></a>
   <a href="https://huggingface.co/papers/2609.11115"><img src="https://img.shields.io/badge/Hugging%20Face-Upvote%20us-FFD21E?style=for-the-badge&amp;logo=huggingface&amp;logoColor=000" alt="在 Hugging Face 为 Benchmark Radar 投一票"></a>
@@ -23,7 +22,7 @@
   <a href="https://scholar.google.com/citations?user=s9w1k-cAAAAJ&amp;hl=en"><img alt="Google Scholar" src="https://img.shields.io/badge/Google%20Scholar-4285F4?style=for-the-badge&amp;logo=googlescholar&amp;logoColor=white"></a>
 </p>
 
-做 benchmark 研究的时候发现新东西太多了，所以我搞了这个持续爬虫，每天自动从全网抓新的 benchmark 相关信息。它目前每天从 39 个公开来源采集，并持续更新。你如果需要寻找 related work 或找到适合eval自己的agent 的 bench 或者关注最新的 eval 进展，可以看这里哈哈哈：
+做 benchmark 研究的时候发现新东西太多了，所以我搞了这个持续爬虫，每天自动从全网抓新的 benchmark 相关信息。它目前每天从 40 个公开来源采集，并持续更新。你如果需要寻找 related work 或找到适合eval自己的agent 的 bench 或者关注最新的 eval 进展，可以看这里哈哈哈：
 github.com/ktwu01/benchmark-radar，每天更新，并支持一键导出数据
 
 **几秒找到一个 benchmark，再看模型成绩如何随时间变化。点击下面的动图，查看
@@ -57,7 +56,7 @@ benchmark 目录。每条记录保留自己的分数、评测条件和引用来�
 - **[打开 dashboard](https://benchmark-radar.org/)** — 每日发现、benchmark 趋势、分数和模型覆盖情况
 - **[在本地查询](https://benchmark-radar.org/cli/)** — 安装并使用离线 CLI
 - **[通过 RSS 订阅](https://benchmark-radar.org/feed.xml)** — 每天获取最新的 benchmark 情报
-- **[下载完整数据集](https://github.com/ktwu01/benchmark-radar/releases/download/cli-data/benchmark-radar-data.zip)** — 一个 ZIP 包含 benchmark 目录、详情记录和每日发现快照
+- **[下载完整数据集](https://huggingface.co/datasets/ktwu01/benchmark-radar)** — benchmark 目录、分数和每日发现记录
 - **[参与贡献](CONTRIBUTING.md)** — 添加 benchmark、模型卡、信源或修复
 
 如果 Benchmark Radar 帮你节省了研究时间，请 **[给仓库点个 Star](https://github.com/ktwu01/benchmark-radar)**，让更多做评测的人发现它。
@@ -135,7 +134,7 @@ benchmark 论文、代码仓库、数据集和 release 的每日发现，和一�
 目录、模型卡与技术报告中的引用、以及分数变化历史放在一起。每条记录都保留自己的
 来源标识和引用，方便你核对一个 benchmark 和它背后的评测证据。
 
-每日发现覆盖 39 个来源：15 个直接 connector 和 24 个机构自有的研究与工程 feed。
+每日发现覆盖 40 个来源：16 个直接 connector 和 24 个机构自有的研究与工程 feed。
 目录汇集了来自 4 个 benchmark 目录的记录，并为其中有分数的记录保留数值观测。项目
 提供 web dashboard，包含 benchmark 排行榜、分数与实际使用量的 Pareto 前沿视图、
 saturation 和趋势视图、每日 feed、可下载的证据数据，以及一个可离线查询的命令行

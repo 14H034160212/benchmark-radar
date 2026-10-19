@@ -9,7 +9,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from . import kw_bench
+from . import kw_bench, rubric
 from .app_pages import write_app_pages
 from .attention import fetch_attention_feeds
 from .benchmark_attention import merge_benchmark_attention
@@ -25,8 +25,8 @@ from .feed import write_feed
 from .insights import build_insights
 from .kw_bench_tracks import classification_layer, derive_tracks
 from .model_cards import DEFAULT_REGISTRY_PATH, adoption_rank, load_registry
-from .models import RadarRun
-from .pipeline import match_phrase, match_proximity_rule
+from .models import RadarItem, RadarRun
+from .pipeline import match_phrase, match_proximity_rule, score_evidence_and_adoption
 from .release_leaderboard import (
     SIGNAL_SOURCES,
     SIGNAL_VALUE_KINDS,
@@ -47,7 +47,7 @@ from .science_domains import science_domains_for_record
 from .site_about import write_about
 from .site_pages import DEFAULT_SHARD_DIR, benchmark_sitemap_entries
 from .site_seo import site_lastmod, write_sitemap
-from .sources import GITHUB_RELEASE_PARSER_VERSION, github_release_title
+from .sources import github_release_title
 
 SCHEMA_VERSION = 2
 SUPPORTED_SCHEMA_VERSIONS = {1, SCHEMA_VERSION}
@@ -155,6 +155,16 @@ def _validate_evidence_items(items: Any, *, source: str) -> None:
             raise SnapshotError(
                 f"{source}: evidence item {index} must not expose raw source payloads"
             )
+        if "contributing_sources" in item and (
+            not isinstance(item["contributing_sources"], list)
+            or any(
+                not isinstance(name, str) or not name.strip()
+                for name in item["contributing_sources"]
+            )
+        ):
+            raise SnapshotError(
+                f"{source}: evidence item {index} contributing_sources must be names"
+            )
         if "recommended" in item and not isinstance(item["recommended"], bool):
             raise SnapshotError(f"{source}: evidence item {index} recommended must be a boolean")
         item_missing = sorted(item_fields - item.keys())
@@ -169,7 +179,7 @@ def _validate_evidence_items(items: Any, *, source: str) -> None:
             source=source,
             field=f"evidence item {index} published_at",
         )
-        for field in ("updated_at", "discovered_at"):
+        for field in ("updated_at", "discovered_at", "digest_activity_at"):
             if item.get(field):
                 _validate_time(
                     item[field],
@@ -635,6 +645,21 @@ def normalize_snapshot(snapshot: dict[str, Any], *, source: str = "snapshot") ->
     return normalized
 
 
+def _evidence_rank(record):
+    activity = _validate_time(
+        record.get("updated_at") or record["published_at"],
+        source="merged evidence",
+        field="artifact activity",
+    )
+    return (
+        activity,
+        record["source"] in rubric.EVIDENCE_PRIMARY_SOURCES,
+        record.get("event_kind") == "released",
+        float(record.get("evidence_score") or 0),
+        float(record.get("total_score") or 0),
+    )
+
+
 def merge_snapshots(existing: dict[str, Any], incoming: dict[str, Any]) -> dict[str, Any]:
     """Union two passes over the same UTC day into one snapshot.
 
@@ -652,8 +677,9 @@ def merge_snapshots(existing: dict[str, Any], incoming: dict[str, Any]) -> dict[
 
     Item identity uses every exact identifier transitively, the same rule daily
     dedup and the cumulative corpus already use. On a collision the incoming
-    (newer) record wins: it observed the artifact more recently, so its metrics
-    and scores are the fresher reading.
+    (newer) record wins within a source. Cross-source copies compare artifact
+    activity and prefer primary release evidence when that activity is tied.
+    Supplementary evidence is merged before affected scores are recomputed.
     """
     # A delayed retry can arrive after a newer pass. All "incoming wins"
     # decisions below must mean chronologically newer, not merely whichever
@@ -671,7 +697,86 @@ def merge_snapshots(existing: dict[str, Any], incoming: dict[str, Any]) -> dict[
     aliases = artifact_alias_map(all_items)
     merged_items: dict[str, Any] = {}
     for item in all_items:
-        merged_items[aliases[exact_artifact_key(item)]] = item
+        key = aliases[exact_artifact_key(item)]
+        previous = merged_items.get(key)
+        if previous is not None and (previous.get("source_tags") or item.get("source_tags")):
+            item = {
+                **item,
+                "source_tags": sorted(
+                    set(previous.get("source_tags") or []) | set(item.get("source_tags") or [])
+                ),
+            }
+        if previous is not None and (
+            previous["source"] != item["source"]
+            or previous.get("contributing_sources")
+            or item.get("contributing_sources")
+        ):
+            item = {
+                **item,
+                "contributing_sources": sorted(
+                    {
+                        previous["source"],
+                        item["source"],
+                        *(previous.get("contributing_sources") or []),
+                        *(item.get("contributing_sources") or []),
+                    }
+                ),
+            }
+        if previous is not None and (
+            previous["source"] != item["source"] or len(item.get("contributing_sources") or []) > 1
+        ):
+            # Collection retries do not make the paper itself newer. At equal
+            # artifact activity, primary evidence and the release envelope win
+            # before scores influenced by mutable engagement measurements.
+
+            cross_source = previous["source"] != item["source"]
+            selected, other = (
+                (previous, item)
+                if cross_source and _evidence_rank(previous) > _evidence_rank(item)
+                else (item, previous)
+            )
+            merged = {
+                **selected,
+                "source_tags": item.get("source_tags") or [],
+                "contributing_sources": item["contributing_sources"],
+                "metrics": dict(selected.get("metrics") or {}),
+            }
+            for field in ("authors", "organizations", "artifact_urls"):
+                merged[field] = sorted(set(selected.get(field) or []) | set(other.get(field) or []))
+            if other["url"] != selected["url"] and other["url"] not in merged["artifact_urls"]:
+                merged["artifact_urls"].append(other["url"])
+            for metric, measurement in (other.get("metrics") or {}).items():
+                if metric not in merged["metrics"]:
+                    merged["metrics"][metric] = measurement
+                elif cross_source:
+                    merged["metrics"][metric] = max(measurement, merged["metrics"][metric])
+            merged["rationale"] = list(selected.get("rationale") or [])
+            for source in merged["contributing_sources"]:
+                note = f"Also found via {source}"
+                if source != selected["source"] and note not in merged["rationale"]:
+                    merged["rationale"].append(note)
+            # Only the current rubric can be replayed here. Historical score
+            # versions retain their scores; their measured evidence still unions.
+            if selected.get("score_version") == rubric.SCORING_VERSION:
+                scored = RadarItem(
+                    source=selected["source"],
+                    source_id=selected["source_id"],
+                    title=selected["title"],
+                    url=selected["url"],
+                    published_at=_validate_time(
+                        selected["published_at"], source="merged evidence", field="published_at"
+                    ),
+                    authors=merged["authors"],
+                    artifact_urls=merged["artifact_urls"],
+                    metrics=merged["metrics"],
+                    relevance_score=float(selected.get("relevance_score") or 0),
+                    recency_score=float(selected.get("recency_score") or 0),
+                )
+                score_evidence_and_adoption(scored)
+                for field in ("evidence_score", "adoption_score", "total_score"):
+                    merged[field] = getattr(scored, field)
+            item = merged
+        merged_items[key] = item
     evidence_items = list(merged_items.values())
 
     # Attention collection normally carries the previous pass forward, but a
@@ -854,7 +959,7 @@ def _attach_category_trends(days: list[dict[str, Any]]) -> None:
     would report a change in collection policy as a change in the field.
 
     Cumulative figures count distinct artifacts, not sightings. The scan window
-    overlaps by design and only arXiv suppresses repeats, so summing daily
+    overlaps by design and some sources suppress repeats, so summing daily
     counts would re-count the same repository every day it stayed in range and
     grow steadily while nothing new was found.
 
@@ -1073,6 +1178,11 @@ def dashboard_data(
             for category in item["categories"]
         )
         source_counts = Counter(item["source"] for item in evidence_items)
+        contributing_source_counts = Counter(
+            source
+            for item in evidence_items
+            for source in {item["source"], *(item.get("contributing_sources") or [])}
+        )
         event_counts = Counter(item["event_kind"] for item in evidence_items)
         attention_source_counts = Counter(item["source"] for item in observations)
         attention_event_counts = Counter(item["event_kind"] for item in observations)
@@ -1119,6 +1229,7 @@ def dashboard_data(
                 "category_counts": dict(sorted(category_counts.items())),
                 "category_counts_released": dict(sorted(category_counts_released.items())),
                 "source_counts": dict(sorted(source_counts.items())),
+                "contributing_source_counts": dict(sorted(contributing_source_counts.items())),
                 "event_kind_counts": dict(sorted(event_counts.items())),
                 "evidence_items": evidence_items,
                 "attention": {
@@ -1324,6 +1435,7 @@ _TREND_DAY_KEYS = (
     "selection",
     "since",
     "source_counts",
+    "contributing_source_counts",
 )
 
 
@@ -1599,6 +1711,8 @@ def _backfill_github_release_titles(snapshot: dict[str, Any]) -> int:
         if corrected == current:
             continue
         record["title"] = corrected
-        record["parser_version"] = GITHUB_RELEASE_PARSER_VERSION
+        # This migration only reparses titles. It does not reinterpret legacy
+        # counters under the /4 missing-metric contract.
+        record["parser_version"] = "github-releases/3"
         changed += 1
     return changed

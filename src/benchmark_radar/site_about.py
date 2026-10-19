@@ -77,9 +77,8 @@ _ELSEWHERE: tuple[tuple[str, str, str], ...] = (
     ),
     (
         "Download the full dataset",
-        "https://github.com/ktwu01/benchmark-radar/releases/download/cli-data/"
-        "benchmark-radar-data.zip",
-        "The benchmark catalog, detail records, and daily discovery snapshots in one ZIP.",
+        "https://huggingface.co/datasets/ktwu01/benchmark-radar",
+        "The benchmark catalog, scores, and daily discovery records.",
     ),
     (
         "Build log: every day of this project, written up",
@@ -113,6 +112,7 @@ _ELSEWHERE: tuple[tuple[str, str, str], ...] = (
 # links to the surfaces a first-time visitor would otherwise have to find.
 _INSIDE: tuple[tuple[str, str], ...] = (
     ("/benchmarks/", "Browse every benchmark in the catalog, one page each"),
+    ("/library/", "Browse benchmarks by research direction and save the ones you follow"),
     ("/leaderboard/", "Compare reported scores across the benchmark frontier"),
     ("/saturation/", "Watch scores on a benchmark climb toward saturation"),
     ("/blog/", "Read the daily brief: what appeared today and what it means"),

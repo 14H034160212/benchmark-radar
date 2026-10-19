@@ -5,6 +5,7 @@ This public ledger is rebuilt from GitHub once per day. Do not edit the totals b
 ## How it works
 
 - Choose an open issue whose title starts with `[N points]`, then comment `/claim`. One person gets 168 hours to merge a PR that closes it.
+- With `/claim`, add one sentence: what you will change, and what a reader sees afterwards. A claim without a plan is easy to let lapse; a maintainer may release it.
 - Only work an outside contributor can complete is scored. A clear bug is at least 2 points; a clear model-card addition is 3 and a new real use case is 6. Broader or ambiguous work may be higher.
 - Twelve points earns a collaborator seat. Technical-report coauthorship also requires substantive intellectual contribution, drafting or critical revision, final approval, and accountability.
 
@@ -22,6 +23,16 @@ This public ledger is rebuilt from GitHub once per day. Do not edit the totals b
 | @bigdu332 | 2 | no |
 | @Lareina1024 | 2 | no |
 | @yzliu03 | 1 | no |
+
+## Active claims
+
+| Issue | Contributor | Deadline | Points |
+|---|---|---|---:|
+| [#571](https://github.com/ktwu01/benchmark-radar/issues/571) | @a-green-hand-jack | 2026-10-21T11:57:43+00:00 | 3 |
+| [#452](https://github.com/ktwu01/benchmark-radar/issues/452) | @a-green-hand-jack | 2026-10-21T11:57:47+00:00 | 6 |
+| [#432](https://github.com/ktwu01/benchmark-radar/issues/432) | @a-green-hand-jack | 2026-10-21T11:57:42+00:00 | 2 |
+| [#420](https://github.com/ktwu01/benchmark-radar/issues/420) | @14H034160212 | 2026-10-22T02:16:25+00:00 | 12 |
+| [#411](https://github.com/ktwu01/benchmark-radar/issues/411) | @a-green-hand-jack | 2026-10-21T11:57:44+00:00 | 3 |
 
 ## Earned points
 

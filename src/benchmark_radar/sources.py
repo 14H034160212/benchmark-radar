@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 import os
 import re
 import time
@@ -10,7 +11,7 @@ from datetime import UTC, datetime, timedelta
 from email.utils import parsedate_to_datetime
 from pathlib import Path
 from typing import Any
-from urllib.parse import urljoin
+from urllib.parse import urljoin, urlsplit
 
 from .describe import (
     clean_card_text,
@@ -20,7 +21,7 @@ from .describe import (
     strip_title_echo,
 )
 from .http import get_json, get_text
-from .models import RadarItem
+from .models import RadarItem, digest_evidence_version
 from .priority_organizations import load_priority_github_organizations
 
 
@@ -29,7 +30,31 @@ class ConnectorPayloadError(ValueError):
 
 
 FUTURE_TIMESTAMP_TOLERANCE = timedelta(minutes=5)
-GITHUB_RELEASE_PARSER_VERSION = "github-releases/3"
+GITHUB_RELEASE_PARSER_VERSION = "github-releases/4"
+
+
+def _reported_metrics(payload: dict[str, Any], **fields: str) -> dict[str, float]:
+    """Emit reported counters; absent/null/blank values are not measurements."""
+    metrics = {}
+    for metric, field in fields.items():
+        value = payload.get(field)
+        if value is None or (isinstance(value, str) and not value.strip()):
+            continue
+        metrics[metric] = float(value)
+    return metrics
+
+
+def _release_download_metrics(
+    row: dict[str, Any], assets: list[dict[str, Any]]
+) -> dict[str, float]:
+    # A reported empty asset list measures zero downloads. Missing assets or
+    # any unreported asset counter leave the total unknown, not a partial sum.
+    if row.get("assets") is None:
+        return {}
+    counts = [_reported_metrics(asset, downloads="download_count") for asset in assets]
+    if any("downloads" not in count for count in counts):
+        return {}
+    return {"downloads": sum(count["downloads"] for count in counts)}
 
 
 def _xml_local_name(tag: str) -> str:
@@ -512,12 +537,9 @@ def fetch_huggingface(config: dict[str, Any], since: datetime, limit: int) -> li
                     event_kind=(
                         "released" if created is not None and created >= since else "updated"
                     ),
-                    metrics={
-                        "downloads": float(row.get("downloads") or 0),
-                        "likes": float(row.get("likes") or 0),
-                    },
+                    metrics=_reported_metrics(row, downloads="downloads", likes="likes"),
                     raw=row,
-                    parser_version="huggingface-hub/1",
+                    parser_version="huggingface-hub/2",
                 )
     _clear_inherited_short_descriptions(found.values())
     # `limit` is applied per request, and this fetcher issues one per kind per
@@ -641,12 +663,9 @@ def fetch_github(config: dict[str, Any], since: datetime, limit: int) -> list[Ra
                     event_kind=(
                         "released" if created is not None and created >= since else "updated"
                     ),
-                    metrics={
-                        "stars": float(row.get("stargazers_count") or 0),
-                        "forks": float(row.get("forks_count") or 0),
-                    },
+                    metrics=_reported_metrics(row, stars="stargazers_count", forks="forks_count"),
                     raw=row,
-                    parser_version="github-search/1",
+                    parser_version="github-search/2",
                 )
             if len(rows) < min(limit, page_size):
                 exhausted.add(index)
@@ -660,9 +679,9 @@ def fetch_github(config: dict[str, Any], since: datetime, limit: int) -> list[Ra
     )[:limit]
 
 
-GITHUB_ORGANIZATIONS_PARSER_VERSION = "github-organizations/1"
-KAGGLE_DATASETS_PARSER_VERSION = "kaggle-datasets/1"
-HUGGINGFACE_PAPERS_PARSER_VERSION = "huggingface-papers/1"
+GITHUB_ORGANIZATIONS_PARSER_VERSION = "github-organizations/2"
+KAGGLE_DATASETS_PARSER_VERSION = "kaggle-datasets/2"
+HUGGINGFACE_PAPERS_PARSER_VERSION = "huggingface-papers/2"
 
 
 def _github_headers() -> dict[str, str]:
@@ -761,10 +780,9 @@ def fetch_github_organizations(
                         summary=github_summary(row),
                         event_kind="released",
                         organizations=[organization["display_name"]],
-                        metrics={
-                            "stars": float(row.get("stargazers_count") or 0),
-                            "forks": float(row.get("forks_count") or 0),
-                        },
+                        metrics=_reported_metrics(
+                            row, stars="stargazers_count", forks="forks_count"
+                        ),
                         raw={"repository": row, "organization_tier": organization["tier"]},
                         parser_version=GITHUB_ORGANIZATIONS_PARSER_VERSION,
                     )
@@ -844,11 +862,9 @@ def fetch_kaggle_datasets(
                 authors=(
                     [str(row.get("creatorName") or "").strip()] if row.get("creatorName") else []
                 ),
-                metrics={
-                    "downloads": float(row.get("downloadCount") or 0),
-                    "votes": float(row.get("voteCount") or 0),
-                    "views": float(row.get("viewCount") or 0),
-                },
+                metrics=_reported_metrics(
+                    row, downloads="downloadCount", votes="voteCount", views="viewCount"
+                ),
                 raw=row,
                 parser_version=KAGGLE_DATASETS_PARSER_VERSION,
             )
@@ -906,7 +922,7 @@ def fetch_huggingface_papers(
             event_kind="discovered",
             authors=authors,
             artifact_urls=sorted(set(artifact_urls)),
-            metrics={"upvotes": float(paper.get("upvotes") or 0)},
+            metrics=_reported_metrics(paper, upvotes="upvotes"),
             raw=row,
             parser_version=HUGGINGFACE_PAPERS_PARSER_VERSION,
         )
@@ -975,12 +991,9 @@ def fetch_zenodo_records(
                     if isinstance(creator, dict) and str(creator.get("name") or "").strip()
                 ],
                 artifact_urls=artifact_urls,
-                metrics={
-                    "downloads": float(stats.get("downloads") or 0),
-                    "views": float(stats.get("views") or 0),
-                },
+                metrics=_reported_metrics(stats, downloads="downloads", views="views"),
                 raw=row,
-                parser_version="zenodo-records/1",
+                parser_version="zenodo-records/2",
             )
     return sorted(
         collapse_batch_deposits(found.values()),
@@ -1142,9 +1155,9 @@ def fetch_crossref(
                 authors=author_names,
                 organizations=list(dict.fromkeys(organizations)),
                 artifact_urls=[doi_url],
-                metrics={"citations": float(row.get("is-referenced-by-count") or 0)},
+                metrics=_reported_metrics(row, citations="is-referenced-by-count"),
                 raw=row,
-                parser_version="crossref-works/1",
+                parser_version="crossref-works/2",
             )
     return sorted(found.values(), key=lambda item: item.published_at, reverse=True)[:limit]
 
@@ -1404,12 +1417,11 @@ def fetch_openaire(
                 ),
                 artifact_urls=artifact_urls,
                 metrics={
-                    "citations": float(citations.get("citationCount") or 0),
-                    "downloads": float(usage.get("downloads") or 0),
-                    "views": float(usage.get("views") or 0),
+                    **_reported_metrics(citations, citations="citationCount"),
+                    **_reported_metrics(usage, downloads="downloads", views="views"),
                 },
                 raw=row,
-                parser_version="openaire-graph-v3/1",
+                parser_version="openaire-graph-v3/2",
             )
     return sorted(found.values(), key=lambda item: item.published_at, reverse=True)[:limit]
 
@@ -1670,13 +1682,14 @@ def fetch_datacite(
                 authors=authors,
                 organizations=list(dict.fromkeys(organizations)),
                 artifact_urls=artifact_urls,
-                metrics={
-                    "citations": float(attributes.get("citationCount") or 0),
-                    "downloads": float(attributes.get("downloadCount") or 0),
-                    "views": float(attributes.get("viewCount") or 0),
-                },
+                metrics=_reported_metrics(
+                    attributes,
+                    citations="citationCount",
+                    downloads="downloadCount",
+                    views="viewCount",
+                ),
                 raw=row,
-                parser_version="datacite-dois/1",
+                parser_version="datacite-dois/2",
             )
     return sorted(found.values(), key=lambda item: item.published_at, reverse=True)[:limit]
 
@@ -1893,12 +1906,13 @@ def fetch_semantic_scholar(
                         if isinstance(author, dict) and author.get("name")
                     ],
                     artifact_urls=sorted(set(artifact_urls)),
-                    metrics={
-                        "citations": float(row.get("citationCount") or 0),
-                        "influential_citations": float(row.get("influentialCitationCount") or 0),
-                    },
+                    metrics=_reported_metrics(
+                        row,
+                        citations="citationCount",
+                        influential_citations="influentialCitationCount",
+                    ),
                     raw=row,
-                    parser_version="semantic-scholar-graph/1",
+                    parser_version="semantic-scholar-graph/2",
                 )
             next_offset = _payload_dict(payload, "Semantic Scholar").get("next")
             if next_offset is None or len(rows) < min(page_size, limit - len(found)):
@@ -2039,15 +2053,7 @@ def fetch_github_releases(
                         else []
                     ),
                     artifact_urls=[f"https://github.com/{repository}"],
-                    metrics={
-                        "downloads": float(
-                            sum(
-                                int(asset.get("download_count") or 0)
-                                for asset in assets
-                                if isinstance(asset, dict)
-                            )
-                        )
-                    },
+                    metrics=_release_download_metrics(row, assets),
                     raw=row,
                     parser_version=GITHUB_RELEASE_PARSER_VERSION,
                 )
@@ -2085,8 +2091,9 @@ def fetch_github_releases(
             )
             if not isinstance(repository_payload, dict):
                 raise ConnectorPayloadError("GitHub repository metadata was not an object")
-            stars = float(repository_payload.get("stargazers_count") or 0)
-            forks = float(repository_payload.get("forks_count") or 0)
+            repository_metrics = _reported_metrics(
+                repository_payload, stars="stargazers_count", forks="forks_count"
+            )
         except Exception as error:
             config.setdefault("_source_warnings", []).append(
                 f"{repository} metadata: {type(error).__name__}: {error}"
@@ -2095,7 +2102,7 @@ def fetch_github_releases(
         for item in found.values():
             if not item.source_id.startswith(f"{repository}@"):
                 continue
-            item.metrics.update({"stars": stars, "forks": forks})
+            item.metrics.update(repository_metrics)
             item.raw = {"release": item.raw, "repository": repository_payload}
     return sorted(found.values(), key=lambda item: item.published_at, reverse=True)[:limit]
 
@@ -2194,11 +2201,191 @@ def fetch_openalex(
                 event_kind="released",
                 authors=[author for author in authors if author],
                 organizations=organizations,
-                metrics={"citations": float(row.get("cited_by_count") or 0)},
+                metrics=_reported_metrics(row, citations="cited_by_count"),
                 raw=row,
-                parser_version="openalex-works/1",
+                parser_version="openalex-works/2",
             )
     return list(found.values())
+
+
+def fetch_xbsleepy(
+    config: dict[str, Any],
+    since: datetime,
+    limit: int,
+) -> list[RadarItem]:
+    """Collect agent-benchmark papers from the XBsleepy daily arXiv digest.
+
+    The digest (xbsleepy/daily-agent-benchmarks) pre-filters arXiv for papers
+    that introduce agent benchmarks and tags each one with capability themes
+    (issue #380). Its published index is cumulative, so `since` filtering
+    happens locally and an unchanged index legitimately yields zero new rows.
+    Theme tags ride through in `source_tags` prefixed with the source, so
+    downstream grouping can use the digest's own taxonomy while `categories`
+    stays the pipeline's own keyword classification.
+    """
+    config["_overlap_suppressed"] = 0
+    index_url = str(config.get("index_url") or "").strip()
+    if not index_url:
+        raise ConnectorPayloadError("xbsleepy source config is missing index_url")
+    payload = get_json(index_url, **_request_options(config))
+    rows = _payload_rows(payload, "papers", "XBsleepy")
+    found: dict[str, RadarItem] = {}
+    activity_by_id: dict[str, datetime] = {}
+    skipped_rows = 0
+    missing_fields: dict[str, int] = defaultdict(int)
+    invalid_citations = 0
+    for row in rows:
+        paper_id = str(row.get("id") or "").strip()
+        title = str(row.get("title") or "").strip()
+        links = row.get("links")
+        if links is not None and not isinstance(links, dict):
+            raise ConnectorPayloadError("XBsleepy paper links must be an object")
+        links = links if isinstance(links, dict) else {}
+        url = str(links.get("abs") or "").strip()
+        published = _optional_date(str(row.get("published") or ""))
+        announced_raw = str(row.get("announced_date") or "").strip()
+        announced = _optional_date(announced_raw)
+        updated = _optional_date(str(row.get("updated") or ""))
+        first_seen_raw = str(row.get("first_seen") or "").strip()
+        first_seen = _optional_date(first_seen_raw)
+        published_at = published or announced
+        updated_at = updated or published_at
+        # `published` is the arXiv v1 submission time, not the announcement, so
+        # a paper announced today with an older submission and no revision would
+        # fall outside `since` and never be collected. Mirror fetch_arxiv and
+        # take the latest known timestamp as the activity signal, while the
+        # item's own dates stay the paper's publication provenance.
+        activity_at = max(
+            (
+                value
+                for value in (updated, published_at, announced, first_seen)
+                if value is not None
+            ),
+            default=None,
+        )
+        missing = [
+            name
+            for name, value in (("id", paper_id), ("title", title), ("links.abs", url))
+            if not value
+        ]
+        try:
+            parsed_url = urlsplit(url)
+            valid_url = url.startswith(("http://", "https://")) and bool(parsed_url.hostname)
+        except ValueError:
+            valid_url = False
+        if url and not valid_url:
+            missing.append("HTTP(S) links.abs")
+        if published_at is None or activity_at is None:
+            missing.append("valid date")
+        if missing:
+            skipped_rows += 1
+            for name in missing:
+                missing_fields[name] += 1
+            continue
+        # Digest discovery and announcement cursors can have day precision.
+        # Keep the cutoff day without changing the paper's stored dates.
+        date_activity_in_window = any(
+            len(raw_date) == 10 and value is not None and value.date() >= since.date()
+            for raw_date, value in ((announced_raw, announced), (first_seen_raw, first_seen))
+        )
+        if (activity_at < since and not date_activity_in_window) or _reject_future(
+            config, paper_id, published_at, updated, announced, first_seen
+        ):
+            continue
+        raw_authors = row.get("authors")
+        if raw_authors is not None and not isinstance(raw_authors, list):
+            raise ConnectorPayloadError("XBsleepy paper authors must be an array")
+        raw_tags = row.get("tags")
+        if raw_tags is not None and not isinstance(raw_tags, list):
+            raise ConnectorPayloadError("XBsleepy paper tags must be an array")
+        authors = [str(author).strip() for author in raw_authors or [] if str(author).strip()]
+        artifact_urls = [
+            str(links.get(key) or "").strip()
+            for key in ("pdf", "html")
+            if str(links.get(key) or "").startswith(("https://", "http://"))
+        ]
+        source_tags = [f"xbsleepy:{str(tag).strip()}" for tag in raw_tags or [] if str(tag).strip()]
+        metrics = {}
+        citation_value = row.get("citations")
+        if citation_value is not None and citation_value != "":
+            try:
+                citations = float(citation_value)
+                if (
+                    isinstance(citation_value, bool)
+                    or not math.isfinite(citations)
+                    or citations < 0
+                ):
+                    raise ValueError("invalid citation count")
+            except (TypeError, ValueError, OverflowError):
+                invalid_citations += 1
+            else:
+                metrics["citations"] = citations
+        source_id = f"xbsleepy:{paper_id}"
+        activity_by_id[source_id] = activity_at
+        found[source_id] = RadarItem(
+            source="XBsleepy",
+            source_id=f"xbsleepy:{paper_id}",
+            title=title,
+            url=url,
+            published_at=published_at,
+            updated_at=updated_at,
+            digest_activity_at=activity_at.astimezone(UTC).isoformat(),
+            summary=clean_card_text(str(row.get("abstract") or "")),
+            event_kind="discovered",
+            authors=authors,
+            artifact_urls=artifact_urls,
+            metrics=metrics,
+            source_tags=source_tags,
+            raw=row,
+            parser_version="xbsleepy-index/2",
+        )
+    if skipped_rows:
+        reasons = ", ".join(f"{name}: {count}" for name, count in sorted(missing_fields.items()))
+        config.setdefault("_source_warnings", []).append(
+            f"XBsleepy skipped {skipped_rows} malformed row(s) ({reasons})"
+        )
+    if rows and skipped_rows == len(rows):
+        raise ConnectorPayloadError("XBsleepy non-empty index contains no valid paper rows")
+    if invalid_citations:
+        config.setdefault("_source_warnings", []).append(
+            f"XBsleepy omitted {invalid_citations} invalid citation count(s)"
+        )
+    seen = config.get("_seen_state") or {}
+    unseen = []
+    for item in found.values():
+        previous = seen.get(item.source_id) or {}
+        previous_activity = _optional_date(str(previous.get("last_activity_at") or ""))
+        activity = activity_by_id[item.source_id]
+        if previous_activity is not None and (
+            activity < previous_activity
+            or (
+                activity == previous_activity
+                and digest_evidence_version(item) == previous.get("version")
+            )
+        ):
+            config["_overlap_suppressed"] = config.get("_overlap_suppressed", 0) + 1
+        else:
+            unseen.append(item)
+    if config.get("_overlap_suppressed"):
+        config.setdefault("_source_warnings", []).append(
+            f"XBsleepy suppressed {config['_overlap_suppressed']} unchanged or older record(s)"
+        )
+    # Suppress durable overlap before applying the source cap, so already-seen
+    # rows cannot repeatedly consume the capacity meant for unseen records.
+    ordered = sorted(unseen, key=lambda item: activity_by_id[item.source_id], reverse=True)
+    if limit <= 0:
+        return []
+    if len(ordered) > limit:
+        boundary = activity_by_id[ordered[limit - 1].source_id]
+        end = limit
+        while end < len(ordered) and activity_by_id[ordered[end].source_id] == boundary:
+            end += 1
+        if end > limit:
+            config.setdefault("_source_warnings", []).append(
+                f"XBsleepy kept {end} records at cap {limit} to preserve the tied activity cohort"
+            )
+        return ordered[:end]
+    return ordered
 
 
 # Brave's freshness range is date-granular and inclusive. `since` plus the
@@ -2279,6 +2466,7 @@ SOURCE_FETCHERS = {
     "first_party_feeds": fetch_first_party_feeds,
     "openalex": fetch_openalex,
     "brave": fetch_brave,
+    "xbsleepy": fetch_xbsleepy,
 }
 
 # What each connector's `parser_version` prefix says about how a record was
@@ -2302,6 +2490,7 @@ _PARSER_VERSION_METHODS = {
     "github-releases": "API",
     "openalex-works": "API",
     "brave-web-search": "API",
+    "xbsleepy-index": "Index JSON",
 }
 
 # Fallback label when a connector run produced no items to inspect (an empty
@@ -2323,6 +2512,7 @@ SOURCE_DEFAULT_METHODS = {
     "first_party_feeds": "RSS/Atom",
     "openalex": "API",
     "brave": "API",
+    "xbsleepy": "Index JSON",
 }
 
 

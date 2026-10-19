@@ -17,7 +17,7 @@ from .attention import fetch_attention_feeds
 from .benchmark_attention import collect_benchmark_attention
 from .corpus import exact_artifact_keys
 from .describe import clean_card_text, strip_title_echo
-from .models import RadarItem, RadarRun, SourceHealth
+from .models import RadarItem, RadarRun, SourceHealth, digest_evidence_version
 from .sources import FUTURE_TIMESTAMP_TOLERANCE, SOURCE_FETCHERS, collection_method
 
 TRACKING_PARAMETERS = {"ref", "source", "utm_campaign", "utm_content", "utm_medium", "utm_source"}
@@ -102,6 +102,20 @@ def deduplicate(items: list[RadarItem]) -> list[RadarItem]:
         for organization in duplicate.organizations:
             if organization not in target.organizations:
                 target.organizations.append(organization)
+        # The newest copy becomes the target, so without this a curated source's
+        # theme tags would survive or vanish depending on which connector dated
+        # the same artifact later.
+        for tag in duplicate.source_tags:
+            if tag not in target.source_tags:
+                target.source_tags.append(tag)
+        target.contributing_sources = sorted(
+            {
+                target.source,
+                duplicate.source,
+                *target.contributing_sources,
+                *duplicate.contributing_sources,
+            }
+        )
         # A record with no description loses nothing by adopting one that has
         # it; a record that already has one keeps its own.
         if not target.summary.strip() and duplicate.summary.strip():
@@ -242,59 +256,12 @@ def _matches_structural_signal(item: RadarItem, signal: dict[str, Any]) -> bool:
     raise ValueError(f"unknown structural signal condition: {signal['condition']}")
 
 
-def score_item(
-    item: RadarItem,
-    taxonomy: dict[str, Any],
-    now: datetime | None = None,
-    *,
-    lookback_hours: float = rubric.DEFAULT_LOOKBACK_HOURS,
-) -> RadarItem:
-    now = now or datetime.now(UTC)
-    # Only match against text a human actually wrote about the artifact. If a
-    # fetcher ever reintroduces a generated summary, the words in it must not
-    # earn relevance -- otherwise the pipeline scores itself on its own prose.
-    haystack = f"{item.title} {item.summary}".lower()
-    categories = []
-    matched_terms: list[str] = []
-    for category, terms in taxonomy.items():
-        # A category is either a plain phrase list or a proximity rule. Both
-        # shapes stay supported so the three categories measured as working
-        # (benchmark, dataset, evaluation at 96-98% recall) keep their exact
-        # current semantics and counts.
-        if isinstance(terms, dict):
-            hit = match_proximity_rule(haystack, terms)
-            matches = [hit] if hit else []
-        else:
-            matches = [term for term in terms if match_phrase(haystack, term)]
-        if matches:
-            categories.append(category)
-            matched_terms.extend(matches[:2])
-    item.categories = categories
-    relevance = min(
-        rubric.SCORE_MAX,
-        rubric.RELEVANCE_PER_CATEGORY * len(categories)
-        + rubric.RELEVANCE_PER_TERM * len(matched_terms),
-    )
-    text_deductions = [
-        signal
-        for signal in rubric.LOW_VALUE_SIGNALS
-        if re.search(str(signal["pattern"]), haystack, flags=re.IGNORECASE)
-    ]
-    structural_deductions = [
-        signal for signal in rubric.STRUCTURAL_SIGNALS if _matches_structural_signal(item, signal)
-    ]
-    deductions = [*text_deductions, *structural_deductions]
-    deduction = min(
-        rubric.MAX_LOW_VALUE_DEDUCTION,
-        sum(float(signal["deduction"]) for signal in deductions),
-    )
-    item.relevance_score = max(0.0, relevance - deduction)
-    item.suppression_reasons = [
-        str(signal["label"]) for signal in deductions if signal["action"] == "suppress"
-    ]
-    if is_self_reference(item):
-        item.suppression_reasons.append(rubric.SELF_REFERENCE_LABEL)
+def score_evidence_and_adoption(item: RadarItem) -> None:
+    """Refresh evidence, adoption and the total while retaining text/time scores.
 
+    Same-day merges preserve the chosen source/event/text envelope and use
+    these same equations to incorporate corroborating links and measurements.
+    """
     evidence = rubric.EVIDENCE_BASE
     if item.source in rubric.EVIDENCE_PRIMARY_SOURCES:
         evidence += rubric.EVIDENCE_PRIMARY_CREDIT
@@ -305,17 +272,6 @@ def score_item(
     if item.artifact_urls:
         evidence += rubric.EVIDENCE_CROSS_LINK_CREDIT
     item.evidence_score = min(evidence, rubric.SCORE_MAX)
-
-    activity_at = item.updated_at or item.published_at
-    age_hours = max(0.0, (now - activity_at).total_seconds() / 3600)
-    if lookback_hours <= 0:
-        raise ValueError("lookback_hours must be positive")
-    item.recency_score = max(
-        0.0,
-        rubric.SCORE_MAX * (1.0 - age_hours / lookback_hours),
-    )
-    recency_factor = rubric.RECENCY_EVENT_FACTORS.get(item.event_kind, 1.0)
-    item.recency_score *= recency_factor
 
     # Each counter is scored on its own log curve against its own saturation
     # point, then the strongest one wins. Counters that accumulate without a
@@ -345,6 +301,76 @@ def score_item(
         ),
         2,
     )
+
+
+def score_item(
+    item: RadarItem,
+    taxonomy: dict[str, Any],
+    now: datetime | None = None,
+    *,
+    lookback_hours: float = rubric.DEFAULT_LOOKBACK_HOURS,
+) -> RadarItem:
+    now = now or datetime.now(UTC)
+    # Only match against text a human actually wrote about the artifact. If a
+    # fetcher ever reintroduces a generated summary, the words in it must not
+    # earn relevance -- otherwise the pipeline scores itself on its own prose.
+    haystack = f"{item.title} {item.summary}".lower()
+    categories = []
+    matched_terms: list[str] = []
+    for category, terms in taxonomy.items():
+        # A category is either a plain phrase list or a proximity rule. Both
+        # shapes stay supported so the three categories measured as working
+        # (benchmark, dataset, evaluation at 96-98% recall) keep their exact
+        # current semantics and counts.
+        if isinstance(terms, dict):
+            hit = match_proximity_rule(haystack, terms)
+            matches = [hit] if hit else []
+        else:
+            matches = [term for term in terms if match_phrase(haystack, term)]
+        if matches:
+            categories.append(category)
+            matched_terms.extend(matches[:2])
+    # Only the local taxonomy classifies. `item.source_tags` is left exactly as
+    # the connector set it: a curated source's own themes are provenance and
+    # must reach the snapshot, but they never earn relevance here.
+    item.categories = categories
+    relevance = min(
+        rubric.SCORE_MAX,
+        rubric.RELEVANCE_PER_CATEGORY * len(categories)
+        + rubric.RELEVANCE_PER_TERM * len(matched_terms),
+    )
+    text_deductions = [
+        signal
+        for signal in rubric.LOW_VALUE_SIGNALS
+        if re.search(str(signal["pattern"]), haystack, flags=re.IGNORECASE)
+    ]
+    structural_deductions = [
+        signal for signal in rubric.STRUCTURAL_SIGNALS if _matches_structural_signal(item, signal)
+    ]
+    deductions = [*text_deductions, *structural_deductions]
+    deduction = min(
+        rubric.MAX_LOW_VALUE_DEDUCTION,
+        sum(float(signal["deduction"]) for signal in deductions),
+    )
+    item.relevance_score = max(0.0, relevance - deduction)
+    item.suppression_reasons = [
+        str(signal["label"]) for signal in deductions if signal["action"] == "suppress"
+    ]
+    if is_self_reference(item):
+        item.suppression_reasons.append(rubric.SELF_REFERENCE_LABEL)
+
+    activity_at = item.updated_at or item.published_at
+    age_hours = max(0.0, (now - activity_at).total_seconds() / 3600)
+    if lookback_hours <= 0:
+        raise ValueError("lookback_hours must be positive")
+    item.recency_score = max(
+        0.0,
+        rubric.SCORE_MAX * (1.0 - age_hours / lookback_hours),
+    )
+    recency_factor = rubric.RECENCY_EVENT_FACTORS.get(item.event_kind, 1.0)
+    item.recency_score *= recency_factor
+
+    score_evidence_and_adoption(item)
     item.score_version = rubric.SCORING_VERSION
     item.score_max = rubric.SCORE_MAX
     item.rationale = [
@@ -564,6 +590,35 @@ def _apply_arxiv_discovery_state(
             "discovered_at": item.discovered_at.astimezone(UTC).isoformat(),
             "last_activity_at": activity_at.astimezone(UTC).isoformat(),
         }
+    return changed
+
+
+def _apply_xbsleepy_discovery_state(
+    fetched: list[RadarItem], *, now: datetime, state: dict[str, Any]
+) -> list[RadarItem]:
+    """Suppress unchanged cumulative rows across overlapping collection windows."""
+    seen = state.setdefault("xbsleepy", {})
+    changed = []
+    for item in fetched:
+        activity = _date(item.digest_activity_at, fallback=item.updated_at or item.published_at)
+        version = digest_evidence_version(item)
+        previous = seen.get(item.source_id) or {}
+        previous_activity = _date(
+            previous.get("last_activity_at"), fallback=datetime.min.replace(tzinfo=UTC)
+        )
+        item.discovered_at = _date(previous.get("discovered_at"), fallback=now)
+        # A stale payload must not move the durable cursor backwards.
+        if previous and activity < previous_activity:
+            continue
+        if not previous or activity > previous_activity or version != previous.get("version"):
+            if previous:
+                item.event_kind = "updated"
+            changed.append(item)
+            seen[item.source_id] = {
+                "last_activity_at": activity.astimezone(UTC).isoformat(),
+                "discovered_at": item.discovered_at.astimezone(UTC).isoformat(),
+                "version": version,
+            }
     return changed
 
 
@@ -943,7 +998,12 @@ def run_pipeline(
     future_dated_count = 0
     discovery_state = deepcopy((previous_snapshot or {}).get("discovery_state") or {})
     enabled = [
-        (name, source_config)
+        (
+            name,
+            {**source_config, "_seen_state": discovery_state.get("xbsleepy", {})}
+            if name == "xbsleepy"
+            else source_config,
+        )
         for name, source_config in config["sources"].items()
         if source_config.get("enabled", True)
     ]
@@ -954,7 +1014,9 @@ def run_pipeline(
             if error is not None:
                 raise error
             connector_rejected = int(fetch_config.get("_future_rejections", 0) or 0)
-            fetched_count += len(fetched) + connector_rejected
+            connector_suppressed = int(fetch_config.get("_overlap_suppressed", 0) or 0)
+            suppressed_count += connector_suppressed
+            fetched_count += len(fetched) + connector_rejected + connector_suppressed
             fetched, rejected_future = _drop_future_dated_items(fetched, now=now)
             rejected_future += connector_rejected
             future_dated_count += rejected_future
@@ -978,6 +1040,10 @@ def run_pipeline(
                     now=now,
                     state=discovery_state,
                 )
+                suppressed_count += len(fetched) - len(changed)
+                items.extend(changed)
+            elif source_name == "xbsleepy":
+                changed = _apply_xbsleepy_discovery_state(fetched, now=now, state=discovery_state)
                 suppressed_count += len(fetched) - len(changed)
                 items.extend(changed)
             else:

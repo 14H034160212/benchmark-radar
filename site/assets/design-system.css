@@ -1,12 +1,4 @@
-/* Shared reading and control rhythm; branding stays in styles.css. */
-:root {
-  --space-2: 8px;
-  --space-3: 12px;
-  --space-4: 16px;
-  --space-6: 24px;
-  --control-height: 44px;
-}
-
+/* Shared reading and control rhythm; tokens and branding live in styles.css. */
 .view-heading,
 .score-browse-header {
   align-items: flex-start;
