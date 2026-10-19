@@ -76,6 +76,18 @@ Applies to `README*`, `docs/**`, `.github/ISSUE_TEMPLATE/**`, `site/**`,
 - Keep each fix minimal. File each follow-up as its own issue.
 - End with a link to the rendered result, after you open it yourself.
 
+## Writing rules
+
+- Add a rule only when you can name the harm. Agents read a rule more broadly
+  than it was meant. In #862, "no ranking presented as a quality judgement"
+  became "scores from different sources are not comparable". A reason that
+  reads like a general truth spreads furthest.
+- Forbid only what must not happen and does real harm: legal risk (scraping
+  behind authentication), silent data damage (fuzzy merges), or work the build
+  overwrites (hand-edited generated files). Do not list what is allowed.
+- Benchmark Radar provides data and makes no quality judgements. Leave how to
+  rank or compare to the people who use the data.
+
 ## Branches and pull requests
 
 - Never push to `main`. Every change goes through a pull request.
