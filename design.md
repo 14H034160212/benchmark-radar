@@ -230,3 +230,10 @@ Put legends below their figure. Leave only the keys needed to read its colors
 and shapes expanded. Collect counts, coverage, exclusions and method text in
 one closed information note beside the legend. Use [principle.md](principle.md)
 for the full-corpus, missing-data and Frontier filter rules.
+
+## Controls and theme
+
+Give every button, link-styled control and form field a minimum height of
+44px so it can be hit on a touch screen. The site has one light theme; a dark
+system preference must still render that light theme until a separate dark
+theme is approved, so no page appears half-converted.
