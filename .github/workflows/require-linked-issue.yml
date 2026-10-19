@@ -1,0 +1,33 @@
+name: Require linked issue
+
+# Closes a new pull request whose description links no existing issue.
+# Maintainers and bots are exempt. pull_request_target is safe here because the
+# job never checks out or runs code from the pull request: it only reads the
+# description from the event and calls the GitHub API.
+on:
+  pull_request_target:
+    types: [opened, reopened]
+
+permissions:
+  issues: read
+  pull-requests: write
+
+jobs:
+  linked-issue:
+    if: github.event.sender.type != 'Bot'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          sparse-checkout: .github/scripts
+      - name: Close the pull request if it links no issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          AUTHOR: ${{ github.event.pull_request.user.login }}
+          NUMBER: ${{ github.event.pull_request.number }}
+          BODY: ${{ github.event.pull_request.body }}
+          # Repo maintainers and the core team, space separated.
+          EXEMPT: "ktwu01 junjiezhou1122 14H034160212 Claire1217"
+        run: .github/scripts/require-linked-issue.sh
