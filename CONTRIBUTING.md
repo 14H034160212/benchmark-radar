@@ -132,11 +132,17 @@ history.
 
 Stated up front so nobody writes work that has to be turned down.
 
-- **Scores in the adoption registry.** Vendors differ on prompt, scaffold, tool
-  access, reasoning budget, pass@k and evaluator. A mention survives all of
-  those caveats, which is why it is the unit the ranking publishes.
-- **Any ranking presented as a quality judgement.** Adoption measures vendor
-  attention, not benchmark quality.
+- **Scores in the adoption registry.** `data/model_cards.yml` records which
+  benchmarks a document mentions; the adoption rank counts mentions. Scores go
+  in [`data/benchmark_scores.yml`](data/benchmark_scores.yml).
+- **The adoption rank presented as benchmark quality.** Adoption measures
+  vendor attention, not benchmark quality.
+- **A model score ranking that drops or discounts a source.** Model score
+  rankings and averages across sources are welcome; no source is a lesser
+  source ([`principle.md`](principle.md)). Apply one rule to every source:
+  compare models on the benchmarks they share, convert each score to its
+  series direction and scale first, and show how many shared benchmarks each
+  comparison uses.
 - **Fuzzy matching that silently merges records.** Entities resolve on exact
   identifiers (DOI, arXiv, OpenReview, GitHub, Hugging Face).
 - **Synthesized summaries.** A missing upstream description stays empty.
