@@ -5939,6 +5939,8 @@ dialog {
 
   .view-nav {
     grid-row: 3;
+  }
+}
 
 /* Library (#420). One control row, then the directions beside the rows:
    the first screen is benchmarks, not a header. */
