@@ -7,8 +7,9 @@ first "no" and request changes. These checks add to the rules in
 ## Review depth
 
 Read the before and after screenshots (or pasted text for CLI output) and the
-issue table in the description before running CI. If you cannot say in one sentence what a reader sees
-differently, request changes without running the six CI steps.
+issue table in the description before running CI. If you cannot say in one
+sentence what a reader sees differently, request changes without running the
+six CI steps.
 
 ## 1. Did the human contributor answer the four questions?
 
