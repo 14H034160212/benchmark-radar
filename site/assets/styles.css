@@ -6513,11 +6513,13 @@ dialog {
 
 @media (max-width: 720px) {
   /* The matrix first: the lab list folds into the menu above it. */
-  #models-view .library-directions {
+  /* Only once the page has loaded: until then the seeded lab links are the
+     way to switch labs. */
+  #models-view[data-hydrated] .library-directions {
     display: none;
   }
 
-  .models-lab-menu {
+  #models-view[data-hydrated] .models-lab-menu {
     display: flex;
   }
 

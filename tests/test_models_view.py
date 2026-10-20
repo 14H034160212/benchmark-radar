@@ -14,6 +14,7 @@ from benchmark_radar.model_scores import (
     average_value,
     build_model_scores,
     capability_group,
+    latest_date,
     model_family,
     order_models,
     score_scale,
@@ -43,10 +44,13 @@ def test_rule_1_only_benchmarks_every_model_shares_count():
 
 
 def test_rule_2_scores_count_on_their_series_direction_and_scale():
-    # A fraction is put on its display scale by the series' multiplier.
+    # A fraction declared out of 1 is put on 0-100 by the series' multiplier.
+    fraction = {"declared_max": 1.0, "score_summary": {"display_multiplier": 100, "raw_max": 0.6}}
+    assert score_scale(fraction) == (100, True)
+    # The multiplier alone is display convention, not evidence of a percentage.
     assert score_scale({"score_summary": {"display_multiplier": 100, "raw_max": 0.6}}) == (
         100,
-        True,
+        False,
     )
     assert score_scale({"score_summary": {"display_multiplier": 1, "unit": "percent"}}) == (1, True)
     assert score_scale({"declared_max": 100.0, "score_summary": {"display_multiplier": 1}}) == (
@@ -113,6 +117,7 @@ def _shard(key, rows, *, multiplier=1, unit="percent", direction="higher_is_bett
                         "organization": org,
                         "value": value,
                         "reported_date": date,
+                        "date_precision": "model_announcement",
                     }
                     for index, (model, org, value, date) in enumerate(rows)
                 ],
@@ -134,6 +139,7 @@ def _fixture(tmp_path):
             ],
             multiplier=100,
             unit=None,
+            declared_max=1.0,
         ),
         "arena": _shard(
             "llm-stats:arena",
@@ -187,7 +193,9 @@ def test_build_keeps_each_models_best_score_per_record_on_its_display_scale(tmp_
     assert by_model["Acme-1"]["llm-stats:arena"] == [1500.0]
     arena = payload["benchmarks"][keys.index("llm-stats:arena")]
     assert (arena["percent"], arena["unit"]) == (False, "Elo")
-    assert next(m for m in payload["models"] if m["model"] == "Beta <1>")["date"] == "2026-04-01"
+    beta = next(m for m in payload["models"] if m["model"] == "Beta <1>")
+    # Each source's latest date and what that date is.
+    assert beta["dates"] == {"llm_stats": ["2026-04-01", "model_announcement"]}
 
 
 def test_lower_is_better_keeps_the_lowest_score(tmp_path):
@@ -212,6 +220,13 @@ def test_families_groups_and_order_match_the_page():
     assert capability_group({"categories": ["math", "reasoning"]}) == "Mathematics"
     assert capability_group({"library_direction": {"categories": ["agentic-coding"]}}) == "Coding"
     assert capability_group({"categories": ["safety"]}) == "Other"
+    # Whole words: "multilingual" is language, not Multimodal.
+    multilingual = {"library_direction": {"categories": ["multilingual"]}}
+    assert capability_group(multilingual) == "Reasoning & Knowledge"
+    dates = {"a": ["2026-01-01", "x"], "b": ["2026-02-01", "y"]}
+    assert latest_date(dates) == ("2026-02-01", "y")
+    assert latest_date(dates, "a") == ("2026-01-01", "x")
+    assert latest_date({}, "a") == ("", "")
     family = [
         {"organization": "A", "model": "M (high)", "date": "2026-02-01", "cells": {"x": 1}},
         {"organization": "A", "model": "M", "date": "2026-01-01", "cells": {"x": 1}},
@@ -235,6 +250,8 @@ def test_seed_is_the_first_page_of_the_matrix(tmp_path):
     nav, page, matrix, status = _models_seed(records, payload).values()
     assert '<a class="library-direction" href="/models/?lab=Acme">' in nav
     assert "1–2 of 2 models, most benchmarks first" in page
+    # A column's date says what it is.
+    assert "announced Apr 1, 2026" in matrix
     # Most benchmarks first, then newest: both have scores on two records, and
     # Beta's latest (Apr) is after Acme's (Feb).
     assert matrix.index("Beta &lt;1&gt;") < matrix.index("Acme-1")

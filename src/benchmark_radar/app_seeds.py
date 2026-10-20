@@ -26,8 +26,10 @@ from urllib.parse import urlsplit, urlunsplit
 from .citation import apa_citation
 from .model_scores import (
     CAPABILITY_ORDER,
+    DATE_LABELS,
     average_value,
     capability_group,
+    latest_date,
     model_family,
     order_models,
     shared_average,
@@ -954,9 +956,12 @@ def _model_seed_columns(
             if keys[score[0]] in records
         }
         if cells:
+            date, precision = latest_date(entry.get("dates") or {})
             models.append(
                 {
                     **entry,
+                    "date": date,
+                    "date_precision": precision,
                     "organization": entry.get("organization") or MODEL_UNRECORDED,
                     "cells": cells,
                 }
@@ -988,7 +993,9 @@ def _model_matrix_seed(
             " · ".join(
                 [
                     column["organization"],
-                    f"latest score {_medium_date(column['date'])}"
+                    DATE_LABELS.get(column["date_precision"], "dated {date}").format(
+                        date=_medium_date(column["date"])
+                    )
                     if column.get("date")
                     else "Date unknown",
                     f"{len(column['cells']):,} benchmarks",

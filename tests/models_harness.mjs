@@ -152,7 +152,7 @@ const env = {
 const names = [
   "modelDocuments", "modelFirstMentions", "modelCapabilityGroup", "modelFamily", "modelAverageValue",
   "modelSharedAverage", "modelMatrixModels", "modelOrder", "modelMatches", "modelLabCounts",
-  "renderModelLabs", "modelValueText", "openModelPanel", "closeModelPanel", "renderModels", "initModels",
+  "renderModelLabs", "modelValueText", "modelSeriesScale", "modelLatestDate", "openModelPanel", "closeModelPanel", "renderModels", "initModels",
 ];
 const models = new Function(
   ...Object.keys(env),
@@ -185,6 +185,18 @@ assert.deepEqual(models.modelFamily("GPT-5"), ["GPT-5", ""]);
 assert.equal(models.modelCapabilityGroup({ categories: ["math", "reasoning"] }), "Mathematics");
 assert.equal(models.modelCapabilityGroup({ categories: [], library_direction: { categories: ["agentic-coding"] } }), "Coding");
 assert.equal(models.modelCapabilityGroup({ categories: ["safety"] }), "Other");
+// Whole words: "multilingual" is language, not Multimodal.
+assert.equal(models.modelCapabilityGroup({ categories: [], library_direction: { categories: ["multilingual"] } }), "Reasoning & Knowledge");
+
+// The scale rule, as model_scores.score_scale: the multiplier alone is not a percentage.
+assert.equal(models.modelSeriesScale({ declared_max: 1, score_summary: { display_multiplier: 100, raw_max: 0.6 } }).percent, true);
+assert.equal(models.modelSeriesScale({ score_summary: { display_multiplier: 100, raw_max: 0.6 } }).percent, false);
+assert.equal(models.modelSeriesScale({ score_summary: { display_multiplier: 1, unit: "percent", raw_max: 140 } }).percent, false);
+assert.equal(models.modelSeriesScale({ declared_max: 3000, score_summary: { display_multiplier: 1, unit: "elo" } }).unit, "Elo");
+// A column's date: the latest over its sources, or the selected source's.
+const twoDates = { a: ["2026-01-01", "x"], b: ["2026-02-01", "y"] };
+assert.deepEqual(models.modelLatestDate(twoDates), ["2026-02-01", "y"]);
+assert.deepEqual(models.modelLatestDate(twoDates, "a"), ["2026-01-01", "x"]);
 
 // --- The shared-benchmark average's three rules. ----------------------------------
 const pct = { percent: true, direction: "higher_is_better" };
@@ -233,9 +245,12 @@ const payload = {
     ...Array.from({ length: 8 }, (_, i) => ({ key: `llm-stats:b${i}`, direction: "higher_is_better", multiplier: 100, percent: true, unit: "%" })),
   ],
   models: [
-    { key: "beta-1", model: "Beta-1", organization: "Beta", date: "2026-05-01", scores: [[0, 30]] },
+    { key: "beta-1", model: "Beta-1", organization: "Beta", dates: { llm_stats: ["2026-05-01", "model_announcement"] }, scores: [[0, 30]] },
     ...Array.from({ length: 8 }, (_, i) => ({
-      key: `acme-${i}`, model: `Acme-${i}`, organization: "Acme", date: `2026-0${i + 1}-01`,
+      key: `acme-${i}`, model: `Acme-${i}`, organization: "Acme",
+      dates: i === 2
+        ? { llm_stats: ["2026-03-01", "model_announcement"], model_reports: ["2026-02-15", "document_publication"] }
+        : { llm_stats: [`2026-0${i + 1}-01`, "model_announcement"] },
       scores: i === 2 ? [[0, 50], [1, 48.5, 2], [2 + i, 70]] : [[2 + i, 60 + i]],
     })),
   ],
@@ -303,12 +318,22 @@ state.modelsQuery = "";
 models.renderModels();
 assert.match(byId("models-list").querySelector("tbody.models-average").textContent, /Shared-benchmark average/);
 assert.equal(columnNames().length, 6);
+assert.match(byId("models-list").querySelector("thead").textContent, /announced 2026-08-01/);
 
 // Defect 2 (#862): "Show more" rebuilt the list and collapsed every expanded
 // model. The matrix has no expandable rows; what a reader opens is a cell's
 // side panel, and a re-render must keep it open while its model is shown.
+// The panel reads scale and rows from the record's shard: a fraction declared
+// out of 1 shows as a percentage, under a neutral heading.
+shards.set("llm-stats-b7", { scores_by_source: { llm_stats: {
+  series: { direction: "higher_is_better", declared_max: 1, score_summary: { display_multiplier: 100, raw_max: 0.67 } },
+  rows: [{ model_name: "Acme-7", organization: "Acme", value: 0.67, reported_date: "2026-08-01", source: "llm_stats" }],
+} } });
 const cell = byId("models-list").querySelector('button.models-cell[data-model="acme-7"]');
 cell.click();
+await tick();
+assert.match(byId("models-panel").textContent, /Scores for this model/);
+assert.match(byId("models-panel").textContent, /67%/);
 assert.deepEqual(state.modelsPanel, { model: "acme-7", record: "llm-stats:b7" });
 assert.equal(byId("models-panel").hidden, false);
 assert.equal(document.activeElement, byId("models-panel-close"));
@@ -358,7 +383,17 @@ models.renderModels();
 byId("models-source").dispatch("change", { target: { value: "model_reports" } });
 assert.equal(state.modelsSource, "model_reports");
 assert.deepEqual(columnNames(), ["Acme-2"]);
+// The column shows the selected source's date and what it is.
+assert.match(byId("models-list").querySelector("thead").textContent, /reported 2026-02-15/);
 byId("models-source").dispatch("change", { target: { value: "" } });
 byId("models-sort").dispatch("change", { target: { value: "newest" } });
 assert.equal(columnNames()[0], "Acme-7");
+// Without model-scores.json the panel still formats from the shard's scale.
+reset(null);
+state.modelsQuery = "acme-7";
+models.renderModels();
+const fallbackCell = byId("models-list").querySelector('button.models-cell[data-model="acme-7"]');
+fallbackCell.click();
+await tick();
+assert.match(byId("models-panel").textContent, /67%/);
 console.log("Models matrix, shared-benchmark average rules and the three #862 defects passed.");

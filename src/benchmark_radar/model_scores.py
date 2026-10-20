@@ -9,10 +9,13 @@ applies, so the Python seed and ``assets/app.js`` cannot drift:
 1. A comparison uses only the benchmarks every compared model has a score on.
    A model that reported only easy benchmarks does not get a higher average.
 2. A score enters an average on its series' direction and scale. Raw values mix
-   Elo (1577), fractions (0.6) and percentages (74.7); a series' declared
+   Elo (1577), fractions (0.6) and percentages (74.7); a series'
    ``display_multiplier`` puts it on its display scale, and only a series whose
-   display scale is 0-100 is averaged, flipped when lower is better. Elo,
-   dollar and point scales are shown in their cells and left out of averages.
+   source states a 0-100 scale (a percent unit, or a declared maximum the
+   multiplier puts at 100) is averaged, flipped when lower is better. The
+   multiplier alone is display convention, not evidence of a percentage
+   (score_summary), so such a series, like Elo, dollar and point scales, is
+   shown in its cells and left out of averages.
 3. Every average states how many shared benchmarks it uses.
 
 Every source is read the same way: none is preferred or discounted.
@@ -34,22 +37,20 @@ DIRECTIONS = ("higher_is_better", "lower_is_better")
 
 
 def score_scale(series: dict[str, Any]) -> tuple[float, bool]:
-    """A series' display multiplier, and whether its display scale is 0-100.
+    """A series' display multiplier, and whether its source states a 0-100 scale.
 
-    The multiplier is the series' own ``display_multiplier`` (fractions are
-    declared with 100). The display scale is 0-100 when the series says so: a
-    multiplier of 100, a percent unit, or a declared maximum that the multiplier
-    puts at 100. A reported value outside 0-100 contradicts that and wins.
+    The multiplier is the series' own ``display_multiplier``. It is display
+    convention only (score_summary: it "never establishes a percentage or
+    ceiling"), so the scale is 0-100 only when the source says so: a percent
+    unit, or a declared maximum that the multiplier puts at 100. A reported
+    value outside 0-100 contradicts that and wins. Mirrors modelSeriesScale in
+    app.js.
     """
     summary = series.get("score_summary") or {}
     multiplier = summary.get("display_multiplier") or 1
     unit = summary.get("unit") or series.get("unit")
     declared = series.get("declared_max")
-    percent = (
-        multiplier == 100
-        or unit == "percent"
-        or (declared is not None and declared * multiplier == 100)
-    )
+    percent = unit == "percent" or (declared is not None and declared * multiplier == 100)
     raw_min, raw_max = summary.get("raw_min"), summary.get("raw_max")
     if raw_min is not None and raw_min * multiplier < 0:
         percent = False
@@ -87,11 +88,13 @@ def build_model_scores(shard_dir: Path) -> dict[str, Any]:
     }
     benchmarks: list[dict[str, Any]] = []
     cells: dict[str, dict[int, list[Any]]] = {}
-    dates: dict[str, str] = {}
+    # Per model and source: the latest date on its rows and what that date is
+    # (a score report's publication, or a model announcement for aggregators).
+    dates: dict[str, dict[str, list[str]]] = {}
     for path in sorted(shard_dir.glob("*.json")):
         shard = json.loads(path.read_text(encoding="utf-8"))
         record_key = (shard.get("record") or {}).get("key")
-        for _source, payload in sorted((shard.get("scores_by_source") or {}).items()):
+        for source, payload in sorted((shard.get("scores_by_source") or {}).items()):
             rows = [
                 row
                 for row in payload.get("rows") or []
@@ -129,13 +132,16 @@ def build_model_scores(shard_dir: Path) -> dict[str, Any]:
                     if _better(direction, value, cell[0]):
                         cell[0] = value
                 reported = row.get("reported_date") or row.get("reported_at") or ""
-                dates[model] = max(dates.get(model, ""), reported)
+                current = dates.setdefault(model, {}).get(source)
+                if reported and (current is None or reported > current[0]):
+                    dates[model][source] = [reported, row.get("date_precision") or ""]
     models = [
         {
             "key": key,
             "model": registry[key].model,
             "organization": registry[key].organization,
-            "date": dates.get(key) or None,
+            # {source: [latest date, what the date is]}
+            "dates": dict(sorted(dates.get(key, {}).items())),
             # [benchmark index, display value] plus the row count when several
             # settings were reported.
             "scores": [
@@ -146,6 +152,23 @@ def build_model_scores(shard_dir: Path) -> dict[str, Any]:
         for key in sorted(cells)
     ]
     return {"schema_version": SCHEMA_VERSION, "benchmarks": benchmarks, "models": models}
+
+
+# What a column's date is: aggregators date a score by the model's
+# announcement, model reports by the document's publication.
+DATE_LABELS = {"model_announcement": "announced {date}", "document_publication": "reported {date}"}
+
+
+def latest_date(dates: dict[str, list[str]], source: str | None = None) -> tuple[str, str]:
+    """The latest (date, precision) over a model's sources, or one source's.
+
+    Ties keep the first source in name order. Mirrors modelLatestDate in app.js.
+    """
+    entries = (
+        [dates[source]] if source and source in dates else [] if source else list(dates.values())
+    )
+    best = max(entries, key=lambda entry: entry[0], default=["", ""])
+    return best[0], best[1]
 
 
 def write_model_scores(shard_dir: Path, output: Path = DEFAULT_SCORES_OUTPUT) -> dict[str, Any]:
@@ -199,15 +222,16 @@ def shared_average(
 
 
 # .com Model Evals' capability groups, in its order, read from a record's
-# categories and Library direction. A benchmark measuring several abilities sits
-# in the first group it matches. Mirrors modelCapabilityGroup in app.js.
+# categories and Library direction, as whole words. A benchmark measuring several
+# abilities sits in the first group it matches. Mirrors modelCapabilityGroup in
+# app.js.
 CAPABILITY_GROUPS = (
-    ("Mathematics", r"math"),
-    ("Coding", r"cod|software"),
-    ("Agents & Tools", r"agent|tool|computer"),
-    ("Science", r"science|biology|chemistry|physics"),
-    ("Multimodal", r"vision|multi|image|video|audio|speech"),
-    ("Reasoning & Knowledge", r"reason|knowledge|language"),
+    ("Mathematics", {"math", "mathematics"}),
+    ("Coding", {"code", "coding", "software", "frontend"}),
+    ("Agents & Tools", {"agent", "agents", "agentic", "tool", "tools", "computer"}),
+    ("Science", {"science", "scientific", "biology", "chemistry", "physics"}),
+    ("Multimodal", {"multimodal", "vision", "image", "video", "audio", "speech"}),
+    ("Reasoning & Knowledge", {"reasoning", "knowledge", "language", "multilingual"}),
 )
 CAPABILITY_ORDER = (
     "Reasoning & Knowledge",
@@ -221,12 +245,16 @@ CAPABILITY_ORDER = (
 
 
 def capability_group(record: dict[str, Any]) -> str:
+    """The first group sharing a whole word with the record's category ids.
+
+    Category ids are words joined by "-" or "_" ("agentic-coding"); matching
+    words, not substrings, keeps "multilingual" out of Multimodal.
+    """
     direction = record.get("library_direction") or {}
-    text = " ".join(
-        [*(record.get("categories") or []), *(direction.get("categories") or [])]
-    ).lower()
-    for group, pattern in CAPABILITY_GROUPS:
-        if re.search(pattern, text):
+    ids = [*(record.get("categories") or []), *(direction.get("categories") or [])]
+    words = set(re.split(r"[^a-z0-9]+", " ".join(ids).lower()))
+    for group, vocabulary in CAPABILITY_GROUPS:
+        if words & vocabulary:
             return group
     return "Other"
 

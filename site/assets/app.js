@@ -454,7 +454,6 @@ const I18N = {
     "not averaged": "不计入平均",
     "Not on a 0–100 scale, so it is shown but left out of averages": "不是 0–100 刻度，所以只显示、不计入平均",
     "best of {n} settings": "{n} 种设置中的最好成绩",
-    "latest score {date}": "最近成绩 {date}",
     "Shared-benchmark average": "共同 benchmark 平均分",
     "over the {n} benchmarks all {m} models share, 0–100": "基于这 {m} 个模型共有的 {n} 个 benchmark，0–100",
     "Mathematics": "数学",
@@ -463,7 +462,10 @@ const I18N = {
     "Close": "关闭",
     "Loading scores…": "正在加载成绩…",
     "Score details could not be loaded.": "无法加载成绩详情。",
-    "Reported by this model": "该模型报告的成绩",
+    "Scores for this model": "该模型的成绩",
+    "announced {date}": "{date} 发布",
+    "reported {date}": "{date} 报告",
+    "dated {date}": "日期 {date}",
     "Setting not recorded": "未记录设置",
     "measured by {who}": "由 {who} 测得",
     "0–100 scale; counts in shared-benchmark averages.": "0–100 刻度，计入共同 benchmark 平均分。",
@@ -1641,6 +1643,7 @@ function readUrl() {
   state.modelsQuery = (params.get("mq") || "").trim();
   state.modelsSort = MODEL_SORTS.includes(params.get("msort")) ? params.get("msort") : "coverage";
   state.modelsSource = params.get("msrc") || "";
+  state.modelsSharedOnly = params.get("mshared") === "1";
   state.modelsOffset = 0;
   state.lfrontier = params.get("lfrontier") || "";
   state.lfrontierExplicit = Boolean(state.lfrontier);
@@ -1760,6 +1763,7 @@ function writeUrl(mode = "replace") {
     if (state.modelsQuery) params.set("mq", state.modelsQuery);
     if (state.modelsSort !== "coverage") params.set("msort", state.modelsSort);
     if (state.modelsSource) params.set("msrc", state.modelsSource);
+    if (state.modelsSharedOnly) params.set("mshared", "1");
   }
   if (utility === "rubric" && state.rubric && state.rubric !== "current") {
     params.set("version", state.rubric);
@@ -5905,24 +5909,58 @@ function modelLabSummary(documents, recordsByKey, names) {
 const MODEL_UNRECORDED = "__unrecorded__";
 const MODEL_PAGE_COLUMNS = 6;
 const MODEL_DIRECTIONS = ["higher_is_better", "lower_is_better"];
-// .com Model Evals' capability groups, in its order. A benchmark measuring
-// several abilities sits in the first group it matches. Mirrors
-// model_scores.capability_group.
+// .com Model Evals' capability groups, in its order, matched on whole words of
+// a record's category ids ("agentic-coding"), so "multilingual" is not
+// Multimodal. A benchmark measuring several abilities sits in the first group
+// it matches. Mirrors model_scores.capability_group.
 const MODEL_CAPABILITY_GROUPS = [
-  ["Mathematics", /math/],
-  ["Coding", /cod|software/],
-  ["Agents & Tools", /agent|tool|computer/],
-  ["Science", /science|biology|chemistry|physics/],
-  ["Multimodal", /vision|multi|image|video|audio|speech/],
-  ["Reasoning & Knowledge", /reason|knowledge|language/],
+  ["Mathematics", ["math", "mathematics"]],
+  ["Coding", ["code", "coding", "software", "frontend"]],
+  ["Agents & Tools", ["agent", "agents", "agentic", "tool", "tools", "computer"]],
+  ["Science", ["science", "scientific", "biology", "chemistry", "physics"]],
+  ["Multimodal", ["multimodal", "vision", "image", "video", "audio", "speech"]],
+  ["Reasoning & Knowledge", ["reasoning", "knowledge", "language", "multilingual"]],
 ];
 const MODEL_CAPABILITY_ORDER = [
   "Reasoning & Knowledge", "Mathematics", "Coding", "Agents & Tools", "Science", "Multimodal", "Other",
 ];
 
 function modelCapabilityGroup(record) {
-  const text = [...(record.categories || []), ...(record.library_direction?.categories || [])].join(" ").toLowerCase();
-  return MODEL_CAPABILITY_GROUPS.find(([, pattern]) => pattern.test(text))?.[0] || "Other";
+  const ids = [...(record.categories || []), ...(record.library_direction?.categories || [])];
+  const words = new Set(ids.join(" ").toLowerCase().split(/[^a-z0-9]+/));
+  return MODEL_CAPABILITY_GROUPS.find(([, vocabulary]) => vocabulary.some((word) => words.has(word)))?.[0] || "Other";
+}
+
+// A series' display multiplier and whether its source states a 0-100 scale: a
+// percent unit, or a declared maximum the multiplier puts at 100. The
+// multiplier alone is display convention, not a percentage. Mirrors
+// model_scores.score_scale; the side panel reads it from the shard itself.
+function modelSeriesScale(series) {
+  const summary = series?.score_summary || {};
+  const multiplier = summary.display_multiplier || 1;
+  const unit = summary.unit || series?.unit;
+  const declared = series?.declared_max;
+  let percent = unit === "percent" || (declared !== null && declared !== undefined && declared * multiplier === 100);
+  if (summary.raw_min !== null && summary.raw_min !== undefined && summary.raw_min * multiplier < 0) percent = false;
+  if (summary.raw_max !== null && summary.raw_max !== undefined && summary.raw_max * multiplier > 100) percent = false;
+  return {
+    multiplier,
+    percent,
+    direction: MODEL_DIRECTIONS.includes(series?.direction) ? series.direction : null,
+    unit: percent ? "%" : ({ elo: "Elo", usd: "USD" }[unit] || unit || null),
+  };
+}
+
+// What a column's date is: aggregators date a score by the model's
+// announcement, model reports by the document's publication. Ties keep the
+// first source in name order. Mirrors model_scores.latest_date.
+const MODEL_DATE_LABELS = { model_announcement: "announced {date}", document_publication: "reported {date}" };
+
+function modelLatestDate(dates, source = "") {
+  const entries = source ? (dates[source] ? [dates[source]] : []) : Object.keys(dates).sort().map((key) => dates[key]);
+  let best = ["", ""];
+  for (const entry of entries) if (entry[0] > best[0]) best = entry;
+  return best;
 }
 
 // "Claude Opus 5 (Adaptive Reasoning, High Effort)" is the family "Claude Opus
@@ -5978,12 +6016,14 @@ function modelMatrixModels(records, payload) {
     const benchmarks = new Map(payload.benchmarks.map((benchmark) => [benchmark.key, benchmark]));
     const models = payload.models.map((entry) => {
       const [family, configuration] = modelFamily(entry.model);
+      const dates = entry.dates || {};
+      const [date, datePrecision] = modelLatestDate(dates);
       const cells = new Map(entry.scores
         .filter(([index]) => recordKeys.has(keys[index]))
         .map(([index, value, count = 1]) => [keys[index], { value, count }]));
       return {
         key: entry.key, name: entry.model, organization: entry.organization || MODEL_UNRECORDED,
-        date: entry.date || "", family, configuration, cells,
+        dates, date, datePrecision, family, configuration, cells,
       };
     }).filter((model) => model.cells.size);
     return { models, benchmarks, scored: true };
@@ -5995,11 +6035,17 @@ function modelMatrixModels(records, payload) {
       let model = byName.get(identity);
       if (!model) {
         const [family, configuration] = modelFamily(scored.name);
-        model = { key: identity, name: scored.name, organization: MODEL_UNRECORDED, date: "", family, configuration, cells: new Map() };
+        model = {
+          key: identity, name: scored.name, organization: MODEL_UNRECORDED, dates: {}, date: "", datePrecision: "",
+          family, configuration, cells: new Map(),
+        };
         byName.set(identity, model);
       }
       model.cells.set(record.key, { value: null, count: 1 });
-      if ((scored.date || "") > model.date) model.date = scored.date || "";
+      if ((scored.date || "") > model.date) {
+        model.date = scored.date || "";
+        model.datePrecision = scored.date_precision || "";
+      }
     }
   }
   return { models: [...byName.values()], benchmarks: new Map(), scored: false };
@@ -6036,7 +6082,12 @@ function modelOrder(models, sort = "coverage") {
 function modelsFromSource(models, source, recordsByKey) {
   if (!source) return models;
   return models
-    .map((model) => ({ ...model, cells: new Map([...model.cells].filter(([key]) => recordsByKey.get(key)?.source === source)) }))
+    .map((model) => {
+      // The date shown and sorted on is this source's, not another's.
+      const [date, datePrecision] = model.dates?.[source] ? modelLatestDate(model.dates, source) : [model.date, model.datePrecision];
+      const cells = new Map([...model.cells].filter(([key]) => recordsByKey.get(key)?.source === source));
+      return { ...model, date, datePrecision, cells };
+    })
     .filter((model) => model.cells.size);
 }
 
@@ -6154,7 +6205,9 @@ function modelColumnHeader(model) {
     model.configuration ? element("span", { className: "models-col-config", text: model.configuration }) : null,
     element("span", { className: "models-col-facts", text: [
       modelLabLabel(model.organization),
-      model.date ? t("latest score {date}", { date: formatDate(model.date, { dateStyle: "medium" }) }) : t("Date unknown"),
+      model.date
+        ? t(MODEL_DATE_LABELS[model.datePrecision] || "dated {date}", { date: formatDate(model.date, { dateStyle: "medium" }) })
+        : t("Date unknown"),
       t("{n} benchmarks", { n: model.cells.size.toLocaleString() }),
     ].join(" · ") }),
   ]);
@@ -6243,7 +6296,6 @@ function closeModelPanel() {
 
 function openModelPanel(model, record, data) {
   const panel = byId("models-panel");
-  const benchmark = data.benchmarks.get(record.key);
   state.modelsPanel = { model: model.key, record: record.key };
   for (const cell of byId("models-list").querySelectorAll("button.models-cell")) {
     cell.setAttribute("aria-pressed", String(cell.dataset.model === model.key && cell.dataset.record === record.key));
@@ -6272,15 +6324,18 @@ function openModelPanel(model, record, data) {
       replaceChildren(body, [element("p", { className: "empty-state", text: t("Score details could not be loaded.") })]);
       return;
     }
-    const multiplier = benchmark?.multiplier || 1;
-    const { mine, best } = modelPanelRows(shard, model, data.scored, benchmark?.direction);
-    const display = (row) => modelValueText(typeof row.value === "number" ? row.value * multiplier : null, benchmark);
-    const top = best.sort((a, b) => (benchmark?.direction === "lower_is_better" ? a.value - b.value : b.value - a.value)).slice(0, 10);
+    // The record's own series decides scale and direction, so the panel is
+    // right even when model-scores.json did not load.
+    const scale = modelSeriesScale(shard.scores_by_source?.[record.source]?.series);
+    const { multiplier } = scale;
+    const { mine, best } = modelPanelRows(shard, model, data.scored, scale.direction);
+    const display = (row) => modelValueText(typeof row.value === "number" ? row.value * multiplier : null, scale);
+    const top = best.sort((a, b) => (scale.direction === "lower_is_better" ? a.value - b.value : b.value - a.value)).slice(0, 10);
     const own = (row) => (row.model_name || "").toLowerCase() === model.name.toLowerCase();
     if (!top.some(own) && mine.length) top.push(mine[0]);
-    const scale = Math.max(benchmark?.percent ? 100 / multiplier : 0, ...top.map((row) => Math.abs(row.value)), 1e-9);
+    const extent = Math.max(scale.percent ? 100 / multiplier : 0, ...top.map((row) => Math.abs(row.value)), 1e-9);
     replaceChildren(body, [
-      element("h3", { text: t("Reported by this model") }),
+      element("h3", { text: t("Scores for this model") }),
       element("ul", { className: "models-panel-scores" }, mine.map((row) => element("li", {}, [
         element("strong", { text: display(row) }),
         element("span", { text: [
@@ -6293,13 +6348,13 @@ function openModelPanel(model, record, data) {
           attrs: { href: row.source_url, target: "_blank", rel: "noopener noreferrer" },
         }) : null,
       ]))),
-      element("p", { className: "models-col-facts", text: benchmark?.percent
+      element("p", { className: "models-col-facts", text: scale.percent
         ? t("0–100 scale; counts in shared-benchmark averages.")
         : t("Not on a 0–100 scale; shown, left out of averages.") }),
       element("h3", { text: t("Top models on this record") }),
       element("ol", { className: "models-panel-chart" }, top.map((row) => element("li", { className: own(row) ? "is-selected" : "" }, [
         element("span", { className: "models-panel-model", text: row.model_name }),
-        element("span", { className: "models-panel-bar", attrs: { style: `--share:${Math.max(0, Math.min(1, Math.abs(row.value) / scale)).toFixed(3)}` } }),
+        element("span", { className: "models-panel-bar", attrs: { style: `--share:${Math.max(0, Math.min(1, Math.abs(row.value) / extent)).toFixed(3)}` } }),
         element("span", { className: "models-panel-value", text: display(row) }),
       ]))),
       element("a", { text: t("Open the benchmark page"), attrs: { href: `/benchmarks/${record.slug}/` } }),
@@ -6370,6 +6425,9 @@ function renderModels() {
   }
   if (state.modelsLab && !labs.some(([lab]) => lab === state.modelsLab)) state.modelsLab = "";
   renderModelLabs([["", pool.length], ...labs]);
+  // From here the lab menu works, so narrow screens may swap the seeded links
+  // for it (styles.css); without this, they keep the links.
+  byId("models-view").dataset.hydrated = "1";
   const search = byId("models-search");
   if (search && document.activeElement !== search) search.value = state.modelsQuery;
   byId("models-shared").checked = state.modelsSharedOnly;
@@ -6454,6 +6512,7 @@ function initModels() {
   byId("models-shared").addEventListener("change", (event) => {
     state.modelsSharedOnly = event.target.checked;
     renderModels();
+    writeUrl();
   });
   list.addEventListener("click", (event) => {
     const cell = event.target.closest("button.models-cell");
