@@ -24,6 +24,14 @@ from typing import Any
 from urllib.parse import urlsplit, urlunsplit
 
 from .citation import apa_citation
+from .model_scores import (
+    CAPABILITY_ORDER,
+    average_value,
+    capability_group,
+    model_family,
+    order_models,
+    shared_average,
+)
 from .site_shell import SOURCE_LABELS, esc
 
 
@@ -912,74 +920,189 @@ def _library_seed(
     }
 
 
-MODEL_SEED_ROWS = 100
+MODEL_PAGE_COLUMNS = 6
 MODEL_UNRECORDED = "Organization not recorded"
-
-
-def _preferred_name(a: str, b: str) -> str:
-    return min(a, b, key=lambda value: (value.lower(), value))
-
-
-def model_catalog(
-    catalog_index: list[dict[str, Any]], registry: dict[str, Any] | None
-) -> list[dict[str, Any]]:
-    """Every model with a reported score in the catalog, newest first.
-
-    The same population and order as modelCatalog in app.js. A model is any
-    `scored_models` name on any record; case-only spellings are one model, as
-    the registry treats them, named by the registry where it lists them. Its labs
-    come from the registry (a name filed under two labs keeps both), and the list
-    sorts by latest reported date, then name.
-    """
-    labs: dict[str, set[str]] = {}
-    names: dict[str, str] = {}
-    for entry in (registry or {}).get("models", []):
-        identity = entry["model"].lower()
-        labs.setdefault(identity, set()).add(entry["organization"])
-        names[identity] = _preferred_name(names.get(identity, entry["model"]), entry["model"])
-    models: dict[str, dict[str, Any]] = {}
-    for record in catalog_index:
-        for scored in record.get("scored_models") or []:
-            identity = scored["name"].lower()
-            model = models.setdefault(
-                identity,
-                {
-                    "name": names.get(identity, scored["name"]),
-                    "organizations": sorted(labs.get(identity, ())),
-                    "records": [],
-                    "keys": set(),
-                    "sources": set(),
-                    "latest": "",
-                },
-            )
-            model["sources"].add(record["source"])
-            if identity not in names:
-                model["name"] = _preferred_name(model["name"], scored["name"])
-            key = record.get("key") or record["slug"]
-            if key not in model["keys"]:
-                model["keys"].add(key)
-                model["records"].append(record)
-            model["latest"] = max(model["latest"], scored.get("date") or "")
-    by_name = sorted(models.values(), key=lambda model: model["name"])
-    return sorted(by_name, key=lambda model: model["latest"], reverse=True)
-
-
 MODEL_DOCUMENT_TYPES = ("model_card", "system_card", "technical_report", "release_post")
+
+
+def _model_value_text(value: float, benchmark: dict[str, Any]) -> str:
+    """Match modelValueText in app.js: one decimal and "%" on a 0-100 scale."""
+    if benchmark.get("percent"):
+        rounded = Decimal(value).quantize(Decimal("0.1"), rounding=ROUND_HALF_UP)
+        return f"{rounded.normalize():f}%" if rounded % 1 else f"{int(rounded)}%"
+    # Number(value.toPrecision(4)).toLocaleString(): four significant digits,
+    # then at most three decimals with thousands separators.
+    exponent = Decimal(value).adjusted() if value else 0
+    four = Decimal(value).quantize(Decimal(1).scaleb(exponent - 3), rounding=ROUND_HALF_UP)
+    three = four.quantize(Decimal("0.001"), rounding=ROUND_HALF_UP)
+    number = f"{three:,f}".rstrip("0").rstrip(".") if three % 1 else f"{int(three):,}"
+    return f"{number} {benchmark['unit']}" if benchmark.get("unit") else number
+
+
+def _model_seed_columns(
+    payload: dict[str, Any] | None, records: dict[str, dict[str, Any]]
+) -> list[dict[str, Any]]:
+    """Every scored model as modelMatrixModels builds it, in modelOrder."""
+    if not payload:
+        return []
+    keys = [benchmark["key"] for benchmark in payload["benchmarks"]]
+    models = []
+    for entry in payload["models"]:
+        cells = {
+            keys[score[0]]: {"value": score[1], "count": score[2] if len(score) > 2 else 1}
+            for score in entry["scores"]
+            if keys[score[0]] in records
+        }
+        if cells:
+            models.append(
+                {
+                    **entry,
+                    "organization": entry.get("organization") or MODEL_UNRECORDED,
+                    "cells": cells,
+                }
+            )
+    return order_models(models)
+
+
+def _model_matrix_seed(
+    columns: list[dict[str, Any]],
+    benchmarks: dict[str, dict[str, Any]],
+    records: dict[str, dict[str, Any]],
+) -> str:
+    """The first page of the matrix, in modelMatrixTable's markup."""
+    shown = sorted({key for column in columns for key in column["cells"]})
+    collisions: dict[tuple[str, str], int] = {}
+    for key in shown:
+        id_ = (records[key]["name"].lower(), records[key]["source"])
+        collisions[id_] = collisions.get(id_, 0) + 1
+    header = "".join(
+        '<th scope="col">'
+        f'<span class="models-col-name">{esc(model_family(column["model"])[0])}</span>'
+        + (
+            f'<span class="models-col-config">{esc(model_family(column["model"])[1])}</span>'
+            if model_family(column["model"])[1]
+            else ""
+        )
+        + '<span class="models-col-facts">'
+        + esc(
+            " · ".join(
+                [
+                    column["organization"],
+                    f"latest score {_medium_date(column['date'])}"
+                    if column.get("date")
+                    else "Date unknown",
+                    f"{len(column['cells']):,} benchmarks",
+                ]
+            )
+        )
+        + "</span></th>"
+        for column in columns
+    )
+    means, shared = shared_average(
+        [{key: cell["value"] for key, cell in column["cells"].items()} for column in columns],
+        benchmarks,
+    )
+    ranked = sorted((mean for mean in means if mean is not None), reverse=True)
+    note = (
+        f"over the {len(shared)} benchmarks all {len(columns)} models share, 0–100"
+        if shared
+        else "these models share no benchmark on a 0–100 scale. "
+        "Pick one source to compare them on the same records."
+    )
+    average = (
+        '<tbody class="models-average"><tr><th scope="row"><span>Shared-benchmark average</span>'
+        f'<span class="models-col-facts">{esc(note)}</span></th>'
+        + "".join(
+            "<td><span>—</span></td>"
+            if mean is None
+            else f"<td><strong>{mean:g}</strong>"
+            + (
+                f'<span class="models-cell-note">#{ranked.index(mean) + 1}</span>'
+                if len(columns) > 1
+                else ""
+            )
+            + "</td>"
+            for mean in means
+        )
+        + "</tr></tbody>"
+    )
+    groups: dict[str, list[dict[str, Any]]] = {group: [] for group in CAPABILITY_ORDER}
+    for key in shown:
+        groups[capability_group(records[key])].append(records[key])
+    bodies = ""
+    for group, members in groups.items():
+        if not members:
+            continue
+        rows = ""
+        for record in sorted(members, key=lambda record: (record["name"].lower(), record["key"])):
+            benchmark = benchmarks.get(record["key"]) or {}
+            label = (
+                f'<a class="models-record-name" href="/benchmarks/{esc(record["slug"])}/">'
+                f"{esc(record['name'])}</a>"
+                '<span class="models-source">'
+                f"{esc(SOURCE_LABELS.get(record['source'], record['source']))}</span>"
+            )
+            if collisions[(record["name"].lower(), record["source"])] > 1:
+                label += f'<span class="models-source">{esc(record["key"].split(":")[-1])}</span>'
+            cells = ""
+            for column in columns:
+                cell = column["cells"].get(record["key"])
+                if cell is None:
+                    cells += (
+                        '<td class="models-cell-missing"><span title="No reported score" '
+                        'aria-label="No reported score">—</span></td>'
+                    )
+                    continue
+                text = _model_value_text(cell["value"], benchmark)
+                unscaled = average_value(cell["value"], benchmark) is None
+                cells += (
+                    f'<td><button class="models-cell{" models-cell-unscaled" if unscaled else ""}" '
+                    f'type="button" data-model="{esc(column["key"])}" '
+                    f'data-record="{esc(record["key"])}" '
+                    'aria-pressed="false" '
+                    f'aria-label="{esc(column["model"])} · {esc(record["name"])} · {esc(text)}">'
+                    f"<span>{esc(text)}</span>"
+                    + (
+                        '<span class="models-cell-note" title="Not on a 0–100 scale, so it is '
+                        'shown but left out of averages">not averaged</span>'
+                        if unscaled
+                        else ""
+                    )
+                    + (
+                        f'<span class="models-cell-note">best of {cell["count"]} settings</span>'
+                        if cell["count"] > 1
+                        else ""
+                    )
+                    + "</button></td>"
+                )
+            rows += f'<tr><th scope="row">{label}</th>{cells}</tr>'
+        bodies += (
+            f'<tbody><tr class="models-group"><th colspan="{len(columns) + 1}" scope="colgroup">'
+            f'{esc(group)} <span class="models-col-facts">{len(members)}</span></th></tr>'
+            f"{rows}</tbody>"
+        )
+    return (
+        '<div class="models-matrix-scroll"><table class="models-matrix">'
+        '<caption class="visually-hidden">Reported scores by model and benchmark</caption>'
+        f'<thead><tr><th scope="col">Benchmark</th>{header}</tr></thead>'
+        f"{average}{bodies}</table></div>"
+    )
 
 
 def _models_seed(
     catalog_index: list[dict[str, Any]],
-    registry: dict[str, Any] | None,
+    model_scores: dict[str, Any] | None,
     documents: dict[str, Any] | None = None,
 ) -> dict[str, str]:
-    """Every scored model by lab, as crawlable HTML; scores stay on benchmark pages."""
-    models = model_catalog(catalog_index, registry)
-    if not models:
+    """The matrix's first page for every lab, as crawlable HTML; mirrors renderModels."""
+    records = {record["key"]: record for record in catalog_index if record.get("key")}
+    columns = _model_seed_columns(model_scores, records)
+    if not columns:
         return {}
+    benchmarks = {benchmark["key"]: benchmark for benchmark in model_scores["benchmarks"]}
     labs: dict[str, int] = {}
-    for model in models:
-        for lab in model["organizations"] or [MODEL_UNRECORDED]:
-            labs[lab] = labs.get(lab, 0) + 1
+    for column in columns:
+        labs[column["organization"]] = labs.get(column["organization"], 0) + 1
     # Labs with model documents but no scored model under that name, as in
     # the live list, so their documents stay reachable.
     for document in (documents or {}).get("documents") or []:
@@ -990,32 +1113,12 @@ def _models_seed(
         f'<span class="library-direction-name">{esc(lab)}</span>'
         f'<span class="library-direction-count">{count:,}</span></a>'
         for lab, count in sorted(
-            labs.items(), key=lambda item: (item[0] == MODEL_UNRECORDED, -item[1], item[0])
+            labs.items(),
+            key=lambda item: (item[0] == MODEL_UNRECORDED, -item[1], _collate(item[0])),
         )
         if lab != MODEL_UNRECORDED
     )
-    rows = ""
-    for model in models[:MODEL_SEED_ROWS]:
-        count = len(model["records"])
-        facts = [
-            " / ".join(model["organizations"] or [MODEL_UNRECORDED]),
-            "scores on 1 benchmark record"
-            if count == 1
-            else f"scores on {count:,} benchmark records",
-            ", ".join(SOURCE_LABELS.get(source, source) for source in sorted(model["sources"])),
-            _medium_date(model["latest"]) if model["latest"] else "Date unknown",
-        ]
-        links = "".join(
-            f'<a class="model-benchmark" href="/benchmarks/{esc(record["slug"])}/">'
-            f"{esc(record['name'])}</a>"
-            for record in sorted(model["records"], key=lambda record: record["name"])
-        )
-        rows += (
-            '<details class="model-row"><summary class="model-row-summary">'
-            f'<span class="model-document-name">{esc(model["name"])}</span>'
-            f'<span class="model-document-facts">{esc(" · ".join(facts))}</span></summary>'
-            f'<p class="model-benchmarks">{links}</p></details>'
-        )
+    page = columns[:MODEL_PAGE_COLUMNS]
     scored = sum(1 for record in catalog_index if record.get("scored_models"))
     return {
         '<nav id="models-labs" class="library-directions" aria-label="AI labs" '
@@ -1023,15 +1126,20 @@ def _models_seed(
             '<nav id="models-labs" class="library-directions" aria-label="AI labs" '
             f'data-i18n-aria="AI labs" data-seed>{nav}</nav>'
         ),
+        '<span id="models-page" aria-live="polite"></span>': (
+            '<span id="models-page" aria-live="polite" data-seed>'
+            f"1–{len(page)} of {len(columns):,} models, most benchmarks first</span>"
+        ),
         '<div id="models-list" class="models-list"></div>': (
-            f'<div id="models-list" class="models-list" data-seed>{rows}'
+            '<div id="models-list" class="models-list" data-seed>'
+            f"{_model_matrix_seed(page, benchmarks, records)}"
             '<p class="models-unscored">'
             f"{len(catalog_index) - scored:,} benchmark records have no reported model score. "
             '<a href="/library/">Browse them in the Library</a></p></div>'
         ),
         '<p id="models-status" class="library-status" aria-live="polite"></p>': (
             '<p id="models-status" class="library-status" aria-live="polite" data-seed>'
-            f"{len(models):,} models with a reported score on {scored:,} of "
+            f"{len(columns):,} models with a reported score on {scored:,} of "
             f"{len(catalog_index):,} benchmark records</p>"
         ),
     }
@@ -1043,13 +1151,13 @@ def view_seeds(
     catalog_index: list[dict[str, Any]] | None = None,
     *,
     library_taxonomy: dict[str, Any] | None = None,
-    model_registry: dict[str, Any] | None = None,
+    model_scores: dict[str, Any] | None = None,
     documents: dict[str, Any] | None = None,
 ) -> dict[str, dict[str, str]]:
     """Every view's seed, keyed by view. An empty dict means nothing to publish."""
     return {
         "library": _library_seed(catalog_index or [], library_taxonomy),
-        "models": _models_seed(catalog_index or [], model_registry, documents),
+        "models": _models_seed(catalog_index or [], model_scores, documents),
         "leaderboard": _leaderboard_seed(dashboard, catalog_index or []),
         "saturation": _score_browser_seed(dashboard, catalog_index or []),
         "trends": _trends_seed(dashboard, palette),

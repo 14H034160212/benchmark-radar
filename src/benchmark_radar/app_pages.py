@@ -42,7 +42,7 @@ from typing import Any
 
 from .app_seeds import utility_seeds, view_seeds
 from .feed import SITE_URL
-from .models_registry import build_registry
+from .model_scores import build_model_scores
 from .site_shell import breadcrumb_schema, esc, json_ld, webpage_schema
 
 # Published in this order. "map" is the view key; its path is /explore/.
@@ -344,19 +344,14 @@ def write_app_pages(
     catalog = json.loads(index_path.read_text(encoding="utf-8")) if index_path.exists() else {}
     catalog_index = catalog.get("benchmarks", [])
     documents = catalog.get("document_registry")
-    # The model registry is rebuilt from the catalog shards here, as
-    # write_model_registry does, because classify writes models.json only after
-    # these pages: reading the file would seed /models/ with the previous build's
-    # lab assignments.
+    # The Models matrix is rebuilt from the catalog shards here, as classify's
+    # write_model_scores does, because classify writes model-scores.json only
+    # after these pages: reading the file would seed /models/ with the previous
+    # build's scores.
     shard_dir = site_dir / "data" / "benchmarks"
-    model_registry = None
+    model_scores = None
     if shard_dir.is_dir() and next(shard_dir.glob("*.json"), None) is not None:
-        model_registry = {
-            "models": [
-                {"model": record.model, "organization": record.organization}
-                for record in build_registry({}, shard_dir).values()
-            ]
-        }
+        model_scores = build_model_scores(shard_dir)
     seed_dashboard = dict(dashboard)
     seed_dashboard["model_card_leaderboard"] = {
         **(documents or {}),
@@ -370,7 +365,7 @@ def write_app_pages(
         palette,
         catalog_index,
         library_taxonomy=catalog.get("library_taxonomy"),
-        model_registry=model_registry,
+        model_scores=model_scores,
         documents=documents,
     )
     dialog_seeds = utility_seeds(dashboard)

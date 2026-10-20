@@ -145,6 +145,7 @@ def _write(tmp_path: Path, dashboard: dict) -> dict:
                 "benchmarks": [
                     {
                         "slug": f"benchmark-{i}",
+                        "key": f"model-reports:benchmark-{i}",
                         "name": entry["name"],
                         "source": "model_reports",
                         "description": "",
@@ -184,6 +185,29 @@ def _write(tmp_path: Path, dashboard: dict) -> dict:
             }
         )
     )
+    # The Models matrix reads its scores from the catalog shards, as in production.
+    if entries:
+        shard = {
+            "record": {"key": "model-reports:benchmark-0"},
+            "scores_by_source": {
+                "model_reports": {
+                    "series": {
+                        "direction": "higher_is_better",
+                        "score_summary": {"display_multiplier": 1, "unit": "percent"},
+                    },
+                    "rows": [
+                        {
+                            "model_name": "Frontier-1",
+                            "organization": "Acme",
+                            "value": 74.7,
+                            "reported_date": "2026-05-14",
+                        }
+                    ],
+                }
+            },
+        }
+        (tmp_path / "data" / "benchmarks").mkdir(exist_ok=True)
+        (tmp_path / "data" / "benchmarks" / "benchmark-0.json").write_text(json.dumps(shard))
     return write_app_pages(dashboard, tmp_path)
 
 

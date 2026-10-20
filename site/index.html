@@ -560,23 +560,52 @@
         </div>
       </section>
 
-      <!-- Models, merged from benchmark-radar.com's Model Evals (#420): every model
-           with a reported score in the catalog, by lab, and each lab's own model
-           documents. Which benchmarks, never a cross-source score; the numbers
-           stay on each benchmark's page with their sources. -->
+      <!-- Models, merged from benchmark-radar.com's Model Evals (#420): a model x
+           benchmark matrix of reported scores, newest models first, with a
+           side panel per cell and .com's shared-benchmark average. -->
       <section class="view" id="models-view" aria-labelledby="models-heading" hidden>
         <div class="library-toolbar">
           <h1 id="models-heading" class="library-heading" data-i18n="Models">Models</h1>
-          <p class="models-note" data-i18n="models.note">Every model with a reported score in the catalog, by lab, and the benchmarks it has scores on. Pick a lab to also see its own model cards, with benchmarks new for that lab highlighted. Scores are on each benchmark's page.</p>
+          <p class="models-note" data-i18n="models.note">Every model with a reported score in the catalog, side by side: models are columns, benchmarks are rows. Select a score to see its setting and source.</p>
           <p id="models-status" class="library-status" aria-live="polite"></p>
         </div>
         <div class="library-layout">
           <nav id="models-labs" class="library-directions" aria-label="AI labs" data-i18n-aria="AI labs"></nav>
           <div class="library-results">
+            <div class="models-controls">
+              <label class="models-control">
+                <span data-i18n="Search models">Search models</span>
+                <input id="models-search" type="search" autocomplete="off" spellcheck="false" placeholder="Model name" data-i18n-placeholder="Model name">
+              </label>
+              <label class="models-control models-lab-menu">
+                <span data-i18n="Lab">Lab</span>
+                <select id="models-lab-select"></select>
+              </label>
+              <label class="models-control">
+                <span data-i18n="Sort">Sort</span>
+                <select id="models-sort">
+                  <option value="coverage" data-i18n="Most benchmarks">Most benchmarks</option>
+                  <option value="newest" data-i18n="Newest">Newest</option>
+                </select>
+              </label>
+              <label class="models-control">
+                <span data-i18n="Source">Source</span>
+                <select id="models-source"></select>
+              </label>
+              <label class="models-shared-toggle">
+                <input id="models-shared" type="checkbox">
+                <span data-i18n="Only benchmarks all shown models share">Only benchmarks all shown models share</span>
+              </label>
+              <div class="models-paging">
+                <button id="models-newer" class="clear-button" type="button" data-i18n="Newer">Newer</button>
+                <span id="models-page" aria-live="polite"></span>
+                <button id="models-older" class="clear-button" type="button" data-i18n="Older">Older</button>
+              </div>
+            </div>
             <div id="models-list" class="models-list"></div>
-            <button id="models-more" class="clear-button" type="button" data-i18n="Show more" hidden>Show more</button>
           </div>
         </div>
+        <aside id="models-panel" class="models-panel" aria-label="Score details" data-i18n-aria="Score details" hidden></aside>
       </section>
 
       <section class="view" id="leaderboard-view" aria-labelledby="leaderboard-heading" hidden>

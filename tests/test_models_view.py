@@ -1,17 +1,27 @@
-"""The Models view merged from benchmark-radar.com's Model Evals (#420)."""
+"""The Models matrix merged from benchmark-radar.com's Model Evals (#420)."""
 
 from __future__ import annotations
 
-import re
+import json
 import shutil
 import subprocess
 from pathlib import Path
 
 import pytest
 
-from benchmark_radar.app_seeds import _models_seed, model_catalog
+from benchmark_radar.app_seeds import _model_value_text, _models_seed
+from benchmark_radar.model_scores import (
+    average_value,
+    build_model_scores,
+    capability_group,
+    model_family,
+    order_models,
+    score_scale,
+    shared_average,
+)
 
 ROOT = Path(__file__).resolve().parents[1]
+PERCENT = {"percent": True, "direction": "higher_is_better", "unit": "%"}
 
 
 def test_models_behaviour_runs_against_the_production_functions():
@@ -21,124 +31,228 @@ def test_models_behaviour_runs_against_the_production_functions():
     subprocess.run([node, "tests/models_harness.mjs"], check=True, timeout=60, cwd=ROOT)
 
 
-def test_seed_lists_every_scored_model_by_lab_with_benchmark_links():
+# --- The shared-benchmark average's three rules -----------------------------------
+
+
+def test_rule_1_only_benchmarks_every_model_shares_count():
+    # B also reported an easy benchmark; it must not lift B above A.
+    benchmarks = {"hard": PERCENT, "easy": PERCENT}
+    means, shared = shared_average([{"hard": 40.0}, {"hard": 40.0, "easy": 99.0}], benchmarks)
+    assert means == [40.0, 40.0]
+    assert shared == ["hard"]
+
+
+def test_rule_2_scores_count_on_their_series_direction_and_scale():
+    # A fraction is put on its display scale by the series' multiplier.
+    assert score_scale({"score_summary": {"display_multiplier": 100, "raw_max": 0.6}}) == (
+        100,
+        True,
+    )
+    assert score_scale({"score_summary": {"display_multiplier": 1, "unit": "percent"}}) == (1, True)
+    assert score_scale({"declared_max": 100.0, "score_summary": {"display_multiplier": 1}}) == (
+        1,
+        True,
+    )
+    # Elo, dollars and points out of 42 are not on a 0-100 scale.
+    elo = {"declared_max": 3000.0, "score_summary": {"display_multiplier": 1, "raw_max": 1577}}
+    assert score_scale(elo) == (1, False)
+    assert (
+        score_scale({"declared_max": 42.0, "score_summary": {"display_multiplier": 1}})[1] is False
+    )
+    # A reported value outside 0-100 contradicts a percent declaration.
+    contradicted = {"score_summary": {"display_multiplier": 1, "unit": "percent", "raw_max": 140}}
+    assert score_scale(contradicted)[1] is False
+    benchmarks = {
+        "hard": PERCENT,
+        "elo": {"percent": False, "direction": "higher_is_better", "unit": "Elo"},
+        "error": {"percent": True, "direction": "lower_is_better", "unit": "%"},
+    }
+    means, shared = shared_average(
+        [
+            {"hard": 60.0, "elo": 1577.0, "error": 10.0},
+            {"hard": 80.0, "elo": 1200.0, "error": 30.0},
+        ],
+        benchmarks,
+    )
+    assert shared == ["error", "hard"]  # Elo left out
+    assert means == [75.0, 75.0]  # lower-is-better flipped: (90 + 60) / 2, (70 + 80) / 2
+    assert average_value(10.0, benchmarks["error"]) == 90.0
+    assert average_value(1577.0, benchmarks["elo"]) is None
+    assert average_value(5.0, {"percent": True, "direction": None}) is None
+
+
+def test_rule_3_the_count_of_shared_benchmarks_is_returned_and_printed(tmp_path):
+    means, shared = shared_average([{"a": 1.0}, {"b": 2.0}], {"a": PERCENT, "b": PERCENT})
+    assert (means, shared) == ([None, None], [])
+    payload, records = _fixture(tmp_path)
+    _, _, matrix, _ = _models_seed(records, payload).values()
+    assert "over the 1 benchmarks all 2 models share, 0–100" in matrix
+
+
+def test_averages_round_half_up_like_the_page():
+    assert shared_average([{"a": 0.25}], {"a": PERCENT})[0] == [0.3]
+
+
+# --- Data -------------------------------------------------------------------------
+
+
+def _shard(key, rows, *, multiplier=1, unit="percent", direction="higher_is_better", **series):
+    return {
+        "record": {"key": key},
+        "scores_by_source": {
+            "llm_stats": {
+                "series": {
+                    "direction": direction,
+                    "score_summary": {"display_multiplier": multiplier, "unit": unit},
+                    **series,
+                },
+                "rows": [
+                    {
+                        "obs_id": f"{key}:{index}",
+                        "model_name": model,
+                        "organization": org,
+                        "value": value,
+                        "reported_date": date,
+                    }
+                    for index, (model, org, value, date) in enumerate(rows)
+                ],
+            }
+        },
+    }
+
+
+def _fixture(tmp_path):
+    shards = tmp_path / "benchmarks"
+    shards.mkdir()
+    for name, shard in {
+        "aime": _shard(
+            "llm-stats:aime",
+            [
+                ("Acme-1", "Acme", 0.5, "2026-01-01"),
+                ("Acme-1", "acme", 0.7, "2026-02-01"),
+                ("Beta <1>", "Beta", 0.9, "2026-03-01"),
+            ],
+            multiplier=100,
+            unit=None,
+        ),
+        "arena": _shard(
+            "llm-stats:arena",
+            [("Acme-1", "Acme", 1500.0, "2026-01-01"), ("Beta <1>", "Beta", 1400.0, "2026-01-01")],
+            unit="elo",
+            declared_max=3000.0,
+        ),
+        "arc": _shard("model-reports:arc", [("Beta <1>", "Beta", 12.0, "2026-04-01")]),
+    }.items():
+        (shards / f"{name}.json").write_text(json.dumps(shard))
     records = [
         {
-            "slug": "aime",
             "key": "llm-stats:aime",
+            "slug": "llm-stats-aime",
             "name": "AIME",
             "source": "llm_stats",
-            "scored_models": [{"name": "Acme <One>", "date": "2026-02-01"}],
-        },
-        {"slug": "x", "key": "claire-radar:x", "name": "X", "source": "claire_radar"},
-    ]
-    registry = {"models": [{"model": "Acme <One>", "organization": "Acme"}]}
-
-    nav, rows, status = _models_seed(records, registry).values()
-
-    assert '<a class="library-direction" href="/models/?lab=Acme">' in nav
-    assert "Acme &lt;One&gt;" in rows
-    assert '<a class="model-benchmark" href="/benchmarks/aime/">AIME</a>' in rows
-    assert "1 models with a reported score on 1 of 2 benchmark records" in status
-
-
-def test_seed_order_matches_the_live_catalog():
-    records = [
-        {
-            "slug": "a",
-            "key": "k:a",
-            "name": "A",
-            "source": "s",
-            "scored_models": [
-                {"name": "beta", "date": "2026-01-01"},
-                {"name": "Alpha", "date": "2026-01-01"},
-                {"name": "Zed", "date": "2026-05-01"},
-            ],
-        },
-    ]
-    assert [model["name"] for model in model_catalog(records, None)] == ["Zed", "Alpha", "beta"]
-
-
-def test_no_scored_models_publish_no_models_page():
-    assert _models_seed([{"slug": "a", "key": "k", "name": "A", "source": "s"}], None) == {}
-    assert _models_seed([], None) == {}
-
-
-def test_models_view_never_aggregates_or_prints_scores():
-    # Two reported numbers are rarely comparable (CONTRIBUTING.md), so the
-    # merged view lists which benchmarks a model has scores on and never a
-    # value, an average or a ranking by score.
-    script = (ROOT / "site" / "assets" / "app.js").read_text(encoding="utf-8")
-    code = script.split("const MODEL_DOCUMENT_TYPES", 1)[1].split("// --- Research-direction", 1)[0]
-    code = code.split("// --- Catalog detail", 1)[0]
-    for forbidden in ("average", "score_summary", "display_max"):
-        assert forbidden not in code
-    # A score value would be read as `.value`; `Map.values()` is not one.
-    assert not re.search(r"\.value\b", code)
-
-
-def test_a_model_name_under_two_labs_is_listed_under_both():
-    records = [
-        {
-            "slug": "a",
-            "key": "k:a",
-            "name": "A",
-            "source": "s",
-            "scored_models": [{"name": "Qwen2.5-Omni-7B", "date": "2026-01-01"}],
-        }
-    ]
-    registry = {
-        "models": [
-            {"model": "Qwen2.5-Omni-7B", "organization": "Alibaba"},
-            {"model": "Qwen2.5-Omni-7B", "organization": "Qwen"},
-        ]
-    }
-    [model] = model_catalog(records, registry)
-    assert model["organizations"] == ["Alibaba", "Qwen"]
-    nav, rows, _ = _models_seed(records, registry).values()
-    assert "/models/?lab=Alibaba" in nav and "/models/?lab=Qwen" in nav
-    assert "Alibaba / Qwen" in rows
-
-
-def test_case_only_spellings_are_one_model_and_unscored_records_are_counted():
-    records = [
-        {
-            "slug": "a",
-            "key": "k:a",
-            "name": "A",
-            "source": "s",
-            "scored_models": [{"name": "MiniMax M1 40k", "date": "2026-01-01"}],
+            "categories": ["math"],
+            "scored_models": [{"name": "Acme-1"}],
         },
         {
-            "slug": "b",
-            "key": "k:b",
-            "name": "B",
-            "source": "s",
-            "scored_models": [{"name": "MiniMax M1 40K", "date": "2026-01-02"}],
-        },
-        {"slug": "c", "key": "k:c", "name": "C", "source": "s"},
-    ]
-    registry = {"models": [{"model": "MiniMax M1 40K", "organization": "MiniMax"}]}
-    [model] = model_catalog(records, registry)
-    assert model["name"] == "MiniMax M1 40K"
-    assert [record["slug"] for record in model["records"]] == ["a", "b"]
-    _, rows, _ = _models_seed(records, registry).values()
-    assert "1 benchmark records have no reported model score." in rows
-    assert '<a href="/library/">Browse them in the Library</a>' in rows
-
-
-def test_seed_lists_sources_and_document_only_labs():
-    records = [
-        {
-            "slug": "a",
-            "key": "k:a",
-            "name": "A",
+            "key": "llm-stats:arena",
+            "slug": "llm-stats-arena",
+            "name": "Arena",
             "source": "llm_stats",
-            "scored_models": [{"name": "Olmo 3", "date": "2026-01-01"}],
+            "categories": [],
+            "scored_models": [{"name": "Acme-1"}],
         },
+        {
+            "key": "model-reports:arc",
+            "slug": "arc",
+            "name": "AIME",
+            "source": "model_reports",
+            "categories": ["reasoning"],
+            "scored_models": [{"name": "Beta <1>"}],
+        },
+        {"key": "claire-radar:x", "slug": "x", "name": "X", "source": "claire_radar"},
     ]
-    registry = {"models": [{"model": "Olmo 3", "organization": "Allen Institute for AI"}]}
+    return build_model_scores(shards), records
+
+
+def test_build_keeps_each_models_best_score_per_record_on_its_display_scale(tmp_path):
+    payload, _ = _fixture(tmp_path)
+    keys = [benchmark["key"] for benchmark in payload["benchmarks"]]
+    by_model = {
+        model["model"]: {keys[score[0]]: score[1:] for score in model["scores"]}
+        for model in payload["models"]
+    }
+    # Case-only organization spellings are one registry model; its best of two
+    # settings is kept with the row count, on the display scale.
+    assert by_model["Acme-1"]["llm-stats:aime"] == [70.0, 2]
+    assert by_model["Acme-1"]["llm-stats:arena"] == [1500.0]
+    arena = payload["benchmarks"][keys.index("llm-stats:arena")]
+    assert (arena["percent"], arena["unit"]) == (False, "Elo")
+    assert next(m for m in payload["models"] if m["model"] == "Beta <1>")["date"] == "2026-04-01"
+
+
+def test_lower_is_better_keeps_the_lowest_score(tmp_path):
+    shards = tmp_path / "benchmarks"
+    shards.mkdir()
+    rows = [("M", "Lab", 9.0, "2026-01-01"), ("M", "Lab", 4.0, "2026-01-02")]
+    shard = _shard("k:err", rows, direction="lower_is_better")
+    (shards / "err.json").write_text(json.dumps(shard))
+    payload = build_model_scores(shards)
+    assert payload["models"][0]["scores"] == [[0, 4.0, 2]]
+
+
+# --- Mirrors of app.js ---------------------------------------------------------------
+
+
+def test_families_groups_and_order_match_the_page():
+    assert model_family("Claude Opus 5 (Adaptive Reasoning, High Effort)") == (
+        "Claude Opus 5",
+        "Adaptive Reasoning, High Effort",
+    )
+    assert model_family("GPT-5") == ("GPT-5", "")
+    assert capability_group({"categories": ["math", "reasoning"]}) == "Mathematics"
+    assert capability_group({"library_direction": {"categories": ["agentic-coding"]}}) == "Coding"
+    assert capability_group({"categories": ["safety"]}) == "Other"
+    family = [
+        {"organization": "A", "model": "M (high)", "date": "2026-02-01", "cells": {"x": 1}},
+        {"organization": "A", "model": "M", "date": "2026-01-01", "cells": {"x": 1}},
+        {"organization": "A", "model": "N", "date": "2026-01-15", "cells": {"x": 1, "y": 1}},
+        {"organization": "A", "model": "Old", "date": None, "cells": {"x": 1}},
+    ]
+    newest = order_models(family, "newest")
+    assert [model["model"] for model in newest] == ["M", "M (high)", "N", "Old"]
+    assert [model["model"] for model in order_models(family)] == ["N", "M", "M (high)", "Old"]
+    assert _model_value_text(74.66, PERCENT) == "74.7%"
+    assert _model_value_text(70.0, PERCENT) == "70%"
+    assert _model_value_text(1577.0, {"unit": "Elo"}) == "1,577 Elo"
+    assert _model_value_text(0.4763, {}) == "0.476"
+
+
+# --- Seed -------------------------------------------------------------------------------
+
+
+def test_seed_is_the_first_page_of_the_matrix(tmp_path):
+    payload, records = _fixture(tmp_path)
+    nav, page, matrix, status = _models_seed(records, payload).values()
+    assert '<a class="library-direction" href="/models/?lab=Acme">' in nav
+    assert "1–2 of 2 models, most benchmarks first" in page
+    # Most benchmarks first, then newest: both have scores on two records, and
+    # Beta's latest (Apr) is after Acme's (Feb).
+    assert matrix.index("Beta &lt;1&gt;") < matrix.index("Acme-1")
+    # Two records named AIME keep their sources visible.
+    assert '<span class="models-source">LLM Stats</span>' in matrix
+    assert '<span class="models-source">Model reports</span>' in matrix
+    # Elo is shown, not averaged; the best of two settings says so.
+    assert "1,500 Elo" in matrix and "not averaged" in matrix
+    assert "best of 2 settings" in matrix
+    assert "<strong>90</strong>" in matrix and "<strong>70</strong>" in matrix
+    assert "1 benchmark records have no reported model score." in matrix
+    assert "2 models with a reported score on 3 of 4 benchmark records" in status
+
+
+def test_seed_keeps_document_only_labs_and_publishes_nothing_without_scores(tmp_path):
+    payload, records = _fixture(tmp_path)
     documents = {"documents": [{"id": "d", "document_type": "release_post", "organization": "Ai2"}]}
-    nav, rows, _ = _models_seed(records, registry, documents).values()
+    nav = _models_seed(records, payload, documents)[next(iter(_models_seed(records, payload)))]
     assert "/models/?lab=Ai2" in nav
-    assert "scores on 1 benchmark record · LLM Stats" in rows
+    assert _models_seed(records, None) == {}
+    assert _models_seed([], payload) == {}
