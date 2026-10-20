@@ -592,6 +592,15 @@ def main() -> None:
             f"models: {registry_report['model_count']} "
             f"from {len(registry_report['source_counts'])} sources -> {DEFAULT_REGISTRY_OUTPUT}"
         )
+        # The Models matrix: each registry model's best reported score per
+        # record, from the same shards.
+        from .model_scores import DEFAULT_SCORES_OUTPUT, write_model_scores
+
+        scores_report = write_model_scores(DEFAULT_SHARD_DIR, DEFAULT_SCORES_OUTPUT)
+        print(
+            f"model scores: {scores_report['models']} models on "
+            f"{scores_report['benchmarks']} records -> {DEFAULT_SCORES_OUTPUT}"
+        )
 
         report = dashboard["kw_bench"]["coverage"]
         print(

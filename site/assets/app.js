@@ -354,6 +354,7 @@ function rerenderCurrentView() {
   if (state.view === "leaderboard") renderLeaderboard();
   if (state.view === "saturation") renderSaturation();
   if (state.view === "library") renderLibrary();
+  if (state.view === "models") renderModels();
   if (state.view === "trends") renderTrends();
   if (state.view === "map") renderTrendMap();
   renderStaleBanner();
@@ -415,6 +416,65 @@ const I18N = {
     "Code": "代码",
     "Data": "数据",
     "Sort": "排序",
+    "Models": "模型",
+    "models.note": "目录中所有有报告成绩的模型，并排比较：列是模型，行是 benchmark。点一个分数，查看它的设置和来源。",
+    "AI labs": "AI 实验室",
+    "All labs": "全部实验室",
+    "Model card": "模型卡",
+    "System card": "系统卡",
+    "Technical report": "技术报告",
+    "Release post": "发布文章",
+    "{n} benchmarks": "{n} 个 benchmark",
+    "{n} new for this lab": "其中 {n} 个是该实验室首次报告",
+    "First reported by this lab here": "该实验室在这份文档中首次报告",
+    "In this lab's own model documents ({n})": "该实验室自己的模型文档（{n} 份）",
+    "Organization not recorded": "未记录机构",
+    "No model with a reported score is filed under this lab.": "没有归在该实验室名下、有报告成绩的模型。",
+    "{n} benchmark records have no reported model score. ": "有 {n} 条 benchmark 记录没有任何模型的报告成绩。",
+    "Browse them in the Library": "在 Library 中查看",
+    "Search models": "搜索模型",
+    "Score details": "成绩详情",
+    "Model name": "模型名",
+    "Lab": "实验室",
+    "Previous": "上一页",
+    "Next": "下一页",
+    "Same setting only: {setting}": "只比较相同设置：{setting}",
+    "Only benchmarks all shown models share": "只看这些模型共有的 benchmark",
+    "{from}–{to} of {n} models, newest first; a model's configurations stay together": "{n} 个模型中的第 {from}–{to} 个，从新到旧；同一模型的各配置排在一起",
+    "{from}–{to} of {n} models, most benchmarks first": "{n} 个模型中的第 {from}–{to} 个，按有成绩的 benchmark 数从多到少",
+    "Most benchmarks": "benchmark 最多",
+    "Source": "来源",
+    "All sources": "全部来源",
+    "these models share no benchmark on a 0–100 scale. Pick one source to compare them on the same records.": "这些模型没有共同的 0–100 刻度 benchmark。选择一个来源，就能在相同的记录上比较。",
+    "0 models": "0 个模型",
+    "Scores and lab assignments could not be loaded; cells mark where a score is on record.": "无法加载成绩和实验室归属；单元格只标出哪里有成绩记录。",
+    "No model name matches this search.": "没有模型名匹配这个搜索。",
+    "Reported scores by model and benchmark": "按模型和 benchmark 列出的报告成绩",
+    "No reported score": "没有报告成绩",
+    "Score on record": "有成绩记录",
+    "not averaged": "不计入平均",
+    "Not on a 0–100 scale, so it is shown but left out of averages": "不是 0–100 刻度，所以只显示、不计入平均",
+    "best of {n} settings": "{n} 种设置中的最好成绩",
+    "Shared-benchmark average": "共同 benchmark 平均分",
+    "over the {n} benchmarks all {m} models share, 0–100": "基于这 {m} 个模型共有的 {n} 个 benchmark，0–100",
+    "Mathematics": "数学",
+    "Agents & Tools": "智能体与工具",
+    "Reasoning & Knowledge": "推理与知识",
+    "Close": "关闭",
+    "Loading scores…": "正在加载成绩…",
+    "Score details could not be loaded.": "无法加载成绩详情。",
+    "Scores for this model": "该模型的成绩",
+    "announced {date}": "{date} 发布",
+    "reported {date}": "{date} 报告",
+    "dated {date}": "日期 {date}",
+    "Setting not recorded": "未记录设置",
+    "measured by {who}": "由 {who} 测得",
+    "0–100 scale; counts in shared-benchmark averages.": "0–100 刻度，计入共同 benchmark 平均分。",
+    "Not on a 0–100 scale; shown, left out of averages.": "不是 0–100 刻度，只显示、不计入平均。",
+    "Top models on this record": "这条记录上成绩最高的模型",
+    "Open the benchmark page": "打开 benchmark 页面",
+    "{models} models with a reported score on {scored} of {total} benchmark records": "{models} 个模型在 {total} 条 benchmark 记录中的 {scored} 条上有报告成绩",
+    "{documents} documents · {benchmarks} benchmarks": "{documents} 份文档 · {benchmarks} 个 benchmark",
     "Searching all benchmarks (filters paused)": "搜索全部 benchmark（暂不筛选）",
     "No comparable score": "没有可比较的分数",
     "Benchmark date": "Benchmark 日期",
@@ -1316,6 +1376,18 @@ const state = {
   librarySaved: false,
   libraryVisibleLimit: 120,
   libraryTaxonomy: null,
+  // Models (#420): the selected lab (empty is every lab), the model-name
+  // search, the first column shown, and the cell whose side panel is open.
+  modelsLab: "",
+  modelsQuery: "",
+  modelsOffset: 0,
+  modelsSharedOnly: false,
+  modelsSort: "coverage",
+  modelsSource: "",
+  modelsPanel: null,
+  modelsMatrix: null,
+  // undefined until /data/model-scores.json settles; null when it failed.
+  modelScores: undefined,
   leaderboardShowAll: false,
   leaderboardTopExpanded: false,
   // Issue #530: the leaderboard opens on the latest releases; the cumulative
@@ -1568,6 +1640,13 @@ function readUrl() {
   state.librarySort = LIBRARY_SORTS.includes(params.get("lsort")) ? params.get("lsort") : "latest";
   state.librarySaved = params.get("saved") === "1";
   state.libraryVisibleLimit = LIBRARY_PAGE_SIZE;
+  state.modelsLab = (params.get("lab") || "").trim();
+  state.modelsQuery = (params.get("mq") || "").trim();
+  state.modelsSort = MODEL_SORTS.includes(params.get("msort")) ? params.get("msort") : "coverage";
+  state.modelsSource = params.get("msrc") || "";
+  state.modelsSharedOnly = params.get("mshared") === "1";
+  // ?mpage= is 1-based; a page past the end is clamped when the page renders.
+  state.modelsOffset = (Math.max(1, Number.parseInt(params.get("mpage") || "1", 10) || 1) - 1) * MODEL_PAGE_COLUMNS;
   state.lfrontier = params.get("lfrontier") || "";
   state.lfrontierExplicit = Boolean(state.lfrontier);
   // Existing benchmark permalinks follow the score history to its new tab.
@@ -1680,6 +1759,14 @@ function writeUrl(mode = "replace") {
     if (state.libraryDirection) params.set("dir", state.libraryDirection);
     if (state.librarySort !== "latest") params.set("lsort", state.librarySort);
     if (state.librarySaved) params.set("saved", "1");
+  }
+  if (!utility && state.view === "models") {
+    if (state.modelsLab) params.set("lab", state.modelsLab);
+    if (state.modelsQuery) params.set("mq", state.modelsQuery);
+    if (state.modelsSort !== "coverage") params.set("msort", state.modelsSort);
+    if (state.modelsSource) params.set("msrc", state.modelsSource);
+    if (state.modelsSharedOnly) params.set("mshared", "1");
+    if (state.modelsOffset > 0) params.set("mpage", Math.floor(state.modelsOffset / MODEL_PAGE_COLUMNS) + 1);
   }
   if (utility === "rubric" && state.rubric && state.rubric !== "current") {
     params.set("version", state.rubric);
@@ -1808,6 +1895,12 @@ const VIEW_SEO = {
     description:
       "Browse every AI benchmark in the catalog by research direction, from math and agentic coding to robotics and safety, with its paper, code and dataset.",
     canonical: "/library/",
+  },
+  models: {
+    title: "AI model benchmark scores compared, by lab | Benchmark Radar",
+    description:
+      "Every AI model with a reported benchmark score, side by side: a model-by-benchmark matrix by lab, each score with its setting and source, and a shared-benchmark average.",
+    canonical: "/models/",
   },
   leaderboard: {
     title: "Latest AI benchmark releases and rankings | Benchmark Radar",
@@ -5437,6 +5530,7 @@ function initBenchmarkSearch() {
     if (state.view === "leaderboard") renderLeaderboard();
     if (state.view === "saturation") renderSaturation();
     if (state.view === "library") renderLibrary();
+    if (state.view === "models") renderModels();
   });
 }
 
@@ -5700,6 +5794,781 @@ function initLibrary() {
   byId("library-more").addEventListener("click", () => {
     state.libraryVisibleLimit += LIBRARY_PAGE_SIZE;
     renderLibrary();
+  });
+}
+
+// --- Models ----------------------------------------------------------------
+// benchmark-radar.com's Model Evals, merged here (#420): a "model x benchmark"
+// matrix. Columns are models, newest first; rows are the benchmark records they
+// have reported scores on, grouped by .com's capability groups, each with its
+// source printed. A cell opens a side panel with every score that model
+// reported on the record, its setting, date and source, and the record's top
+// models. Above the rows, .com's shared-benchmark average compares the models
+// on the page (modelSharedAverage). A selected lab also shows its own model
+// documents, with the benchmarks it reports for the first time marked.
+const MODEL_DOCUMENT_TYPES = ["model_card", "system_card", "technical_report", "release_post"];
+const MODEL_DOCUMENT_LABELS = {
+  model_card: "Model card",
+  system_card: "System card",
+  technical_report: "Technical report",
+  release_post: "Release post",
+};
+
+function modelDocuments() {
+  return (state.catalogDocuments?.documents || [])
+    .filter((document) => MODEL_DOCUMENT_TYPES.includes(document.document_type) && document.organization)
+    .sort((a, b) => (b.published || "").localeCompare(a.published || "") || a.id.localeCompare(b.id));
+}
+
+// Per lab, which benchmarks each document reports for the first time. Dated
+// documents are read oldest first, so "new" means new to that lab, not new to
+// the corpus. An undated document has no place in that order: it neither
+// claims a first nor counts as earlier, or it would mask the real first card.
+function modelFirstMentions(documents) {
+  const firsts = new Map(documents.map((document) => [document.id, new Set()]));
+  const seenByLab = new Map();
+  const dated = documents
+    .filter((document) => document.published)
+    .sort((a, b) => a.published.localeCompare(b.published) || a.id.localeCompare(b.id));
+  for (const document of dated) {
+    const seen = seenByLab.get(document.organization);
+    const ids = (document.benchmarks || []).map((benchmark) => benchmark.benchmark_id);
+    // A lab's first dated document has nothing earlier to compare with.
+    if (seen) firsts.set(document.id, new Set(ids.filter((id) => !seen.has(id))));
+    seenByLab.set(document.organization, new Set([...(seen || []), ...ids]));
+  }
+  return firsts;
+}
+
+function modelBenchmarkLink(benchmark, isNew, recordsByKey, names) {
+  const record = recordsByKey.get(`model-reports:${benchmark.benchmark_id}`);
+  const direction = record?.library_direction?.primary;
+  const link = element("a", {
+    className: `model-benchmark${isNew ? " model-benchmark-new" : ""}`,
+    text: benchmark.name,
+    attrs: {
+      href: record ? `/benchmarks/${record.slug}/` : benchmark.url,
+      title: [direction ? names.get(direction) : null, isNew ? t("First reported by this lab here") : null]
+        .filter(Boolean).join(" · ") || null,
+    },
+  });
+  // The highlight and tooltip are not announced; say it in the link text too.
+  if (isNew) link.append(element("span", { className: "visually-hidden", text: ` (${t("First reported by this lab here")})` }));
+  return link;
+}
+
+function modelDocumentCard(document, firsts, recordsByKey, names) {
+  const fresh = firsts.get(document.id) || new Set();
+  const benchmarks = [...(document.benchmarks || [])].sort(
+    (a, b) => Number(fresh.has(b.benchmark_id)) - Number(fresh.has(a.benchmark_id)) || a.name.localeCompare(b.name),
+  );
+  return element("article", { className: "model-document" }, [
+    element("header", { className: "model-document-header" }, [
+      element("a", {
+        className: "model-document-name",
+        text: document.model_name || document.title,
+        attrs: { href: document.source_url, target: "_blank", rel: "noopener noreferrer" },
+      }),
+      element("span", { className: "model-document-facts", text: [
+        document.organization,
+        t(MODEL_DOCUMENT_LABELS[document.document_type] || document.document_type),
+        document.published ? formatDate(document.published, { dateStyle: "medium" }) : t("Date unknown"),
+        t("{n} benchmarks", { n: benchmarks.length }),
+        fresh.size ? t("{n} new for this lab", { n: fresh.size }) : null,
+      ].filter(Boolean).join(" · ") }),
+    ]),
+    element("p", { className: "model-benchmarks" }, benchmarks.map(
+      (benchmark) => modelBenchmarkLink(benchmark, fresh.has(benchmark.benchmark_id), recordsByKey, names),
+    )),
+  ]);
+}
+
+// Within one lab: the benchmarks its own model documents report most often.
+function modelLabSummary(documents, recordsByKey, names) {
+  const counts = new Map();
+  for (const document of documents) {
+    for (const benchmark of document.benchmarks || []) {
+      const entry = counts.get(benchmark.benchmark_id) || { benchmark, count: 0 };
+      entry.count += 1;
+      counts.set(benchmark.benchmark_id, entry);
+    }
+  }
+  const top = [...counts.values()].sort((a, b) => b.count - a.count || a.benchmark.name.localeCompare(b.benchmark.name)).slice(0, 12);
+  return element("p", { className: "model-benchmarks" }, top.map(({ benchmark, count }) => {
+    const link = modelBenchmarkLink(benchmark, false, recordsByKey, names);
+    link.append(element("span", { className: "model-benchmark-count", text: ` ${count}` }));
+    return link;
+  }));
+}
+
+
+// The matrix. Every model with a reported score in the catalog, from every
+// source, is a column; principle.md requires a main surface to start from the
+// full population, so "All labs" is the default and a lab or a search narrows
+// it. Models are the registry's (organization, model) identities, read from
+// /data/model-scores.json, which classify builds from the catalog shards
+// (benchmark_radar.model_scores). A model without a recorded organization stays
+// visible under "Organization not recorded" rather than being guessed into a lab.
+const MODEL_UNRECORDED = "__unrecorded__";
+const MODEL_DIRECTIONS = ["higher_is_better", "lower_is_better"];
+// .com Model Evals' capability groups, in its order, matched on whole words of
+// a record's category ids ("agentic-coding"), so "multilingual" is not
+// Multimodal. A benchmark measuring several abilities sits in the first group
+// it matches. Mirrors model_scores.capability_group.
+const MODEL_CAPABILITY_GROUPS = [
+  ["Mathematics", ["math", "mathematics"]],
+  ["Coding", ["code", "coding", "software", "frontend"]],
+  ["Agents & Tools", ["agent", "agents", "agentic", "tool", "tools", "computer"]],
+  ["Science", ["science", "scientific", "biology", "chemistry", "physics"]],
+  ["Multimodal", ["multimodal", "vision", "image", "video", "audio", "speech"]],
+  ["Reasoning & Knowledge", ["reasoning", "knowledge", "language", "multilingual"]],
+];
+const MODEL_CAPABILITY_ORDER = [
+  "Reasoning & Knowledge", "Mathematics", "Coding", "Agents & Tools", "Science", "Multimodal", "Other",
+];
+
+function modelCapabilityGroup(record) {
+  const ids = [...(record.categories || []), ...(record.library_direction?.categories || [])];
+  const words = new Set(ids.join(" ").toLowerCase().split(/[^a-z0-9]+/));
+  return MODEL_CAPABILITY_GROUPS.find(([, vocabulary]) => vocabulary.some((word) => words.has(word)))?.[0] || "Other";
+}
+
+// A series' display multiplier and whether its source states a 0-100 scale: a
+// percent unit, or a declared maximum the multiplier puts at 100. The
+// multiplier alone is display convention, not a percentage. Mirrors
+// model_scores.score_scale; the side panel reads it from the shard itself.
+function modelSeriesScale(series) {
+  const summary = series?.score_summary || {};
+  const multiplier = summary.display_multiplier || 1;
+  const unit = summary.unit || series?.unit;
+  const declared = series?.declared_max;
+  let percent = unit === "percent" || (declared !== null && declared !== undefined && declared * multiplier === 100);
+  if (summary.raw_min !== null && summary.raw_min !== undefined && summary.raw_min * multiplier < 0) percent = false;
+  if (summary.raw_max !== null && summary.raw_max !== undefined && summary.raw_max * multiplier > 100) percent = false;
+  return {
+    multiplier,
+    percent,
+    direction: MODEL_DIRECTIONS.includes(series?.direction) ? series.direction : null,
+    unit: percent ? "%" : ({ elo: "Elo", usd: "USD" }[unit] || unit || null),
+  };
+}
+
+// What a column's date is: aggregators date a score by the model's
+// announcement, model reports by the document's publication. Ties keep the
+// first source in name order. Mirrors model_scores.latest_date.
+const MODEL_DATE_LABELS = { model_announcement: "announced {date}", document_publication: "reported {date}" };
+
+function modelLatestDate(dates, source = "") {
+  const entries = source ? (dates[source] ? [dates[source]] : []) : Object.keys(dates).sort().map((key) => dates[key]);
+  let best = ["", ""];
+  for (const entry of entries) if (entry[0] > best[0]) best = entry;
+  return best;
+}
+
+// "Claude Opus 5 (Adaptive Reasoning, High Effort)" is the family "Claude Opus
+// 5" in one configuration, so a model's configurations sit side by side.
+// Mirrors model_scores.model_family.
+function modelFamily(name) {
+  const match = name.trim().match(/^(.*?)[\s-]*\(([^()]*)\)$/);
+  return match && match[1] ? [match[1], match[2]] : [name.trim(), ""];
+}
+
+function compareText(a, b) {
+  return a < b ? -1 : a > b ? 1 : 0;
+}
+
+// The shared-benchmark average, ported from .com and applied the same way to
+// every source (model_scores has the rules in full):
+// 1. only benchmarks every compared model has a score on count, so a model
+//    that reported only easy benchmarks does not get a higher average;
+// 2. a score counts on its series' direction and scale: the build multiplies
+//    each value by the series' display_multiplier, only a 0-100 display scale
+//    is averaged, and lower-is-better scores are flipped (Elo, dollars and
+//    points out of 42 stay in their cells, out of the average);
+// 3. the page shows how many shared benchmarks each average uses.
+function modelAverageValue(value, benchmark) {
+  if (value === null || !benchmark?.percent || !MODEL_DIRECTIONS.includes(benchmark.direction)) return null;
+  return benchmark.direction === "lower_is_better" ? 100 - value : value;
+}
+
+function modelSharedAverage(columns, benchmarks) {
+  if (!columns.length) return { means: [], shared: [] };
+  // Sorted keys, summed in that order, so model_scores.shared_average rounds
+  // the same float for the seed.
+  const shared = [...columns[0].keys()]
+    // One comparable group across the columns: two protocols or scaffolds on
+    // one record are not one benchmark.
+    .filter((key) => columns.every((cells) => cells.has(key) && (cells.get(key).group ?? null) === (columns[0].get(key).group ?? null))
+      && modelAverageValue(columns[0].get(key).value, benchmarks.get(key)) !== null)
+    .sort(compareText);
+  if (!shared.length) return { means: columns.map(() => null), shared };
+  const means = columns.map((cells) => {
+    const total = shared.reduce((sum, key) => sum + modelAverageValue(cells.get(key).value, benchmarks.get(key)), 0);
+    return Math.round(10 * (total / shared.length)) / 10;
+  });
+  return { means, shared };
+}
+
+// Columns from model-scores.json. Without it (a failed fetch) the page still
+// lists every scored model from the benchmark index, with its lab unknown and
+// its cells marking that a score is on record, so search, labs and paging keep
+// working and the side panel still reads each score from the record's shard.
+function modelMatrixModels(records, payload) {
+  const recordKeys = new Set(records.map((record) => record.key));
+  if (payload) {
+    const keys = payload.benchmarks.map((benchmark) => benchmark.key);
+    const benchmarks = new Map(payload.benchmarks.map((benchmark) => [benchmark.key, benchmark]));
+    const models = payload.models.map((entry) => {
+      // A source's checkpoint ID, when it splits one label into several
+      // columns (model_scores.build_model_scores), is the configuration shown.
+      const [family, ownConfiguration] = modelFamily(entry.model);
+      const configuration = entry.source_model_id || ownConfiguration;
+      const dates = entry.dates || {};
+      const [date, datePrecision] = modelLatestDate(dates);
+      const cells = new Map(entry.scores
+        .filter(([index]) => recordKeys.has(keys[index]))
+        .map(([index, value, count = 1, group = null]) => [keys[index], { value, count, group }]));
+      return {
+        key: entry.key, name: entry.model, organization: entry.organization || MODEL_UNRECORDED,
+        sourceModelId: entry.source_model_id || "", dates, date, datePrecision, family, configuration, cells,
+      };
+    }).filter((model) => model.cells.size);
+    return { models, benchmarks, scored: true };
+  }
+  const byName = new Map();
+  for (const record of records) {
+    for (const scored of record.scored_models || []) {
+      const identity = scored.name.toLowerCase();
+      let model = byName.get(identity);
+      if (!model) {
+        const [family, configuration] = modelFamily(scored.name);
+        model = {
+          key: identity, name: scored.name, organization: MODEL_UNRECORDED, dates: {}, date: "", datePrecision: "",
+          family, configuration, cells: new Map(),
+        };
+        byName.set(identity, model);
+      }
+      // Each record's own date, so a source filter can date the model by
+      // that source's records alone.
+      model.cells.set(record.key, { value: null, count: 1, group: null, date: scored.date || "", precision: scored.date_precision || "" });
+      if ((scored.date || "") > model.date) {
+        model.date = scored.date || "";
+        model.datePrecision = scored.date_precision || "";
+      }
+    }
+  }
+  return { models: [...byName.values()], benchmarks: new Map(), scored: false };
+}
+
+// Columns keep a family's configurations together. "coverage" (the default)
+// puts the models with the most benchmarks first, so the first page shares
+// enough benchmarks to compare; "newest" orders by the latest date a score was
+// reported. Families sort by their best member, then the family name; within
+// one, the base model comes first, then the same order, then the name.
+// Mirrors model_scores.order_models.
+
+function modelOrder(models, sort = "coverage") {
+  const familyKey = (model) => `${model.organization}\u0000${model.family}`;
+  const compare = (a, b) => (sort === "newest"
+    ? compareText(b.date, a.date)
+    : b.cells.size - a.cells.size || compareText(b.date, a.date));
+  const best = new Map();
+  for (const model of models) {
+    const key = familyKey(model);
+    if (!best.has(key) || compare(model, best.get(key)) < 0) best.set(key, model);
+  }
+  return [...models].sort((a, b) =>
+    compare(best.get(familyKey(a)), best.get(familyKey(b)))
+    || compareText(familyKey(a), familyKey(b))
+    || Number(Boolean(a.configuration)) - Number(Boolean(b.configuration))
+    || compare(a, b)
+    || compareText(a.name, b.name));
+}
+
+// One source's records only. Sources keep separate records for the same
+// benchmark, so models from two sources rarely share one; within a source they
+// usually do.
+function modelsFromSource(models, source, recordsByKey) {
+  if (!source) return models;
+  return models
+    .map((model) => {
+      // The date shown and sorted on is this source's, not another's.
+      const cells = new Map([...model.cells].filter(([key]) => recordsByKey.get(key)?.source === source));
+      let [date, datePrecision] = modelLatestDate(model.dates || {}, source);
+      // Fallback models carry dates on their cells instead.
+      for (const cell of cells.values()) if (cell.date && cell.date > date) [date, datePrecision] = [cell.date, cell.precision];
+      return { ...model, date, datePrecision, cells };
+    })
+    .filter((model) => model.cells.size);
+}
+
+function modelMatches(model, lab, query) {
+  return (!lab || model.organization === lab) && (!query || model.name.toLowerCase().includes(query.toLowerCase()));
+}
+
+function modelLabCounts(models) {
+  const counts = new Map();
+  for (const model of models) counts.set(model.organization, (counts.get(model.organization) || 0) + 1);
+  return [...counts].sort((a, b) =>
+    (a[0] === MODEL_UNRECORDED) - (b[0] === MODEL_UNRECORDED) || b[1] - a[1] || a[0].localeCompare(b[0]));
+}
+
+function modelLabLabel(lab) {
+  if (!lab) return t("All labs");
+  return lab === MODEL_UNRECORDED ? t("Organization not recorded") : lab;
+}
+
+function selectModelLab(lab) {
+  // Closed, not just forgotten, so the panel cannot linger undismissable;
+  // focus stays on the lab control the reader used.
+  closeModelPanel({ restoreFocus: false });
+  state.modelsLab = lab;
+  state.modelsOffset = 0;
+  renderModels();
+  writeUrl();
+}
+
+function modelLabButton(lab, count) {
+  const button = element("button", {
+    className: "library-direction",
+    attrs: { type: "button", "data-lab": lab, "aria-pressed": String(state.modelsLab === lab) },
+  }, [
+    element("span", { className: "library-direction-name", text: modelLabLabel(lab) }),
+    element("span", { className: "library-direction-count", text: count.toLocaleString() }),
+  ]);
+  button.addEventListener("click", () => selectModelLab(state.modelsLab === lab ? "" : lab));
+  return button;
+}
+
+// The lab list is updated in place while its labs are unchanged, so the button
+// a keyboard user pressed keeps focus. When it has to be rebuilt (first render
+// over the seed, or a lab appearing), focus moves to the selected lab's button
+// if it was in the list.
+function renderModelLabs(entries) {
+  const nav = byId("models-labs");
+  const existing = [...nav.querySelectorAll("button[data-lab]")];
+  if (existing.length === entries.length && existing.every((button, i) => button.dataset.lab === entries[i][0])) {
+    existing.forEach((button, i) => {
+      button.setAttribute("aria-pressed", String(state.modelsLab === entries[i][0]));
+      button.querySelector(".library-direction-count").textContent = entries[i][1].toLocaleString();
+    });
+  } else {
+    const hadFocus = nav.contains(document.activeElement);
+    replaceChildren(nav, entries.map(([lab, count]) => modelLabButton(lab, count)));
+    if (hadFocus) nav.querySelector('button[aria-pressed="true"]')?.focus();
+  }
+  // Under 720px the list collapses into this menu so the matrix comes first.
+  const select = byId("models-lab-select");
+  if (select) {
+    replaceChildren(select, entries.map(([lab, count]) => element("option", {
+      text: `${modelLabLabel(lab)} (${count.toLocaleString()})`,
+      attrs: { value: lab },
+    })));
+    select.value = state.modelsLab;
+  }
+}
+
+function modelValueText(value, benchmark) {
+  if (value === null) return "●";
+  if (benchmark?.percent) return `${Number(value.toFixed(1))}%`;
+  const number = Number(value.toPrecision(4)).toLocaleString();
+  return benchmark?.unit ? `${number} ${benchmark.unit}` : number;
+}
+
+// Two records can share a name (ARC-AGI-3 from LLM Stats and from a model
+// report), so the source is always printed beside it, and the record id too
+// when name and source still collide.
+function modelRecordLabel(record, collisions) {
+  const label = [element("a", { className: "models-record-name", text: record.name, attrs: { href: `/benchmarks/${record.slug}/` } }),
+    element("span", { className: "models-source", text: scoreSourceLabel(record.source) })];
+  if (collisions.get(`${record.name.toLowerCase()}\u0000${record.source}`) > 1) {
+    label.push(element("span", { className: "models-source", text: record.key.split(":").pop() }));
+  }
+  return label;
+}
+
+function modelCell(model, record, benchmark) {
+  const cell = model.cells.get(record.key);
+  if (!cell) {
+    return element("td", { className: "models-cell-missing" }, [
+      element("span", { text: "—", attrs: { title: t("No reported score"), "aria-label": t("No reported score") } }),
+    ]);
+  }
+  const unscaled = cell.value !== null && modelAverageValue(cell.value, benchmark) === null;
+  const selected = state.modelsPanel?.model === model.key && state.modelsPanel?.record === record.key;
+  return element("td", {}, [element("button", {
+    className: `models-cell${unscaled ? " models-cell-unscaled" : ""}`,
+    attrs: {
+      type: "button",
+      "data-model": model.key,
+      "data-record": record.key,
+      "aria-pressed": String(selected),
+      "aria-label": `${model.name} · ${record.name} · ${cell.value === null ? t("Score on record") : modelValueText(cell.value, benchmark)}`,
+    },
+  }, [
+    element("span", { text: modelValueText(cell.value, benchmark) }),
+    unscaled ? element("span", { className: "models-cell-note", text: t("not averaged"), attrs: { title: t("Not on a 0–100 scale, so it is shown but left out of averages") } }) : null,
+    cell.count > 1 ? element("span", { className: "models-cell-note", text: t("best of {n} settings", { n: cell.count }) }) : null,
+  ])]);
+}
+
+function modelColumnHeader(model) {
+  return element("th", { attrs: { scope: "col" } }, [
+    element("span", { className: "models-col-name", text: model.family }),
+    model.configuration ? element("span", { className: "models-col-config", text: model.configuration }) : null,
+    element("span", { className: "models-col-facts", text: [
+      modelLabLabel(model.organization),
+      model.date
+        ? t(MODEL_DATE_LABELS[model.datePrecision] || "dated {date}", { date: formatDate(model.date, { dateStyle: "medium" }) })
+        : t("Date unknown"),
+      t("{n} benchmarks", { n: model.cells.size.toLocaleString() }),
+    ].join(" · ") }),
+  ]);
+}
+
+function modelAverageRow(columns, average) {
+  const ranked = average.means.filter((mean) => mean !== null).sort((a, b) => b - a);
+  return element("tbody", { className: "models-average" }, [element("tr", {}, [
+    element("th", { attrs: { scope: "row" } }, [
+      element("span", { text: t("Shared-benchmark average") }),
+      element("span", { className: "models-col-facts", text: average.shared.length
+        ? t("over the {n} benchmarks all {m} models share, 0–100", { n: average.shared.length, m: columns.length })
+        : t("these models share no benchmark on a 0–100 scale. Pick one source to compare them on the same records.") }),
+    ]),
+    ...average.means.map((mean) => element("td", {}, mean === null ? [element("span", { text: "—" })] : [
+      element("strong", { text: String(mean) }),
+      columns.length > 1 ? element("span", { className: "models-cell-note", text: `#${ranked.indexOf(mean) + 1}` }) : null,
+    ])),
+  ])]);
+}
+
+function modelMatrixTable(columns, data, recordsByKey) {
+  const keys = new Set(columns.flatMap((model) => [...model.cells.keys()]));
+  const shownKeys = [...keys].filter((key) => !state.modelsSharedOnly || columns.every((model) => model.cells.has(key)));
+  const collisions = new Map();
+  for (const key of shownKeys) {
+    const record = recordsByKey.get(key);
+    const id = `${record.name.toLowerCase()}\u0000${record.source}`;
+    collisions.set(id, (collisions.get(id) || 0) + 1);
+  }
+  const groups = new Map(MODEL_CAPABILITY_ORDER.map((group) => [group, []]));
+  for (const key of shownKeys) groups.get(modelCapabilityGroup(recordsByKey.get(key))).push(recordsByKey.get(key));
+  const average = data.scored ? modelSharedAverage(columns.map((model) => model.cells), data.benchmarks) : null;
+  const bodies = [...groups].filter(([, records]) => records.length).map(([group, records]) => element("tbody", {}, [
+    element("tr", { className: "models-group" }, [element("th", {
+      attrs: { colspan: columns.length + 1, scope: "colgroup" },
+    }, [document.createTextNode(`${t(group)} `), element("span", { className: "models-col-facts", text: String(records.length) })])]),
+    ...records
+      .sort((a, b) => compareText(a.name.toLowerCase(), b.name.toLowerCase()) || compareText(a.key, b.key))
+      .map((record) => element("tr", {}, [
+        element("th", { attrs: { scope: "row" } }, modelRecordLabel(record, collisions)),
+        ...columns.map((model) => modelCell(model, record, data.benchmarks.get(record.key))),
+      ])),
+  ]));
+  return element("div", { className: "models-matrix-scroll" }, [element("table", { className: "models-matrix" }, [
+    element("caption", { className: "visually-hidden", text: t("Reported scores by model and benchmark") }),
+    element("thead", {}, [element("tr", {}, [
+      element("th", { attrs: { scope: "col" }, text: t("Benchmark") }),
+      ...columns.map(modelColumnHeader),
+    ])]),
+    average ? modelAverageRow(columns, average) : null,
+    ...bodies,
+  ])]);
+}
+
+// The side panel: every score this model reported on the record, with its
+// setting, date and source, and the record's top models for context. It reads
+// the record's own shard, the same rows its benchmark page shows.
+// The chart ranks only runs in the same comparable group as the selected
+// model's best score: runs under another protocol or scaffold on the same
+// record are not one ordered comparison. Every row of the model is listed.
+function modelPanelRows(shard, model, scored, direction) {
+  const rows = Object.values(shard?.scores_by_source || {}).flatMap((payload) => payload.rows || []);
+  const better = (a, b) => (direction === "lower_is_better" ? a.value < b.value : a.value > b.value);
+  const mine = rows.filter((row) => (row.model_name || "").toLowerCase() === model.name.toLowerCase()
+    && (!scored || (row.organization || "").toLowerCase() === model.organization.toLowerCase())
+    && (!model.sourceModelId || row.model_id === model.sourceModelId));
+  const lead = mine.filter((row) => typeof row.value === "number").reduce((top, row) => (!top || better(row, top) ? row : top), null);
+  const cohort = lead?.comparable_group ?? null;
+  // A label the source files under several checkpoint IDs (GPT-4o's May and
+  // August IDs) is one chart entry per ID, as it is one column per ID.
+  const label = (row) => `${(row.organization || "").toLowerCase()}\u0000${(row.model_name || "").toLowerCase()}`;
+  const ids = new Map();
+  for (const row of rows) if (row.model_id) ids.set(label(row), new Set([...(ids.get(label(row)) || []), row.model_id]));
+  const identity = (row) => (ids.get(label(row))?.size > 1 ? `${label(row)}\u0000${row.model_id}` : label(row));
+  const best = new Map();
+  for (const row of rows) {
+    if (cohort !== null && row.comparable_group !== cohort) continue;
+    if (typeof row.value !== "number") continue;
+    const id = identity(row);
+    const current = best.get(id);
+    if (!current || better(row, current)) best.set(id, row);
+  }
+  // The selected column's own entry: its checkpoint when it has one.
+  const own = (row) => (row.model_name || "").toLowerCase() === model.name.toLowerCase()
+    && (!model.sourceModelId || row.model_id === model.sourceModelId);
+  return { mine, best: [...best.values()], lead, own };
+}
+
+function closeModelPanel({ restoreFocus = true } = {}) {
+  const panel = byId("models-panel");
+  if (!panel || !state.modelsPanel) return;
+  const { model, record } = state.modelsPanel;
+  state.modelsPanel = null;
+  panel.hidden = true;
+  document.body.classList.remove("models-panel-open");
+  for (const cell of byId("models-list").querySelectorAll("button.models-cell[aria-pressed=\"true\"]")) {
+    cell.setAttribute("aria-pressed", "false");
+  }
+  // Back to the cell that opened it, where the reader was.
+  if (restoreFocus) byId("models-list").querySelector(`button.models-cell[data-model="${CSS.escape(model)}"][data-record="${CSS.escape(record)}"]`)?.focus();
+}
+
+function openModelPanel(model, record, data) {
+  const panel = byId("models-panel");
+  state.modelsPanel = { model: model.key, record: record.key };
+  for (const cell of byId("models-list").querySelectorAll("button.models-cell")) {
+    cell.setAttribute("aria-pressed", String(cell.dataset.model === model.key && cell.dataset.record === record.key));
+  }
+  const body = element("div", { className: "models-panel-body" }, [element("p", { className: "library-status", text: t("Loading scores…") })]);
+  replaceChildren(panel, [
+    element("div", { className: "models-panel-head" }, [
+      element("div", {}, [
+        element("h2", { text: record.name }),
+        element("p", { className: "models-col-facts" }, [
+          element("span", { className: "models-source", text: scoreSourceLabel(record.source) }),
+          document.createTextNode(` ${model.name} · ${modelLabLabel(model.organization)}`),
+        ]),
+      ]),
+      element("button", { className: "clear-button", text: t("Close"), attrs: { type: "button", id: "models-panel-close" } }),
+    ]),
+    body,
+  ]);
+  panel.hidden = false;
+  document.body.classList.add("models-panel-open");
+  byId("models-panel-close").addEventListener("click", () => closeModelPanel());
+  byId("models-panel-close").focus();
+  loadBenchmarkShard(record.slug).then((shard) => {
+    if (state.modelsPanel?.model !== model.key || state.modelsPanel?.record !== record.key) return;
+    if (!shard) {
+      replaceChildren(body, [element("p", { className: "empty-state", text: t("Score details could not be loaded.") })]);
+      return;
+    }
+    // The record's own series decides scale and direction, so the panel is
+    // right even when model-scores.json did not load.
+    const scale = modelSeriesScale(shard.scores_by_source?.[record.source]?.series);
+    const { multiplier } = scale;
+    const { mine, best, lead, own } = modelPanelRows(shard, model, data.scored, scale.direction);
+    const display = (row) => modelValueText(typeof row.value === "number" ? row.value * multiplier : null, scale);
+    const top = best.sort((a, b) => (scale.direction === "lower_is_better" ? a.value - b.value : b.value - a.value)).slice(0, 10);
+    if (!top.some(own) && lead) top.push(lead);
+    const extent = Math.max(scale.percent ? 100 / multiplier : 0, ...top.map((row) => Math.abs(row.value)), 1e-9);
+    replaceChildren(body, [
+      element("h3", { text: t("Scores for this model") }),
+      element("ul", { className: "models-panel-scores" }, mine.map((row) => element("li", {}, [
+        element("strong", { text: display(row) }),
+        element("span", { text: [
+          modelRowSetting(row) || t("Setting not recorded"),
+          row.reported_date || row.reported_at
+            ? t(MODEL_DATE_LABELS[row.date_precision] || "dated {date}", { date: formatDate(row.reported_date || row.reported_at, { dateStyle: "medium" }) })
+            : t("Date unknown"),
+          row.measured_by && row.measured_by !== model.organization ? t("measured by {who}", { who: row.measured_by }) : null,
+        ].filter(Boolean).join(" · ") }),
+        row.source_url ? element("a", {
+          text: row.source_title || scoreSourceLabel(row.source),
+          attrs: { href: row.source_url, target: "_blank", rel: "noopener noreferrer" },
+        }) : null,
+      ]))),
+      element("p", { className: "models-col-facts", text: scale.percent
+        ? t("0–100 scale; counts in shared-benchmark averages.")
+        : t("Not on a 0–100 scale; shown, left out of averages.") }),
+      element("h3", { text: t("Top models on this record") }),
+      lead && modelRowSetting(lead) ? element("p", { className: "models-col-facts", text: t("Same setting only: {setting}", { setting: modelRowSetting(lead) }) }) : null,
+      element("ol", { className: "models-panel-chart" }, top.map((row) => element("li", { className: own(row) ? "is-selected" : "" }, [
+        element("span", { className: "models-panel-model", text: row.model_name }),
+        element("span", { className: "models-panel-bar", attrs: { style: `--share:${Math.max(0, Math.min(1, Math.abs(row.value) / extent)).toFixed(3)}` } }),
+        element("span", { className: "models-panel-value", text: display(row) }),
+      ]))),
+      element("a", { text: t("Open the benchmark page"), attrs: { href: `/benchmarks/${record.slug}/` } }),
+    ]);
+  });
+}
+
+// A row's setting: its test version when that differs from the record
+// (Terminal-Bench 2.1, 3.0, 4.0 under one protocol), then its protocol.
+function modelRowSetting(row) {
+  return [row.instrument && row.instrument !== row.benchmark_id ? row.instrument : null, row.protocol]
+    .filter(Boolean).join(" · ");
+}
+
+let modelScoresPromise = null;
+function loadModelScores() {
+  if (!modelScoresPromise) {
+    modelScoresPromise = fetch("/data/model-scores.json", { cache: "no-cache" })
+      .then((response) => (response.ok ? response.json() : null))
+      .then((payload) => (Array.isArray(payload?.models) && Array.isArray(payload?.benchmarks) ? payload : null))
+      .catch(() => null);
+  }
+  return modelScoresPromise;
+}
+
+function modelMatrixData() {
+  const cache = state.modelsMatrix;
+  if (cache?.records === state.benchmarkIndex && cache?.scores === state.modelScores) return cache.data;
+  const records = state.benchmarkIndex;
+  const data = modelMatrixModels(records, state.modelScores);
+  data.recordsByKey = new Map(records.map((record) => [record.key, record]));
+  data.scoredRecords = records.filter((record) => record.scored_models?.length).length;
+  state.modelsMatrix = { records, scores: state.modelScores, data };
+  return data;
+}
+
+function renderModels() {
+  const list = byId("models-list");
+  const status = byId("models-status");
+  if (!list) return;
+  // Controls are bound before anything can fail, so labs, search and paging
+  // work whatever loaded.
+  initModels();
+  if (!state.benchmarkIndexLoaded || state.modelScores === undefined) {
+    status.textContent = t("Still checking the benchmark registry…");
+    Promise.all([loadBenchmarkIndex(), loadModelScores()]).then(([records, scores]) => {
+      state.benchmarkIndex = records;
+      state.benchmarkIndexLoaded = true;
+      state.modelScores = scores;
+      if (state.view === "models") renderModels();
+    });
+    return;
+  }
+  if (!state.benchmarkIndex) {
+    // Keep the server-seeded matrix, the fallback for this case, beside the error.
+    status.textContent = t("The benchmark catalog could not be loaded.");
+    return;
+  }
+  const records = state.benchmarkIndex;
+  const data = modelMatrixData();
+  // A lab whose model documents are on record but whose scored models are filed
+  // under another spelling (Ai2's Olmo 3 post; scores say Allen Institute for AI)
+  // still gets an entry, with zero models, so its documents can be opened.
+  const sources = [...new Set(data.models.flatMap((model) => [...model.cells.keys()].map((key) => data.recordsByKey.get(key).source)))].sort();
+  if (state.modelsSource && !sources.includes(state.modelsSource)) state.modelsSource = "";
+  replaceChildren(byId("models-source"), ["", ...sources].map((source) => element("option", {
+    text: source ? scoreSourceLabel(source) : t("All sources"), attrs: { value: source },
+  })));
+  byId("models-source").value = state.modelsSource;
+  byId("models-sort").value = state.modelsSort;
+  const pool = modelsFromSource(data.models, state.modelsSource, data.recordsByKey);
+  const labs = modelLabCounts(pool);
+  for (const lab of new Set(modelDocuments().map((document) => document.organization))) {
+    if (!labs.some(([name]) => name === lab)) labs.push([lab, 0]);
+  }
+  if (state.modelsLab && !labs.some(([lab]) => lab === state.modelsLab)) state.modelsLab = "";
+  renderModelLabs([["", pool.length], ...labs]);
+  // From here the lab menu works, so narrow screens may swap the seeded links
+  // for it (styles.css); without this, they keep the links.
+  byId("models-view").dataset.hydrated = "1";
+  const search = byId("models-search");
+  if (search && document.activeElement !== search) search.value = state.modelsQuery;
+  byId("models-shared").checked = state.modelsSharedOnly;
+  const selection = modelOrder(pool.filter((model) => modelMatches(model, state.modelsLab, state.modelsQuery)), state.modelsSort);
+  if (state.modelsOffset >= selection.length) {
+    state.modelsOffset = Math.max(0, Math.floor((selection.length - 1) / MODEL_PAGE_COLUMNS) * MODEL_PAGE_COLUMNS);
+  }
+  const columns = selection.slice(state.modelsOffset, state.modelsOffset + MODEL_PAGE_COLUMNS);
+  byId("models-newer").disabled = state.modelsOffset === 0;
+  byId("models-older").disabled = state.modelsOffset + MODEL_PAGE_COLUMNS >= selection.length;
+  byId("models-page").textContent = selection.length
+    ? t(state.modelsSort === "newest" ? "{from}–{to} of {n} models, newest first; a model's configurations stay together" : "{from}–{to} of {n} models, most benchmarks first", {
+      from: state.modelsOffset + 1, to: state.modelsOffset + columns.length, n: selection.length.toLocaleString(),
+    })
+    : t("0 models");
+  const narrowed = Boolean(state.modelsLab || state.modelsQuery || state.modelsSource);
+  status.textContent = (data.scored ? "" : `${t("Scores and lab assignments could not be loaded; cells mark where a score is on record.")} `)
+    + t("{models} models with a reported score on {scored} of {total} benchmark records", {
+      models: selection.length.toLocaleString(),
+      // The selection's own coverage when narrowed, not every lab's.
+      scored: (narrowed ? new Set(selection.flatMap((model) => [...model.cells.keys()])).size : data.scoredRecords).toLocaleString(),
+      total: records.length.toLocaleString(),
+    });
+  // The lab's own model documents, when it has any: which benchmarks it chose
+  // to report, with first mentions marked. Collapsed above the matrix, so the
+  // first screen stays the lab's models.
+  const documents = state.modelsLab ? modelDocuments().filter((document) => document.organization === state.modelsLab) : [];
+  const names = libraryCategoryNames();
+  const firsts = modelFirstMentions(modelDocuments());
+  replaceChildren(list, [
+    documents.length ? element("details", { className: "model-summary" }, [
+      element("summary", { className: "model-summary-heading", text: t("In this lab's own model documents ({n})", { n: documents.length }) }),
+      modelLabSummary(documents, data.recordsByKey, names),
+      ...documents.map((document) => modelDocumentCard(document, firsts, data.recordsByKey, names)),
+    ]) : null,
+    columns.length ? modelMatrixTable(columns, data, data.recordsByKey) : element("p", { className: "empty-state", text: state.modelsQuery
+      ? t("No model name matches this search.")
+      // A document-only lab (Ai2) has documents above and no scored model
+      // under that name; say that, rather than that nothing matched.
+      : t("No model with a reported score is filed under this lab.") }),
+    // Records with no reported model score have no column to sit in, but a
+    // missing measurement must not hide them (principle.md): they are counted
+    // here and every one is listed in the Library.
+    narrowed ? null : element("p", { className: "models-unscored" }, [
+      document.createTextNode(t("{n} benchmark records have no reported model score. ", {
+        n: (records.length - data.scoredRecords).toLocaleString(),
+      })),
+      element("a", { text: t("Browse them in the Library"), attrs: { href: "/library/" } }),
+    ]),
+  ]);
+  // An open panel stays open while its model is still on the page.
+  // A source filter can drop the record while keeping the model, and the
+  // shared-only toggle can hide its row.
+  const panelRecord = state.modelsPanel?.record;
+  const panelShown = columns.some((model) => model.key === state.modelsPanel?.model && model.cells.has(panelRecord))
+    && (!state.modelsSharedOnly || columns.every((model) => model.cells.has(panelRecord)));
+  if (state.modelsPanel && !panelShown) closeModelPanel();
+}
+
+function initModels() {
+  const list = byId("models-list");
+  if (!list || list.dataset.bound === "1") return;
+  list.dataset.bound = "1";
+  const page = (step) => {
+    state.modelsOffset = Math.max(0, state.modelsOffset + step);
+    renderModels();
+    writeUrl("push");
+  };
+  byId("models-newer").addEventListener("click", () => page(-MODEL_PAGE_COLUMNS));
+  byId("models-older").addEventListener("click", () => page(MODEL_PAGE_COLUMNS));
+  const search = byId("models-search");
+  const searchModels = debounce(() => {
+    state.modelsQuery = search.value.trim();
+    state.modelsOffset = 0;
+    renderModels();
+    writeUrl();
+  });
+  search.addEventListener("input", () => searchModels());
+  byId("models-lab-select").addEventListener("change", (event) => selectModelLab(event.target.value));
+  for (const [id, key] of [["models-sort", "modelsSort"], ["models-source", "modelsSource"]]) {
+    byId(id).addEventListener("change", (event) => {
+      state[key] = event.target.value;
+      state.modelsOffset = 0;
+      renderModels();
+      writeUrl();
+    });
+  }
+  byId("models-shared").addEventListener("change", (event) => {
+    state.modelsSharedOnly = event.target.checked;
+    renderModels();
+    writeUrl();
+  });
+  list.addEventListener("click", (event) => {
+    const cell = event.target.closest("button.models-cell");
+    if (!cell || !state.benchmarkIndex) return;
+    const data = modelMatrixData();
+    const model = data.models.find((entry) => entry.key === cell.dataset.model);
+    const record = data.recordsByKey.get(cell.dataset.record);
+    if (model && record) openModelPanel(model, record, data);
+  });
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && state.modelsPanel) closeModelPanel();
   });
 }
 
@@ -8232,6 +9101,10 @@ const LATEST_WINDOWS = ["7d", "30d", "90d"];
 // The Library's address parameters, read and written with the other views'.
 const LIBRARY_PAGE_SIZE = 120;
 const LIBRARY_SORTS = ["latest", "documented", "name"];
+// The Models matrix's column orders (modelOrder); the first is the default.
+const MODEL_SORTS = ["coverage", "newest"];
+// Models per matrix page; ?mpage= counts these.
+const MODEL_PAGE_COLUMNS = 6;
 const LATEST_WINDOW_DAYS = { "7d": 7, "30d": 30, "90d": 90 };
 // Order and wording follow the signals issue #530 names. Each component's
 // weight is read from the payload rather than restated here, so a re-weighted
@@ -9661,6 +10534,7 @@ function bindEvents() {
       if (view === "leaderboard") renderLeaderboard();
       if (view === "saturation") renderSaturation();
       if (view === "library") renderLibrary();
+      if (view === "models") renderModels();
       if (view === "trends") renderTrends();
       if (view === "map") renderTrendMap();
       try {
@@ -10318,6 +11192,7 @@ async function initialize() {
     if (state.view === "leaderboard") renderLeaderboard();
     if (state.view === "saturation") renderSaturation();
     if (state.view === "library") renderLibrary();
+    if (state.view === "models") renderModels();
     if (state.view === "trends") renderTrends();
     if (state.view === "map") renderTrendMap();
 
