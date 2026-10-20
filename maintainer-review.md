@@ -6,8 +6,8 @@ first "no" and request changes. These checks add to the rules in
 
 ## Review depth
 
-Read the before and after screenshots and the issue table in the description
-before running CI. If you cannot say in one sentence what a reader sees
+Read the before and after screenshots (or pasted text for CLI output) and the
+issue table in the description before running CI. If you cannot say in one sentence what a reader sees
 differently, request changes without running the six CI steps.
 
 ## 1. Did the human contributor answer the four questions?
@@ -80,10 +80,11 @@ your check then cannot slip in. Never squash.
 
 Open the issue and the PR description side by side. List each thing the issue
 asks for. Mark each as done or not done in the diff, then check the before and
-after screenshots at one viewport.
+after screenshots at one viewport, or the before and after text for CLI output.
 
 - Request changes when the PR does a small part of the issue but says `Closes`.
   It should say `Related to`, and the rest stays open.
-- Request changes when the after screenshot is harder to read than the before.
+- Request changes when the after screenshot or CLI output is harder to read than
+  the before.
 - A PR with no link to an existing issue is closed by automation. Do not review
   it. Only bot-authored PRs are exempt.
