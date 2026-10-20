@@ -6290,15 +6290,24 @@ function modelPanelRows(shard, model, scored, direction) {
     && (!model.sourceModelId || row.model_id === model.sourceModelId));
   const lead = mine.filter((row) => typeof row.value === "number").reduce((top, row) => (!top || better(row, top) ? row : top), null);
   const cohort = lead?.comparable_group ?? null;
+  // A label the source files under several checkpoint IDs (GPT-4o's May and
+  // August IDs) is one chart entry per ID, as it is one column per ID.
+  const label = (row) => `${(row.organization || "").toLowerCase()}\u0000${(row.model_name || "").toLowerCase()}`;
+  const ids = new Map();
+  for (const row of rows) if (row.model_id) ids.set(label(row), new Set([...(ids.get(label(row)) || []), row.model_id]));
+  const identity = (row) => (ids.get(label(row))?.size > 1 ? `${label(row)}\u0000${row.model_id}` : label(row));
   const best = new Map();
   for (const row of rows) {
     if (cohort !== null && row.comparable_group !== cohort) continue;
     if (typeof row.value !== "number") continue;
-    const id = `${(row.organization || "").toLowerCase()}\u0000${(row.model_name || "").toLowerCase()}`;
+    const id = identity(row);
     const current = best.get(id);
     if (!current || better(row, current)) best.set(id, row);
   }
-  return { mine, best: [...best.values()], lead };
+  // The selected column's own entry: its checkpoint when it has one.
+  const own = (row) => (row.model_name || "").toLowerCase() === model.name.toLowerCase()
+    && (!model.sourceModelId || row.model_id === model.sourceModelId);
+  return { mine, best: [...best.values()], lead, own };
 }
 
 function closeModelPanel({ restoreFocus = true } = {}) {
@@ -6349,10 +6358,9 @@ function openModelPanel(model, record, data) {
     // right even when model-scores.json did not load.
     const scale = modelSeriesScale(shard.scores_by_source?.[record.source]?.series);
     const { multiplier } = scale;
-    const { mine, best, lead } = modelPanelRows(shard, model, data.scored, scale.direction);
+    const { mine, best, lead, own } = modelPanelRows(shard, model, data.scored, scale.direction);
     const display = (row) => modelValueText(typeof row.value === "number" ? row.value * multiplier : null, scale);
     const top = best.sort((a, b) => (scale.direction === "lower_is_better" ? a.value - b.value : b.value - a.value)).slice(0, 10);
-    const own = (row) => (row.model_name || "").toLowerCase() === model.name.toLowerCase();
     if (!top.some(own) && lead) top.push(lead);
     const extent = Math.max(scale.percent ? 100 / multiplier : 0, ...top.map((row) => Math.abs(row.value)), 1e-9);
     replaceChildren(body, [
@@ -6510,8 +6518,12 @@ function renderModels() {
     ]),
   ]);
   // An open panel stays open while its model is still on the page.
-  // A source filter can drop the record while keeping the model.
-  if (state.modelsPanel && !columns.some((model) => model.key === state.modelsPanel.model && model.cells.has(state.modelsPanel.record))) closeModelPanel();
+  // A source filter can drop the record while keeping the model, and the
+  // shared-only toggle can hide its row.
+  const panelRecord = state.modelsPanel?.record;
+  const panelShown = columns.some((model) => model.key === state.modelsPanel?.model && model.cells.has(panelRecord))
+    && (!state.modelsSharedOnly || columns.every((model) => model.cells.has(panelRecord)));
+  if (state.modelsPanel && !panelShown) closeModelPanel();
 }
 
 function initModels() {

@@ -345,11 +345,17 @@ assert.match(byId("models-panel").textContent, /67%/);
 assert.deepEqual(state.modelsPanel, { model: "acme-7", record: "llm-stats:b7" });
 assert.equal(byId("models-panel").hidden, false);
 assert.equal(document.activeElement, byId("models-panel-close"));
-byId("models-shared").dispatch("change", { target: { checked: true } });
+models.renderModels();
 assert.deepEqual(state.modelsPanel, { model: "acme-7", record: "llm-stats:b7" });
 assert.equal(byId("models-panel").hidden, false);
-byId("models-shared").dispatch("change", { target: { checked: false } });
 assert.equal(byId("models-list").querySelector('button.models-cell[data-model="acme-7"]').getAttribute("aria-pressed"), "true");
+// The shared-only toggle hides a row the other columns lack, so it closes a
+// panel open on that row.
+byId("models-shared").dispatch("change", { target: { checked: true } });
+assert.equal(state.modelsPanel, null);
+assert.equal(byId("models-panel").hidden, true);
+byId("models-shared").dispatch("change", { target: { checked: false } });
+byId("models-list").querySelector('button.models-cell[data-model="acme-7"]').click();
 // Paging past that model closes its panel instead of describing an off-page cell.
 byId("models-older").click();
 assert.equal(state.modelsPanel, null);
@@ -485,6 +491,10 @@ await tick();
 const mineList = byId("models-panel").querySelector("ul.models-panel-scores").textContent;
 assert.match(mineList, /85\.7%/);
 assert.doesNotMatch(mineList, /88\.7%/);
+// The chart has one entry per checkpoint, and highlights this column's.
+const entries = byId("models-panel").querySelector("ol.models-panel-chart").querySelectorAll("li");
+assert.equal(entries.length, 2);
+assert.match(entries.find((entry) => entry.className === "is-selected").textContent, /85\.7%/);
 state.modelsQuery = "";
 
 // Without model-scores.json, a source filter dates each model by that
