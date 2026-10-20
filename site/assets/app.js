@@ -440,7 +440,7 @@ const I18N = {
     "Next": "下一页",
     "Same setting only: {setting}": "只比较相同设置：{setting}",
     "Only benchmarks all shown models share": "只看这些模型共有的 benchmark",
-    "{from}–{to} of {n} models, newest first by latest reported score": "{n} 个模型中的第 {from}–{to} 个，按最近报告成绩的日期从新到旧",
+    "{from}–{to} of {n} models, newest first by the date each column shows": "{n} 个模型中的第 {from}–{to} 个，按各列显示的日期从新到旧",
     "{from}–{to} of {n} models, most benchmarks first": "{n} 个模型中的第 {from}–{to} 个，按有成绩的 benchmark 数从多到少",
     "Most benchmarks": "benchmark 最多",
     "Source": "来源",
@@ -6355,7 +6355,7 @@ function openModelPanel(model, record, data) {
       element("ul", { className: "models-panel-scores" }, mine.map((row) => element("li", {}, [
         element("strong", { text: display(row) }),
         element("span", { text: [
-          row.protocol || t("Setting not recorded"),
+          modelRowSetting(row) || t("Setting not recorded"),
           row.reported_date || row.reported_at
             ? t(MODEL_DATE_LABELS[row.date_precision] || "dated {date}", { date: formatDate(row.reported_date || row.reported_at, { dateStyle: "medium" }) })
             : t("Date unknown"),
@@ -6370,7 +6370,7 @@ function openModelPanel(model, record, data) {
         ? t("0–100 scale; counts in shared-benchmark averages.")
         : t("Not on a 0–100 scale; shown, left out of averages.") }),
       element("h3", { text: t("Top models on this record") }),
-      lead?.protocol ? element("p", { className: "models-col-facts", text: t("Same setting only: {setting}", { setting: lead.protocol }) }) : null,
+      lead && modelRowSetting(lead) ? element("p", { className: "models-col-facts", text: t("Same setting only: {setting}", { setting: modelRowSetting(lead) }) }) : null,
       element("ol", { className: "models-panel-chart" }, top.map((row) => element("li", { className: own(row) ? "is-selected" : "" }, [
         element("span", { className: "models-panel-model", text: row.model_name }),
         element("span", { className: "models-panel-bar", attrs: { style: `--share:${Math.max(0, Math.min(1, Math.abs(row.value) / extent)).toFixed(3)}` } }),
@@ -6379,6 +6379,13 @@ function openModelPanel(model, record, data) {
       element("a", { text: t("Open the benchmark page"), attrs: { href: `/benchmarks/${record.slug}/` } }),
     ]);
   });
+}
+
+// A row's setting: its test version when that differs from the record
+// (Terminal-Bench 2.1, 3.0, 4.0 under one protocol), then its protocol.
+function modelRowSetting(row) {
+  return [row.instrument && row.instrument !== row.benchmark_id ? row.instrument : null, row.protocol]
+    .filter(Boolean).join(" · ");
 }
 
 let modelScoresPromise = null;
@@ -6458,7 +6465,7 @@ function renderModels() {
   byId("models-newer").disabled = state.modelsOffset === 0;
   byId("models-older").disabled = state.modelsOffset + MODEL_PAGE_COLUMNS >= selection.length;
   byId("models-page").textContent = selection.length
-    ? t(state.modelsSort === "newest" ? "{from}–{to} of {n} models, newest first by latest reported score" : "{from}–{to} of {n} models, most benchmarks first", {
+    ? t(state.modelsSort === "newest" ? "{from}–{to} of {n} models, newest first by the date each column shows" : "{from}–{to} of {n} models, most benchmarks first", {
       from: state.modelsOffset + 1, to: state.modelsOffset + columns.length, n: selection.length.toLocaleString(),
     })
     : t("0 models");
@@ -6498,7 +6505,8 @@ function renderModels() {
     ]),
   ]);
   // An open panel stays open while its model is still on the page.
-  if (state.modelsPanel && !columns.some((model) => model.key === state.modelsPanel.model)) closeModelPanel();
+  // A source filter can drop the record while keeping the model.
+  if (state.modelsPanel && !columns.some((model) => model.key === state.modelsPanel.model && model.cells.has(state.modelsPanel.record))) closeModelPanel();
 }
 
 function initModels() {

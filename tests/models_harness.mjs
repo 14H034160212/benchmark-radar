@@ -425,6 +425,32 @@ assert.equal(state.modelsPanel, null);
 assert.equal(byId("models-panel").hidden, true);
 assert.equal(document.activeElement, acmeLab);
 
+// A setting names its test version when it differs from the record.
+reset(payload);
+models.renderModels();
+shards.set("llm-stats-b5", { scores_by_source: { llm_stats: {
+  series: { direction: "higher_is_better", score_summary: { display_multiplier: 1, unit: "percent" } },
+  rows: [
+    { model_name: "Acme-5", organization: "Acme", value: 30, benchmark_id: "b5", instrument: "b5_3.0", protocol: "think max", comparable_group: "x" },
+    { model_name: "Acme-5", organization: "Acme", value: 90, benchmark_id: "b5", instrument: "b5_2.1", protocol: "think max", comparable_group: "y" },
+  ],
+} } });
+byId("models-list").querySelector('button.models-cell[data-model="acme-5"]').click();
+await tick();
+assert.match(byId("models-panel").textContent, /b5_3\.0 · think max/);
+assert.match(byId("models-panel").textContent, /Same setting only: b5_2\.1 · think max/);
+// A source filter that drops the opened record closes the panel, even while
+// its model stays on the page.
+state.modelsQuery = "acme-2";
+models.renderModels();
+byId("models-list").querySelector('button.models-cell[data-model="acme-2"][data-record="model-reports:arc_agi_3"]').click();
+byId("models-source").dispatch("change", { target: { value: "llm_stats" } });
+assert.deepEqual(columnNames(), ["Acme-2"]);
+assert.equal(state.modelsPanel, null);
+assert.equal(byId("models-panel").hidden, true);
+state.modelsSource = "";
+state.modelsQuery = "";
+
 // Without model-scores.json, a source filter dates each model by that
 // source's records only.
 reset(null);
