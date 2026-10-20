@@ -388,6 +388,35 @@ assert.match(byId("models-list").querySelector("thead").textContent, /reported 2
 byId("models-source").dispatch("change", { target: { value: "" } });
 byId("models-sort").dispatch("change", { target: { value: "newest" } });
 assert.equal(columnNames()[0], "Acme-7");
+// The chart ranks only runs in the selected score's comparable group: a run
+// under another scaffold on the same record is listed for its own model, never
+// ranked against this one.
+reset(payload);
+models.renderModels();
+shards.set("llm-stats-b6", { scores_by_source: { llm_stats: {
+  series: { direction: "higher_is_better", score_summary: { display_multiplier: 1, unit: "percent" } },
+  rows: [
+    { model_name: "Acme-6", organization: "Acme", value: 50, protocol: "scaffold A", comparable_group: "A" },
+    { model_name: "Rival", organization: "Other", value: 90, protocol: "scaffold B", comparable_group: "B" },
+    { model_name: "Peer", organization: "Other", value: 40, protocol: "scaffold A", comparable_group: "A" },
+  ],
+} } });
+byId("models-list").querySelector('button.models-cell[data-model="acme-6"]').click();
+await tick();
+const chart = byId("models-panel").querySelector("ol.models-panel-chart").textContent;
+assert.match(chart, /Acme-6/);
+assert.match(chart, /Peer/);
+assert.doesNotMatch(chart, /Rival/);
+assert.match(byId("models-panel").textContent, /Same setting only: scaffold A/);
+// Switching labs with the panel open closes it, and focus stays on the lab
+// button the reader pressed.
+const acmeLab = labButton("Acme");
+acmeLab.focus();
+acmeLab.click();
+assert.equal(state.modelsPanel, null);
+assert.equal(byId("models-panel").hidden, true);
+assert.equal(document.activeElement, acmeLab);
+
 // Without model-scores.json the panel still formats from the shard's scale.
 reset(null);
 state.modelsQuery = "acme-7";

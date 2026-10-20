@@ -436,8 +436,9 @@ const I18N = {
     "Score details": "成绩详情",
     "Model name": "模型名",
     "Lab": "实验室",
-    "Newer": "较新",
-    "Older": "较旧",
+    "Previous": "上一页",
+    "Next": "下一页",
+    "Same setting only: {setting}": "只比较相同设置：{setting}",
     "Only benchmarks all shown models share": "只看这些模型共有的 benchmark",
     "{from}–{to} of {n} models, newest first by latest reported score": "{n} 个模型中的第 {from}–{to} 个，按最近报告成绩的日期从新到旧",
     "{from}–{to} of {n} models, most benchmarks first": "{n} 个模型中的第 {from}–{to} 个，按有成绩的 benchmark 数从多到少",
@@ -6108,9 +6109,11 @@ function modelLabLabel(lab) {
 }
 
 function selectModelLab(lab) {
+  // Closed, not just forgotten, so the panel cannot linger undismissable;
+  // focus stays on the lab control the reader used.
+  closeModelPanel({ restoreFocus: false });
   state.modelsLab = lab;
   state.modelsOffset = 0;
-  state.modelsPanel = null;
   renderModels();
   writeUrl();
 }
@@ -6266,21 +6269,28 @@ function modelMatrixTable(columns, data, recordsByKey) {
 // The side panel: every score this model reported on the record, with its
 // setting, date and source, and the record's top models for context. It reads
 // the record's own shard, the same rows its benchmark page shows.
+// The chart ranks only runs in the same comparable group as the selected
+// model's best score: runs under another protocol or scaffold on the same
+// record are not one ordered comparison. Every row of the model is listed.
 function modelPanelRows(shard, model, scored, direction) {
   const rows = Object.values(shard?.scores_by_source || {}).flatMap((payload) => payload.rows || []);
+  const better = (a, b) => (direction === "lower_is_better" ? a.value < b.value : a.value > b.value);
   const mine = rows.filter((row) => (row.model_name || "").toLowerCase() === model.name.toLowerCase()
     && (!scored || (row.organization || "").toLowerCase() === model.organization.toLowerCase()));
+  const lead = mine.filter((row) => typeof row.value === "number").reduce((top, row) => (!top || better(row, top) ? row : top), null);
+  const cohort = lead?.comparable_group ?? null;
   const best = new Map();
   for (const row of rows) {
+    if (cohort !== null && row.comparable_group !== cohort) continue;
     if (typeof row.value !== "number") continue;
     const id = `${(row.organization || "").toLowerCase()}\u0000${(row.model_name || "").toLowerCase()}`;
     const current = best.get(id);
-    if (!current || (direction === "lower_is_better" ? row.value < current.value : row.value > current.value)) best.set(id, row);
+    if (!current || better(row, current)) best.set(id, row);
   }
-  return { mine, best: [...best.values()] };
+  return { mine, best: [...best.values()], lead };
 }
 
-function closeModelPanel() {
+function closeModelPanel({ restoreFocus = true } = {}) {
   const panel = byId("models-panel");
   if (!panel || !state.modelsPanel) return;
   const { model, record } = state.modelsPanel;
@@ -6291,7 +6301,7 @@ function closeModelPanel() {
     cell.setAttribute("aria-pressed", "false");
   }
   // Back to the cell that opened it, where the reader was.
-  byId("models-list").querySelector(`button.models-cell[data-model="${CSS.escape(model)}"][data-record="${CSS.escape(record)}"]`)?.focus();
+  if (restoreFocus) byId("models-list").querySelector(`button.models-cell[data-model="${CSS.escape(model)}"][data-record="${CSS.escape(record)}"]`)?.focus();
 }
 
 function openModelPanel(model, record, data) {
@@ -6316,7 +6326,7 @@ function openModelPanel(model, record, data) {
   ]);
   panel.hidden = false;
   document.body.classList.add("models-panel-open");
-  byId("models-panel-close").addEventListener("click", closeModelPanel);
+  byId("models-panel-close").addEventListener("click", () => closeModelPanel());
   byId("models-panel-close").focus();
   loadBenchmarkShard(record.slug).then((shard) => {
     if (state.modelsPanel?.model !== model.key || state.modelsPanel?.record !== record.key) return;
@@ -6328,11 +6338,11 @@ function openModelPanel(model, record, data) {
     // right even when model-scores.json did not load.
     const scale = modelSeriesScale(shard.scores_by_source?.[record.source]?.series);
     const { multiplier } = scale;
-    const { mine, best } = modelPanelRows(shard, model, data.scored, scale.direction);
+    const { mine, best, lead } = modelPanelRows(shard, model, data.scored, scale.direction);
     const display = (row) => modelValueText(typeof row.value === "number" ? row.value * multiplier : null, scale);
     const top = best.sort((a, b) => (scale.direction === "lower_is_better" ? a.value - b.value : b.value - a.value)).slice(0, 10);
     const own = (row) => (row.model_name || "").toLowerCase() === model.name.toLowerCase();
-    if (!top.some(own) && mine.length) top.push(mine[0]);
+    if (!top.some(own) && lead) top.push(lead);
     const extent = Math.max(scale.percent ? 100 / multiplier : 0, ...top.map((row) => Math.abs(row.value)), 1e-9);
     replaceChildren(body, [
       element("h3", { text: t("Scores for this model") }),
@@ -6352,6 +6362,7 @@ function openModelPanel(model, record, data) {
         ? t("0–100 scale; counts in shared-benchmark averages.")
         : t("Not on a 0–100 scale; shown, left out of averages.") }),
       element("h3", { text: t("Top models on this record") }),
+      lead?.protocol ? element("p", { className: "models-col-facts", text: t("Same setting only: {setting}", { setting: lead.protocol }) }) : null,
       element("ol", { className: "models-panel-chart" }, top.map((row) => element("li", { className: own(row) ? "is-selected" : "" }, [
         element("span", { className: "models-panel-model", text: row.model_name }),
         element("span", { className: "models-panel-bar", attrs: { style: `--share:${Math.max(0, Math.min(1, Math.abs(row.value) / extent)).toFixed(3)}` } }),
