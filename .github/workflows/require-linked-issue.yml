@@ -3,8 +3,8 @@ name: Require linked issue
 # Closes a pull request whose description links no existing issue, including
 # when an edit removes the link. Only bot-authored PRs are exempt.
 # pull_request_target is safe here because the job never checks out or runs
-# code from the pull request: it only reads the description from the event and
-# calls the GitHub API.
+# code from the pull request: it reads the current description through the
+# GitHub API.
 on:
   pull_request_target:
     types: [opened, reopened, edited]
@@ -28,5 +28,4 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
           NUMBER: ${{ github.event.pull_request.number }}
-          BODY: ${{ github.event.pull_request.body }}
         run: .github/scripts/require-linked-issue.sh

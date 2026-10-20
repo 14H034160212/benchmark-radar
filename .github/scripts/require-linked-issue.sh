@@ -4,12 +4,19 @@
 # A PR with no issue is a change nobody asked for: it has no stated requirement
 # to review against. Only a confirmed "not found" counts as a missing issue; any
 # other API failure exits nonzero and leaves the PR open, so a GitHub outage
-# never closes valid work. The body is read from the event payload through an
-# environment variable and is never interpolated into a command.
+# never closes valid work. Read the current PR so a delayed edited event cannot
+# close a PR whose issue link has already been restored.
 set -euo pipefail
 
 : "${REPO:?}" "${NUMBER:?}"
-BODY="${BODY:-}"
+# Event snapshots may be stale by the time this run starts.
+if ! current_pr="$(gh api "repos/$REPO/pulls/$NUMBER")"; then
+  echo "could not read the current PR; leaving the pull request open" >&2
+  exit 1
+fi
+state="$(jq -er '.state' <<<"$current_pr")"
+[[ "$state" == "open" ]] || exit 0
+BODY="$(jq -r '.body // ""' <<<"$current_pr")"
 err="$(mktemp)"
 
 # `Closes #N`, `Related to #N`, `owner/repo#N`, or an issue URL. The keyword must

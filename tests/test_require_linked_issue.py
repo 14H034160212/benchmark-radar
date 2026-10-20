@@ -1,5 +1,6 @@
 """A pull request that links no existing issue is closed; an API failure closes nothing."""
 
+import json
 import os
 import stat
 import subprocess
@@ -10,7 +11,9 @@ import pytest
 SCRIPT = Path(".github/scripts/require-linked-issue.sh").resolve()
 
 
-def run_gate(tmp_path, *, body, kinds=None, api_down=False):
+def run_gate(
+    tmp_path, *, body, kinds=None, api_down=False, current_body=None, state="open", pr_down=False
+):
     # A fake `gh` answers the issues API from `kinds`, returns 404 for any other
     # number (or 502 when the API is down), and records every close.
     kinds = kinds or {}
@@ -27,6 +30,9 @@ def run_gate(tmp_path, *, body, kinds=None, api_down=False):
         'echo "$*" >> "$CALLS"\n'
         'if [[ "$1" == api ]]; then\n'
         '  case "$*" in\n'
+        '  *"pulls/900"*)\n'
+        '    if [[ "$PR_DOWN" == 1 ]]; then exit 1; fi\n'
+        '    echo "$CURRENT_PR";;\n'
         f"{cases if not api_down else ''}"
         f"  *) {missing};;\n"
         "  esac\n"
@@ -40,6 +46,10 @@ def run_gate(tmp_path, *, body, kinds=None, api_down=False):
         "REPO": "ktwu01/benchmark-radar",
         "NUMBER": "900",
         "BODY": body,
+        "PR_DOWN": str(int(pr_down)),
+        "CURRENT_PR": json.dumps(
+            {"state": state, "body": body if current_body is None else current_body}
+        ),
     }
     result = subprocess.run([str(SCRIPT)], env=env, capture_output=True, text=True)
     calls = log.read_text().splitlines() if log.exists() else []
@@ -92,5 +102,29 @@ def test_a_link_to_a_pull_request_is_not_an_issue(tmp_path):
 def test_an_api_failure_leaves_the_pr_open(tmp_path):
     # Only a confirmed 404 means "no issue"; an outage must not close valid work.
     result, closes = run_gate(tmp_path, body="Closes #411", api_down=True)
+    assert result.returncode != 0
+    assert closes == []
+
+
+def test_a_stale_event_uses_the_restored_current_link(tmp_path):
+    result, closes = run_gate(tmp_path, body="", current_body="Closes #411", kinds={411: "issue"})
+    assert result.returncode == 0
+    assert closes == []
+
+
+def test_a_stale_valid_link_does_not_hide_current_missing_link(tmp_path):
+    result, closes = run_gate(tmp_path, body="Closes #411", current_body="", kinds={411: "issue"})
+    assert result.returncode == 0
+    assert len(closes) == 1
+
+
+def test_a_currently_closed_pr_is_left_alone(tmp_path):
+    result, closes = run_gate(tmp_path, body="", state="closed")
+    assert result.returncode == 0
+    assert closes == []
+
+
+def test_a_failed_current_pr_lookup_leaves_the_pr_open(tmp_path):
+    result, closes = run_gate(tmp_path, body="", pr_down=True)
     assert result.returncode != 0
     assert closes == []
