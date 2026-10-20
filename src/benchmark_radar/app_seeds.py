@@ -951,7 +951,11 @@ def _model_seed_columns(
     models = []
     for entry in payload["models"]:
         cells = {
-            keys[score[0]]: {"value": score[1], "count": score[2] if len(score) > 2 else 1}
+            keys[score[0]]: {
+                "value": score[1],
+                "count": score[2] if len(score) > 2 else 1,
+                "group": score[3] if len(score) > 3 else None,
+            }
             for score in entry["scores"]
             if keys[score[0]] in records
         }
@@ -1008,6 +1012,7 @@ def _model_matrix_seed(
     means, shared = shared_average(
         [{key: cell["value"] for key, cell in column["cells"].items()} for column in columns],
         benchmarks,
+        [{key: cell["group"] for key, cell in column["cells"].items()} for column in columns],
     )
     ranked = sorted((mean for mean in means if mean is not None), reverse=True)
     note = (

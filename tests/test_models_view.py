@@ -93,6 +93,25 @@ def test_rule_3_the_count_of_shared_benchmarks_is_returned_and_printed(tmp_path)
     assert "over the 1 benchmarks all 2 models share, 0–100" in matrix
 
 
+def test_rule_1_a_record_counts_only_within_one_comparable_group(tmp_path):
+    # Two scaffolds on one record are not one benchmark.
+    benchmarks = {"hard": PERCENT, "easy": PERCENT}
+    columns = [{"hard": 40.0, "easy": 50.0}, {"hard": 60.0, "easy": 70.0}]
+    means, shared = shared_average(columns, benchmarks, [{"hard": 0}, {"hard": 1}])
+    assert shared == ["easy"]
+    assert means == [50.0, 70.0]
+    shards = tmp_path / "benchmarks"
+    shards.mkdir()
+    shard = _shard("k:fc", [("M", "Lab", 40.0, "2026-01-01"), ("M", "Lab", 60.0, "2026-01-02")])
+    for row, group in zip(shard["scores_by_source"]["llm_stats"]["rows"], ["A", "B"], strict=True):
+        row["comparable_group"] = group
+    (shards / "fc.json").write_text(json.dumps(shard))
+    payload = build_model_scores(shards)
+    assert payload["benchmarks"][0]["groups"] == ["A", "B"]
+    # Best value, its row count, and the group it came from.
+    assert payload["models"][0]["scores"] == [[0, 60.0, 2, 1]]
+
+
 def test_averages_round_half_up_like_the_page():
     assert shared_average([{"a": 0.25}], {"a": PERCENT})[0] == [0.3]
 

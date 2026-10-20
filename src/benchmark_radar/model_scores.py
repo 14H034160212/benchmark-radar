@@ -106,15 +106,20 @@ def build_model_scores(shard_dir: Path) -> dict[str, Any]:
             multiplier, percent = score_scale(series)
             direction = series.get("direction")
             index = len(benchmarks)
-            benchmarks.append(
-                {
-                    "key": record_key,
-                    "direction": direction if direction in DIRECTIONS else None,
-                    "multiplier": multiplier,
-                    "percent": percent,
-                    "unit": _unit_label(series, percent),
-                }
-            )
+            # A record whose rows fall in several comparable groups (protocols,
+            # scaffolds) lists them, and each cell keeps its value's group, so
+            # an average compares models only within one group.
+            groups = sorted({str(row.get("comparable_group")) for row in rows})
+            benchmark = {
+                "key": record_key,
+                "direction": direction if direction in DIRECTIONS else None,
+                "multiplier": multiplier,
+                "percent": percent,
+                "unit": _unit_label(series, percent),
+            }
+            if len(groups) > 1:
+                benchmark["groups"] = groups
+            benchmarks.append(benchmark)
             for row in rows:
                 identity = (
                     (row.get("organization") or "").lower(),
@@ -124,13 +129,14 @@ def build_model_scores(shard_dir: Path) -> dict[str, Any]:
                 if model is None:
                     continue
                 value = round(row["value"] * multiplier, 4)
+                group = groups.index(str(row.get("comparable_group"))) if len(groups) > 1 else None
                 cell = cells.setdefault(model, {}).get(index)
                 if cell is None:
-                    cells[model][index] = [value, 1]
+                    cells[model][index] = [value, 1, group]
                 else:
                     cell[1] += 1
                     if _better(direction, value, cell[0]):
-                        cell[0] = value
+                        cell[0], cell[2] = value, group
                 reported = row.get("reported_date") or row.get("reported_at") or ""
                 current = dates.setdefault(model, {}).get(source)
                 if reported and (current is None or reported > current[0]):
@@ -142,11 +148,16 @@ def build_model_scores(shard_dir: Path) -> dict[str, Any]:
             "organization": registry[key].organization,
             # {source: [latest date, what the date is]}
             "dates": dict(sorted(dates.get(key, {}).items())),
-            # [benchmark index, display value] plus the row count when several
-            # settings were reported.
+            # [benchmark index, display value], then the row count when several
+            # settings were reported or the record has comparable groups, then
+            # the index of the value's group in that record's "groups".
             "scores": [
-                [index, value] if count == 1 else [index, value, count]
-                for index, (value, count) in sorted(cells[key].items())
+                [index, value]
+                if count == 1 and group is None
+                else [index, value, count]
+                if group is None
+                else [index, value, count, group]
+                for index, (value, count, group) in sorted(cells[key].items())
             ],
         }
         for key in sorted(cells)
@@ -193,11 +204,16 @@ def round_tenth(value: float) -> float:
 
 
 def shared_average(
-    columns: list[dict[str, float]], benchmarks: dict[str, dict[str, Any]]
+    columns: list[dict[str, float]],
+    benchmarks: dict[str, dict[str, Any]],
+    groups: list[dict[str, int | None]] | None = None,
 ) -> tuple[list[float | None], list[str]]:
     """Mean over the averageable benchmarks every column has a score on.
 
-    ``columns`` maps record keys to display values, one mapping per model.
+    ``columns`` maps record keys to display values, one mapping per model;
+    ``groups`` maps them to the comparable group each value came from. A record
+    counts only when every column's value is in the same group: different
+    protocols on one record are not one benchmark.
     Returns each column's mean (None when nothing is shared) and the shared
     record keys, whose count the page shows. Mirrors modelSharedAverage in
     app.js, summing in the same key order so both round the same float.
@@ -208,6 +224,7 @@ def shared_average(
         key
         for key in columns[0]
         if all(key in column for column in columns)
+        and len({(groups or [{}] * len(columns))[i].get(key) for i in range(len(columns))}) == 1
         and average_value(columns[0][key], benchmarks.get(key) or {}) is not None
     )
     if not shared:

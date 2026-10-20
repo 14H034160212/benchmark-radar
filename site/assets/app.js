@@ -5995,7 +5995,9 @@ function modelSharedAverage(columns, benchmarks) {
   // Sorted keys, summed in that order, so model_scores.shared_average rounds
   // the same float for the seed.
   const shared = [...columns[0].keys()]
-    .filter((key) => columns.every((cells) => cells.has(key))
+    // One comparable group across the columns: two protocols or scaffolds on
+    // one record are not one benchmark.
+    .filter((key) => columns.every((cells) => cells.has(key) && (cells.get(key).group ?? null) === (columns[0].get(key).group ?? null))
       && modelAverageValue(columns[0].get(key).value, benchmarks.get(key)) !== null)
     .sort(compareText);
   if (!shared.length) return { means: columns.map(() => null), shared };
@@ -6021,7 +6023,7 @@ function modelMatrixModels(records, payload) {
       const [date, datePrecision] = modelLatestDate(dates);
       const cells = new Map(entry.scores
         .filter(([index]) => recordKeys.has(keys[index]))
-        .map(([index, value, count = 1]) => [keys[index], { value, count }]));
+        .map(([index, value, count = 1, group = null]) => [keys[index], { value, count, group }]));
       return {
         key: entry.key, name: entry.model, organization: entry.organization || MODEL_UNRECORDED,
         dates, date, datePrecision, family, configuration, cells,
@@ -6042,7 +6044,9 @@ function modelMatrixModels(records, payload) {
         };
         byName.set(identity, model);
       }
-      model.cells.set(record.key, { value: null, count: 1 });
+      // Each record's own date, so a source filter can date the model by
+      // that source's records alone.
+      model.cells.set(record.key, { value: null, count: 1, group: null, date: scored.date || "", precision: scored.date_precision || "" });
       if ((scored.date || "") > model.date) {
         model.date = scored.date || "";
         model.datePrecision = scored.date_precision || "";
@@ -6085,8 +6089,10 @@ function modelsFromSource(models, source, recordsByKey) {
   return models
     .map((model) => {
       // The date shown and sorted on is this source's, not another's.
-      const [date, datePrecision] = model.dates?.[source] ? modelLatestDate(model.dates, source) : [model.date, model.datePrecision];
       const cells = new Map([...model.cells].filter(([key]) => recordsByKey.get(key)?.source === source));
+      let [date, datePrecision] = modelLatestDate(model.dates || {}, source);
+      // Fallback models carry dates on their cells instead.
+      for (const cell of cells.values()) if (cell.date && cell.date > date) [date, datePrecision] = [cell.date, cell.precision];
       return { ...model, date, datePrecision, cells };
     })
     .filter((model) => model.cells.size);
@@ -6350,7 +6356,9 @@ function openModelPanel(model, record, data) {
         element("strong", { text: display(row) }),
         element("span", { text: [
           row.protocol || t("Setting not recorded"),
-          row.reported_date || row.reported_at ? formatDate(row.reported_date || row.reported_at, { dateStyle: "medium" }) : t("Date unknown"),
+          row.reported_date || row.reported_at
+            ? t(MODEL_DATE_LABELS[row.date_precision] || "dated {date}", { date: formatDate(row.reported_date || row.reported_at, { dateStyle: "medium" }) })
+            : t("Date unknown"),
           row.measured_by && row.measured_by !== model.organization ? t("measured by {who}", { who: row.measured_by }) : null,
         ].filter(Boolean).join(" · ") }),
         row.source_url ? element("a", {

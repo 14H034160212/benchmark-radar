@@ -220,6 +220,12 @@ assert.deepEqual(scaled.shared, ["error", "hard"]);
 assert.deepEqual(scaled.means, [75, 75]); // (90 + 60) / 2 and (70 + 80) / 2
 assert.equal(models.modelAverageValue(1577, benchmarks.get("elo")), null);
 assert.equal(models.modelAverageValue(10, benchmarks.get("error")), 90);
+// Rule 1 within a record: two protocols or scaffolds are not one benchmark.
+const grouped = (entries) => new Map(Object.entries(entries).map(([key, [value, group]]) => [key, { value, count: 1, group }]));
+assert.deepEqual(
+  models.modelSharedAverage([grouped({ hard: [40, 0], easy: [50, null] }), grouped({ hard: [60, 1], easy: [70, null] })], benchmarks),
+  { means: [50, 70], shared: ["easy"] },
+);
 // Rule 3: the number of shared benchmarks is returned, and none shared is said.
 assert.deepEqual(models.modelSharedAverage([cells({ hard: 1 }), cells({ easy: 2 })], benchmarks), { means: [null, null], shared: [] });
 // Rounds like model_scores.round_tenth (half up, not to even).
@@ -258,10 +264,10 @@ const payload = {
 const matrix = models.modelMatrixModels(env.records, payload);
 assert.equal(matrix.scored, true);
 assert.equal(matrix.models.length, 9);
-assert.deepEqual(matrix.models.find((model) => model.key === "acme-2").cells.get("model-reports:arc_agi_3"), { value: 48.5, count: 2 });
+assert.deepEqual(matrix.models.find((model) => model.key === "acme-2").cells.get("model-reports:arc_agi_3"), { value: 48.5, count: 2, group: null });
 const fallback = models.modelMatrixModels(env.records, null);
 assert.equal(fallback.scored, false);
-assert.deepEqual(fallback.models.find((model) => model.name === "Acme-2").cells.get("llm-stats:arc-agi-3"), { value: null, count: 1 });
+assert.deepEqual(fallback.models.find((model) => model.name === "Acme-2").cells.get("llm-stats:arc-agi-3"), { value: null, count: 1, group: null, date: "2026-01-01", precision: "" });
 // Most benchmarks first (Acme-2 has three), then newest; or newest first.
 assert.deepEqual(models.modelOrder(matrix.models).map((model) => model.key).slice(0, 3), ["acme-2", "acme-7", "acme-6"]);
 assert.deepEqual(models.modelOrder(matrix.models, "newest").map((model) => model.key).slice(0, 3), ["acme-7", "acme-6", "acme-5"]);
@@ -327,12 +333,14 @@ assert.match(byId("models-list").querySelector("thead").textContent, /announced 
 // out of 1 shows as a percentage, under a neutral heading.
 shards.set("llm-stats-b7", { scores_by_source: { llm_stats: {
   series: { direction: "higher_is_better", declared_max: 1, score_summary: { display_multiplier: 100, raw_max: 0.67 } },
-  rows: [{ model_name: "Acme-7", organization: "Acme", value: 0.67, reported_date: "2026-08-01", source: "llm_stats" }],
+  rows: [{ model_name: "Acme-7", organization: "Acme", value: 0.67, reported_date: "2026-08-01", date_precision: "model_announcement", source: "llm_stats" }],
 } } });
 const cell = byId("models-list").querySelector('button.models-cell[data-model="acme-7"]');
 cell.click();
 await tick();
 assert.match(byId("models-panel").textContent, /Scores for this model/);
+// The panel says what each row's date is, as the columns do.
+assert.match(byId("models-panel").textContent, /announced 2026-08-01/);
 assert.match(byId("models-panel").textContent, /67%/);
 assert.deepEqual(state.modelsPanel, { model: "acme-7", record: "llm-stats:b7" });
 assert.equal(byId("models-panel").hidden, false);
@@ -416,6 +424,17 @@ acmeLab.click();
 assert.equal(state.modelsPanel, null);
 assert.equal(byId("models-panel").hidden, true);
 assert.equal(document.activeElement, acmeLab);
+
+// Without model-scores.json, a source filter dates each model by that
+// source's records only.
+reset(null);
+env.records[1].scored_models = [{ name: "Acme-2", date: "2025-12-01", date_precision: "document_publication" }];
+state.modelsSource = "model_reports";
+state.modelsSort = "newest";
+models.renderModels();
+assert.match(byId("models-list").querySelector("thead").textContent, /reported 2025-12-01/);
+state.modelsSource = "";
+state.modelsSort = "coverage";
 
 // Without model-scores.json the panel still formats from the shard's scale.
 reset(null);
