@@ -112,6 +112,26 @@ def test_rule_1_a_record_counts_only_within_one_comparable_group(tmp_path):
     assert payload["models"][0]["scores"] == [[0, 60.0, 2, 1]]
 
 
+def test_a_label_a_source_reuses_for_two_checkpoints_is_two_columns(tmp_path):
+    # LLM Stats files gpt-4o-2024-05-13 and gpt-4o-2024-08-06 both as "GPT-4o".
+    shards = tmp_path / "benchmarks"
+    shards.mkdir()
+    shard = _shard(
+        "k:mmlu",
+        [("GPT-4o", "OpenAI", 88.7, "2024-05-13"), ("GPT-4o", "OpenAI", 85.7, "2024-08-06")],
+    )
+    for row, model_id in zip(
+        shard["scores_by_source"]["llm_stats"]["rows"], ["gpt-4o-0513", "gpt-4o-0806"], strict=True
+    ):
+        row["model_id"] = model_id
+    (shards / "mmlu.json").write_text(json.dumps(shard))
+    payload = build_model_scores(shards)
+    assert [(m["model"], m.get("source_model_id"), m["scores"]) for m in payload["models"]] == [
+        ("GPT-4o", "gpt-4o-0513", [[0, 88.7]]),
+        ("GPT-4o", "gpt-4o-0806", [[0, 85.7]]),
+    ]
+
+
 def test_averages_round_half_up_like_the_page():
     assert shared_average([{"a": 0.25}], {"a": PERCENT})[0] == [0.3]
 

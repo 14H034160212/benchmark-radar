@@ -156,7 +156,7 @@ const names = [
 ];
 const models = new Function(
   ...Object.keys(env),
-  `${fn("element")}\n${fn("replaceChildren")}\n${fn("debounce")}\n${block}\nreturn {${names.join(",")}};`,
+  `${source.match(/const MODEL_PAGE_COLUMNS = .*;/)[0]}\n${fn("element")}\n${fn("replaceChildren")}\n${fn("debounce")}\n${block}\nreturn {${names.join(",")}};`,
 )(...Object.values(env));
 const { state } = env;
 
@@ -449,6 +449,42 @@ assert.deepEqual(columnNames(), ["Acme-2"]);
 assert.equal(state.modelsPanel, null);
 assert.equal(byId("models-panel").hidden, true);
 state.modelsSource = "";
+state.modelsQuery = "";
+
+// Paging is kept in the URL, so reload and Back restore the columns.
+reset(payload);
+models.renderModels();
+const writes = env.urlWrites;
+byId("models-older").click();
+assert.equal(env.urlWrites, writes + 1);
+
+// A source that splits one label into checkpoints gets one column each,
+// labelled by its ID, and the panel lists only that checkpoint's rows.
+const splitPayload = {
+  ...payload,
+  models: [
+    ...payload.models,
+    { key: "acme-9@old", model: "Acme-9", organization: "Acme", source_model_id: "acme-9-0513", dates: {}, scores: [[8, 88.7]] },
+    { key: "acme-9@new", model: "Acme-9", organization: "Acme", source_model_id: "acme-9-0806", dates: {}, scores: [[8, 85.7]] },
+  ],
+};
+reset(splitPayload);
+state.modelsQuery = "acme-9";
+models.renderModels();
+assert.deepEqual(columnNames(), ["Acme-9", "Acme-9"]);
+assert.match(byId("models-list").querySelector("thead").textContent, /acme-9-0513/);
+shards.set("llm-stats-b6", { scores_by_source: { llm_stats: {
+  series: { direction: "higher_is_better", score_summary: { display_multiplier: 1, unit: "percent" } },
+  rows: [
+    { model_name: "Acme-9", organization: "Acme", model_id: "acme-9-0513", value: 88.7 },
+    { model_name: "Acme-9", organization: "Acme", model_id: "acme-9-0806", value: 85.7 },
+  ],
+} } });
+byId("models-list").querySelector('button.models-cell[data-model="acme-9@new"]').click();
+await tick();
+const mineList = byId("models-panel").querySelector("ul.models-panel-scores").textContent;
+assert.match(mineList, /85\.7%/);
+assert.doesNotMatch(mineList, /88\.7%/);
 state.modelsQuery = "";
 
 // Without model-scores.json, a source filter dates each model by that

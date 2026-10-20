@@ -973,6 +973,11 @@ def _model_seed_columns(
     return order_models(models)
 
 
+def _model_configuration(column: dict[str, Any]) -> str:
+    """A source's checkpoint ID when it splits one label, else the name's own."""
+    return column.get("source_model_id") or model_family(column["model"])[1]
+
+
 def _model_matrix_seed(
     columns: list[dict[str, Any]],
     benchmarks: dict[str, dict[str, Any]],
@@ -988,8 +993,8 @@ def _model_matrix_seed(
         '<th scope="col">'
         f'<span class="models-col-name">{esc(model_family(column["model"])[0])}</span>'
         + (
-            f'<span class="models-col-config">{esc(model_family(column["model"])[1])}</span>'
-            if model_family(column["model"])[1]
+            f'<span class="models-col-config">{esc(_model_configuration(column))}</span>'
+            if _model_configuration(column)
             else ""
         )
         + '<span class="models-col-facts">'

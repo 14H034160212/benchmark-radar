@@ -86,6 +86,23 @@ def build_model_scores(shard_dir: Path) -> dict[str, Any]:
     keys = {
         (record.organization.lower(), record.model.lower()): key for key, record in registry.items()
     }
+    # A source that reuses one display label for distinct checkpoints (LLM
+    # Stats: gpt-4o-2024-05-13 and gpt-4o-2024-08-06 are both "GPT-4o") keeps
+    # them as separate columns, keyed by the source's model ID, the row identity
+    # in catalog._observation. Other sources' rows stay on the registry model.
+    source_ids: dict[tuple[str, str], set[str]] = {}
+    for path in sorted(shard_dir.glob("*.json")):
+        shard = json.loads(path.read_text(encoding="utf-8"))
+        for source, payload in (shard.get("scores_by_source") or {}).items():
+            for row in payload.get("rows") or []:
+                identity = (
+                    (row.get("organization") or "").lower(),
+                    (row.get("model_name") or "").lower(),
+                )
+                if identity in keys and row.get("model_id"):
+                    source_ids.setdefault((keys[identity], source), set()).add(row["model_id"])
+    split = {pair for pair, ids in source_ids.items() if len(ids) > 1}
+    columns: dict[str, tuple[str, str | None]] = {}
     benchmarks: list[dict[str, Any]] = []
     cells: dict[str, dict[int, list[Any]]] = {}
     # Per model and source: the latest date on its rows and what that date is
@@ -128,6 +145,12 @@ def build_model_scores(shard_dir: Path) -> dict[str, Any]:
                 model = keys.get(identity)
                 if model is None:
                     continue
+                base = model
+                if (base, source) in split:
+                    model = f"{base}@{row.get('model_id')}"
+                    columns[model] = (base, row.get("model_id"))
+                else:
+                    columns.setdefault(model, (base, None))
                 value = round(row["value"] * multiplier, 4)
                 group = groups.index(str(row.get("comparable_group"))) if len(groups) > 1 else None
                 cell = cells.setdefault(model, {}).get(index)
@@ -144,8 +167,9 @@ def build_model_scores(shard_dir: Path) -> dict[str, Any]:
     models = [
         {
             "key": key,
-            "model": registry[key].model,
-            "organization": registry[key].organization,
+            "model": registry[columns[key][0]].model,
+            "organization": registry[columns[key][0]].organization,
+            **({"source_model_id": columns[key][1]} if columns[key][1] else {}),
             # {source: [latest date, what the date is]}
             "dates": dict(sorted(dates.get(key, {}).items())),
             # [benchmark index, display value], then the row count when several
@@ -323,7 +347,7 @@ def order_models(models: list[dict[str, Any]], sort: str = "coverage") -> list[d
         key=lambda model: (
             best[family_key(model)],
             family_key(model),
-            bool(model_family(model["model"])[1]),
+            bool(model.get("source_model_id") or model_family(model["model"])[1]),
             metric(model),
             model["model"],
         ),

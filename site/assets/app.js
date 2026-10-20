@@ -440,7 +440,7 @@ const I18N = {
     "Next": "下一页",
     "Same setting only: {setting}": "只比较相同设置：{setting}",
     "Only benchmarks all shown models share": "只看这些模型共有的 benchmark",
-    "{from}–{to} of {n} models, newest first by the date each column shows": "{n} 个模型中的第 {from}–{to} 个，按各列显示的日期从新到旧",
+    "{from}–{to} of {n} models, newest first; a model's configurations stay together": "{n} 个模型中的第 {from}–{to} 个，从新到旧；同一模型的各配置排在一起",
     "{from}–{to} of {n} models, most benchmarks first": "{n} 个模型中的第 {from}–{to} 个，按有成绩的 benchmark 数从多到少",
     "Most benchmarks": "benchmark 最多",
     "Source": "来源",
@@ -1645,7 +1645,8 @@ function readUrl() {
   state.modelsSort = MODEL_SORTS.includes(params.get("msort")) ? params.get("msort") : "coverage";
   state.modelsSource = params.get("msrc") || "";
   state.modelsSharedOnly = params.get("mshared") === "1";
-  state.modelsOffset = 0;
+  // ?mpage= is 1-based; a page past the end is clamped when the page renders.
+  state.modelsOffset = (Math.max(1, Number.parseInt(params.get("mpage") || "1", 10) || 1) - 1) * MODEL_PAGE_COLUMNS;
   state.lfrontier = params.get("lfrontier") || "";
   state.lfrontierExplicit = Boolean(state.lfrontier);
   // Existing benchmark permalinks follow the score history to its new tab.
@@ -1765,6 +1766,7 @@ function writeUrl(mode = "replace") {
     if (state.modelsSort !== "coverage") params.set("msort", state.modelsSort);
     if (state.modelsSource) params.set("msrc", state.modelsSource);
     if (state.modelsSharedOnly) params.set("mshared", "1");
+    if (state.modelsOffset > 0) params.set("mpage", Math.floor(state.modelsOffset / MODEL_PAGE_COLUMNS) + 1);
   }
   if (utility === "rubric" && state.rubric && state.rubric !== "current") {
     params.set("version", state.rubric);
@@ -5908,7 +5910,6 @@ function modelLabSummary(documents, recordsByKey, names) {
 // (benchmark_radar.model_scores). A model without a recorded organization stays
 // visible under "Organization not recorded" rather than being guessed into a lab.
 const MODEL_UNRECORDED = "__unrecorded__";
-const MODEL_PAGE_COLUMNS = 6;
 const MODEL_DIRECTIONS = ["higher_is_better", "lower_is_better"];
 // .com Model Evals' capability groups, in its order, matched on whole words of
 // a record's category ids ("agentic-coding"), so "multilingual" is not
@@ -6018,7 +6019,10 @@ function modelMatrixModels(records, payload) {
     const keys = payload.benchmarks.map((benchmark) => benchmark.key);
     const benchmarks = new Map(payload.benchmarks.map((benchmark) => [benchmark.key, benchmark]));
     const models = payload.models.map((entry) => {
-      const [family, configuration] = modelFamily(entry.model);
+      // A source's checkpoint ID, when it splits one label into several
+      // columns (model_scores.build_model_scores), is the configuration shown.
+      const [family, ownConfiguration] = modelFamily(entry.model);
+      const configuration = entry.source_model_id || ownConfiguration;
       const dates = entry.dates || {};
       const [date, datePrecision] = modelLatestDate(dates);
       const cells = new Map(entry.scores
@@ -6026,7 +6030,7 @@ function modelMatrixModels(records, payload) {
         .map(([index, value, count = 1, group = null]) => [keys[index], { value, count, group }]));
       return {
         key: entry.key, name: entry.model, organization: entry.organization || MODEL_UNRECORDED,
-        dates, date, datePrecision, family, configuration, cells,
+        sourceModelId: entry.source_model_id || "", dates, date, datePrecision, family, configuration, cells,
       };
     }).filter((model) => model.cells.size);
     return { models, benchmarks, scored: true };
@@ -6282,7 +6286,8 @@ function modelPanelRows(shard, model, scored, direction) {
   const rows = Object.values(shard?.scores_by_source || {}).flatMap((payload) => payload.rows || []);
   const better = (a, b) => (direction === "lower_is_better" ? a.value < b.value : a.value > b.value);
   const mine = rows.filter((row) => (row.model_name || "").toLowerCase() === model.name.toLowerCase()
-    && (!scored || (row.organization || "").toLowerCase() === model.organization.toLowerCase()));
+    && (!scored || (row.organization || "").toLowerCase() === model.organization.toLowerCase())
+    && (!model.sourceModelId || row.model_id === model.sourceModelId));
   const lead = mine.filter((row) => typeof row.value === "number").reduce((top, row) => (!top || better(row, top) ? row : top), null);
   const cohort = lead?.comparable_group ?? null;
   const best = new Map();
@@ -6465,7 +6470,7 @@ function renderModels() {
   byId("models-newer").disabled = state.modelsOffset === 0;
   byId("models-older").disabled = state.modelsOffset + MODEL_PAGE_COLUMNS >= selection.length;
   byId("models-page").textContent = selection.length
-    ? t(state.modelsSort === "newest" ? "{from}–{to} of {n} models, newest first by the date each column shows" : "{from}–{to} of {n} models, most benchmarks first", {
+    ? t(state.modelsSort === "newest" ? "{from}–{to} of {n} models, newest first; a model's configurations stay together" : "{from}–{to} of {n} models, most benchmarks first", {
       from: state.modelsOffset + 1, to: state.modelsOffset + columns.length, n: selection.length.toLocaleString(),
     })
     : t("0 models");
@@ -6516,6 +6521,7 @@ function initModels() {
   const page = (step) => {
     state.modelsOffset = Math.max(0, state.modelsOffset + step);
     renderModels();
+    writeUrl("push");
   };
   byId("models-newer").addEventListener("click", () => page(-MODEL_PAGE_COLUMNS));
   byId("models-older").addEventListener("click", () => page(MODEL_PAGE_COLUMNS));
@@ -9085,6 +9091,8 @@ const LIBRARY_PAGE_SIZE = 120;
 const LIBRARY_SORTS = ["latest", "documented", "name"];
 // The Models matrix's column orders (modelOrder); the first is the default.
 const MODEL_SORTS = ["coverage", "newest"];
+// Models per matrix page; ?mpage= counts these.
+const MODEL_PAGE_COLUMNS = 6;
 const LATEST_WINDOW_DAYS = { "7d": 7, "30d": 30, "90d": 90 };
 // Order and wording follow the signals issue #530 names. Each component's
 // weight is read from the payload rather than restated here, so a re-weighted
