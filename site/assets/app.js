@@ -368,6 +368,9 @@ function toggleLang() {
   applyCurrentSeo();
   syncLangToggle();
   rerenderCurrentView();
+  // Without the page's data nothing re-renders, but a kept Trends seed can
+  // still be rewritten in the new language.
+  if (!state.data && state.view === "trends") reconcileSeededDirectionFocus(byId("direction-trends-status")?.textContent || "");
 }
 
 const I18N = {
@@ -418,7 +421,7 @@ const I18N = {
     "Sort": "排序",
     "Models": "模型",
     "models.note": "目录中所有有报告成绩的模型，并排比较：列是模型，行是 benchmark。点一个分数，查看它的设置和来源。",
-    "New benchmarks by research direction": "各研究方向的新 benchmark",
+    "New benchmark records by research direction": "各研究方向的新 benchmark 记录",
     "Research direction": "研究方向",
     "New": "新增",
     "Previous period": "上一期",
@@ -432,7 +435,7 @@ const I18N = {
     "Window": "时间窗口",
     "All directions, ranked": "全部方向（排名）",
     "Direction focus": "方向详情",
-    "{n} new in the last {days} days": "最近 {days} 天新增 {n} 个",
+    "{n} new records in the last {days} days": "最近 {days} 天新增 {n} 条记录",
     "{change} vs the previous {days} days": "比前 {days} 天 {change}",
     "no comparison with the previous {days} days": "无法与前 {days} 天比较",
     "Weekly new records, {start} to {end}": "每周新增记录，{start} 至 {end}",
@@ -6791,7 +6794,9 @@ function directionFocusText({ group, current, previous, change, days, firstWeek,
   return {
     facts: [
       group,
-      t("{n} new in the last {days} days", { n: current.toLocaleString(), days }),
+      // Records, not distinct benchmarks: one benchmark can have a record
+      // from each source.
+      t("{n} new records in the last {days} days", { n: current.toLocaleString(), days }),
       previous === null
         ? t("no comparison with the previous {days} days", { days })
         : t("{change} vs the previous {days} days", { change, days }),
@@ -6887,13 +6892,6 @@ function renderDirectionTrends() {
     // Reached through the app with no seed, the section still says why it is
     // empty rather than disappearing.
     section.hidden = false;
-    const note = byId("direction-trends-note");
-    if (note.dataset.anchor) {
-      note.textContent = directionTrendNote({
-        anchor: note.dataset.anchor, windowDays: Number(note.dataset.window), comparable: note.dataset.comparable === "1",
-        discoverySince: note.dataset.since || null,
-      });
-    }
     reconcileSeededDirectionFocus(t("The benchmark catalog could not be loaded."));
     byId("direction-trends-window").disabled = true;
     byId("direction-trends-group").disabled = true;
@@ -6984,6 +6982,14 @@ function renderDirectionTrends() {
 function reconcileSeededDirectionFocus(failure) {
   const table = byId("direction-trends-body");
   if (!table) return;
+  // The seeded caveats, rebuilt from their facts in the reader's language.
+  const note = byId("direction-trends-note");
+  if (note?.dataset.anchor) {
+    note.textContent = directionTrendNote({
+      anchor: note.dataset.anchor, windowDays: Number(note.dataset.window), comparable: note.dataset.comparable === "1",
+      discoverySince: note.dataset.since || null,
+    });
+  }
   const seededFocus = table.querySelector("tr.is-focused a[data-direction]")?.dataset.direction;
   const linkedElsewhere = Boolean(state.directionFocus) && state.directionFocus !== seededFocus;
   const panel = byId("direction-focus");

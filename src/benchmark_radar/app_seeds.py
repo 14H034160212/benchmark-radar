@@ -1244,7 +1244,7 @@ def _direction_focus_seed(
         part
         for part in (
             group,
-            f"{row['current']:,} new in the last {days} days",
+            f"{row['current']:,} new records in the last {days} days",
             f"no comparison with the previous {days} days"
             if row["previous"] is None
             else f"{_direction_change(row)} vs the previous {days} days",
