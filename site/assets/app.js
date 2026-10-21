@@ -6806,6 +6806,10 @@ function directionFocusPanel(row, model, taxonomy, records) {
     element("p", { className: "direction-focus-facts", text: facts }),
     element("figure", { className: "direction-focus-figure" }, [
       directionFocusChart(row.weekly),
+      // The chart is drawn for sighted readers; its sixteen counts are text too.
+      element("span", { className: "visually-hidden", text: t("Weekly new records, oldest first: {values}", {
+        values: row.weekly.map((value) => (value === null ? t("no data") : value)).join(", "),
+      }) }),
       element("figcaption", { text: t("Weekly new records, {start} to {end}", {
         start: formatDate(firstWeek, { dateStyle: "medium" }), end: formatDate(model.anchor, { dateStyle: "medium" }),
       }) }),

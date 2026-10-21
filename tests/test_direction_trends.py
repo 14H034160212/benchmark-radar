@@ -211,6 +211,8 @@ def test_seed_shows_the_section_with_default_window_rows():
     # Grouped, and the top direction is focused in the seeded panel.
     assert '<tr class="direction-group"><th colspan="6">Group' in body
     assert '<tr class="is-focused">' in body
+    # The panel's chart values are text for screen readers too.
+    assert '<span class="visually-hidden">Weekly new records, oldest first:' in panel
     assert "Direction focus" in panel and '<h3 id="direction-focus-heading">Math</h3>' in panel
     # The page ships the 30-day window; its menus wait for live data.
     template = (ROOT / "site" / "index.html").read_text(encoding="utf-8")

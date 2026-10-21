@@ -1269,6 +1269,7 @@ def _direction_focus_seed(
         'id="direction-focus-close">Close</button></div>'
         f'<p class="direction-focus-facts">{esc(facts)}</p>'
         f'<figure class="direction-focus-figure">{direction_focus_chart(row["weekly"])}'
+        f'<span class="visually-hidden">{esc(weekly_summary(row["weekly"]))}</span>'
         f"<figcaption>Weekly new records, {_medium_date(first_week)} to "
         f"{_medium_date(model['anchor'])}</figcaption></figure>"
         f"<h4>Recent releases</h4>{listing}"
