@@ -6312,7 +6312,7 @@ function modelPanelRows(shard, model, scored, direction, splitLabels = new Set()
   // files several under one label, so 88.7 and 85.7 say whose they are.
   // A label split anywhere in the corpus (splitLabels) is named by ID even on
   // a record where only one of its checkpoints reports.
-  const split = (row) => ids.get(label(row))?.size > 1 || splitLabels.has(label(row));
+  const split = (row) => ids.get(label(row))?.size > 1 || splitLabels.has(`${row.source}\u0000${label(row)}`);
   const name = (row) => (split(row) && row.model_id ? `${row.model_name} (${row.model_id})` : row.model_name);
   return { mine, best: [...best.values()], lead, own, name };
 }
@@ -6365,20 +6365,26 @@ function openModelPanel(model, record, data) {
     // right even when model-scores.json did not load.
     const scale = modelSeriesScale(shard.scores_by_source?.[record.source]?.series);
     const { multiplier } = scale;
-    const splitLabels = new Set(data.models.filter((entry) => entry.sourceModelId)
-      .map((entry) => `${entry.organization.toLowerCase()}\u0000${entry.name.toLowerCase()}`));
+    // Splits are per source, as model_scores.build_model_scores decides them:
+    // a split column's cells all come from the source that split the label.
+    const splitLabels = new Set(data.models.filter((entry) => entry.sourceModelId).map((entry) => {
+      const source = data.recordsByKey.get([...entry.cells.keys()][0])?.source;
+      return `${source}\u0000${entry.organization.toLowerCase()}\u0000${entry.name.toLowerCase()}`;
+    }));
     const { mine, best, lead, own, name } = modelPanelRows(shard, model, data.scored, scale.direction, splitLabels);
     const display = (row) => modelValueText(typeof row.value === "number" ? row.value * multiplier : null, scale);
     const top = best.sort((a, b) => (scale.direction === "lower_is_better" ? a.value - b.value : b.value - a.value)).slice(0, 10);
     if (!top.some(own) && lead) top.push(lead);
     // Longer is better either way. Higher-is-better bars are the value on its
-    // scale; lower-is-better bars are the best (lowest) score over this one,
-    // so the winning 5.81 is not drawn shorter than a 9.76.
+    // scale. Lower-is-better bars run from the worst shown score (shortest,
+    // still visible) to the best (full), so the winning 5.81 is not drawn
+    // shorter than a 9.76 and a winning 0 does not erase the rest.
     const lower = scale.direction === "lower_is_better";
     const extent = Math.max(scale.percent ? 100 / multiplier : 0, ...top.map((row) => Math.abs(row.value)), 1e-9);
     const lowest = Math.min(...top.map((row) => row.value));
+    const highest = Math.max(...top.map((row) => row.value));
     const share = (row) => (lower
-      ? (row.value > 0 && lowest > 0 ? lowest / row.value : row.value === lowest ? 1 : 0)
+      ? (highest === lowest ? 1 : 0.1 + 0.9 * ((highest - row.value) / (highest - lowest)))
       : Math.abs(row.value) / extent);
     replaceChildren(body, [
       element("h3", { text: t("Scores for this model") }),

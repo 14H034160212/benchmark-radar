@@ -541,6 +541,8 @@ assert.match(byId("models-panel").textContent, /Lower is better: the longest bar
 const chartText = byId("models-panel").querySelector("ol.models-panel-chart").textContent;
 assert.match(chartText, /Twin \(twin-0513\)/);
 assert.match(chartText, /Twin \(twin-0806\)/);
+// Every lower-is-better bar stays visible, ordered best to worst.
+assert(shareOf("Acme-4") > 0 && shareOf("Twin (twin-0513)") > shareOf("Twin (twin-0806)"));
 // The note on direction comes after the chart.
 const panelChildren = byId("models-panel").querySelector("div.models-panel-body").children;
 assert(panelChildren.findIndex((child) => child.tagName === "OL") < panelChildren.findIndex((child) => /Lower is better/.test(child.textContent || "")));
@@ -552,11 +554,20 @@ state.modelsQuery = "acme-9";
 models.renderModels();
 shards.set("llm-stats-b6", { scores_by_source: { llm_stats: {
   series: { direction: "higher_is_better", score_summary: { display_multiplier: 1, unit: "percent" } },
-  rows: [{ model_name: "Acme-9", organization: "Acme", model_id: "acme-9-0806", value: 85.7 }],
+  rows: [{ model_name: "Acme-9", organization: "Acme", model_id: "acme-9-0806", value: 85.7, source: "llm_stats" }],
 } } });
 byId("models-list").querySelector('button.models-cell[data-model="acme-9@new"]').click();
 await tick();
 assert.match(byId("models-panel").querySelector("ol.models-panel-chart").textContent, /Acme-9 \(acme-9-0806\)/);
+// The split is the source's: the same label from another source keeps its
+// plain name, however that source keys its rows.
+shards.set("llm-stats-b6", { scores_by_source: { model_reports: {
+  series: { direction: "higher_is_better", score_summary: { display_multiplier: 1, unit: "percent" } },
+  rows: [{ model_name: "Acme-9", organization: "Acme", model_id: "[\"Acme\",\"Acme-9\"]", value: 80, source: "model_reports" }],
+} } });
+byId("models-list").querySelector('button.models-cell[data-model="acme-9@new"]').click();
+await tick();
+assert.doesNotMatch(byId("models-panel").querySelector("ol.models-panel-chart").textContent, /\(\[/);
 state.modelsQuery = "";
 
 console.log("Models matrix, shared-benchmark average rules and the three #862 defects passed.");
