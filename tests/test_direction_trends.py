@@ -212,7 +212,9 @@ def test_seed_shows_the_section_with_default_window_rows():
     assert '<tr class="direction-group"><th colspan="6">Group' in body
     assert '<tr class="is-focused">' in body
     # The panel's chart values are text for screen readers too.
-    assert '<span class="visually-hidden">Weekly new records, oldest first:' in panel
+    # Values the page can re-announce in the reader's language.
+    assert '<span class="visually-hidden" data-weekly="' in panel
+    assert "Weekly new records, oldest first:" in panel
     assert (
         "Direction focus" in panel
         and '<h3 id="direction-focus-heading" tabindex="-1">Math</h3>' in panel
@@ -223,7 +225,9 @@ def test_seed_shows_the_section_with_default_window_rows():
     assert 'data-i18n-aria="Group" disabled><option value="" data-i18n="All groups">' in template
     # The sixteen weekly values are text for screen readers, and bars for
     # everyone, as the live renderer draws them.
-    assert '<span class="visually-hidden">Weekly new records, oldest first:' in body
+    # Values the page can re-announce in the reader's language.
+    assert '<span class="visually-hidden" data-weekly="' in body
+    assert "Weekly new records, oldest first:" in body
     assert '<svg viewBox="0 0 96 20" class="direction-spark" aria-hidden="true">' in body
     # Without a discovery crawl there is no window to anchor.
     assert _direction_trends_seed({}, [record("2026-10-10", ["math"], source="x")], TAXONOMY) == {}

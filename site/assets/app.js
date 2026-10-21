@@ -6982,6 +6982,12 @@ function renderDirectionTrends() {
 function reconcileSeededDirectionFocus(failure) {
   const table = byId("direction-trends-body");
   if (!table) return;
+  // The seeded weekly summaries for screen readers, in the reader's language.
+  for (const span of document.querySelectorAll("#direction-trends span[data-weekly]")) {
+    span.textContent = t("Weekly new records, oldest first: {values}", {
+      values: span.dataset.weekly.split(",").map((value) => (value === "" ? t("no data") : value)).join(", "),
+    });
+  }
   // The seeded caveats, rebuilt from their facts in the reader's language.
   const note = byId("direction-trends-note");
   if (note?.dataset.anchor) {
@@ -11615,6 +11621,12 @@ async function refreshData() {
     // data a URL-backed state needs.
     if (stateNeedsFullData()) await ensureFullData("reload");
     else if (stateNeedsTrendsData()) await ensureTrendsData("reload");
+    // A catalog request that failed is tried again on Refresh, so the Trends
+    // direction table can recover rather than keep the failure.
+    if (state.benchmarkIndexLoaded && !state.benchmarkIndex) {
+      benchmarkIndexPromise = null;
+      state.benchmarkIndexLoaded = false;
+    }
     closeFiltersDrawer();
     syncLeaderboardNav();
     setView(state.view, false);
@@ -11740,8 +11752,14 @@ async function initialize() {
     // A seeded Trends page keeps its direction table: make its focus match the
     // link (or say it cannot) and let its sheet close.
     if (survivor?.id === "trends-view") {
-      initDirectionTrends();
-      reconcileSeededDirectionFocus("");
+      // With the page's own data the direction table still loads its catalog
+      // (it does not need the failed trends payload); without it, the seed is
+      // kept and made consistent with the link.
+      if (state.data) renderDirectionTrends();
+      else {
+        initDirectionTrends();
+        reconcileSeededDirectionFocus("");
+      }
     }
     const banner = byId("error-state");
     banner.hidden = false;

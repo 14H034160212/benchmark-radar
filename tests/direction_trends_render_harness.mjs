@@ -46,7 +46,7 @@ const byId = (id) => {
   if (!nodes.has(id)) nodes.set(id, new Node(id === "direction-trends-body" ? "tbody" : "div"));
   return nodes.get(id);
 };
-globalThis.document = { createElementNS: (_ns, tag) => new Node(tag), addEventListener() {} };
+globalThis.document = { createElementNS: (_ns, tag) => new Node(tag), addEventListener() {}, querySelectorAll: () => [] };
 
 let releaseIndex;
 const state = { data: {}, view: "trends" };

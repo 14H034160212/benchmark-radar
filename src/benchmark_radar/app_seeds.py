@@ -1168,6 +1168,12 @@ DIRECTION_TREND_SECTION = (
 )
 
 
+def _weekly_values(weekly: list[int | None]) -> str:
+    """The sixteen weeks as data for the page to re-announce in any language;
+    an empty item is a week the stream does not cover."""
+    return ",".join("" if value is None else str(value) for value in weekly)
+
+
 def weekly_summary(weekly: list[int | None]) -> str:
     """The 16-week bars as text for screen readers; uncovered weeks say so."""
     return "Weekly new records, oldest first: " + ", ".join(
@@ -1284,7 +1290,8 @@ def _direction_focus_seed(
         'id="direction-focus-close" data-i18n="Close">Close</button></div>'
         f'<p class="direction-focus-facts">{esc(facts)}</p>'
         f'<figure class="direction-focus-figure">{direction_focus_chart(row["weekly"])}'
-        f'<span class="visually-hidden">{esc(weekly_summary(row["weekly"]))}</span>'
+        f'<span class="visually-hidden" data-weekly="{_weekly_values(row["weekly"])}">'
+        f"{esc(weekly_summary(row['weekly']))}</span>"
         f"<figcaption>Weekly new records, {_medium_date(first_week)} to "
         f"{_medium_date(model['anchor'])}</figcaption></figure>"
         + (
@@ -1340,7 +1347,7 @@ def _direction_trends_seed(
             f'<td class="direction-number">{change}</td>'
             f'<td class="direction-number">{row["undated"]:,}</td>'
             f"<td>{direction_sparkline(row['weekly'])}"
-            '<span class="visually-hidden">'
+            f'<span class="visually-hidden" data-weekly="{_weekly_values(row["weekly"])}">'
             f"{esc(weekly_summary(row['weekly']))}</span></td></tr>"
         )
     # The same caveats the live renderer writes: without them the seeded counts
