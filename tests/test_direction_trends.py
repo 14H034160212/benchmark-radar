@@ -209,7 +209,7 @@ def test_seed_shows_the_section_with_default_window_rows():
     assert "hidden" not in section
     assert '<a href="/library/?dir=math" data-direction="math">Math</a>' in body
     # Grouped, and the top direction is focused in the seeded panel.
-    assert '<tr class="direction-group"><th colspan="6" scope="colgroup">Group' in body
+    assert '<tr class="direction-group"><th colspan="6">Group' in body
     assert '<tr class="is-focused">' in body
     assert "Direction focus" in panel and '<h3 id="direction-focus-heading">Math</h3>' in panel
     # The page ships the 30-day window; its menus wait for live data.

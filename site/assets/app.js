@@ -6894,7 +6894,7 @@ function renderDirectionTrends() {
     }),
   ].filter(Boolean).join(" ");
   replaceChildren(table, lines.map(({ row, heading, count }) => (heading ? element("tr", { className: "direction-group" }, [
-    element("th", { attrs: { colspan: columns, scope: "colgroup" } }, [
+    element("th", { attrs: { colspan: columns } }, [
       document.createTextNode(`${heading} `),
       element("span", { className: "direction-group-count", text: String(count) }),
     ]),

@@ -1300,8 +1300,8 @@ def _direction_trends_seed(
     for line in lines:
         if "heading" in line:
             body += (
-                f'<tr class="direction-group"><th colspan="{DIRECTION_TABLE_COLUMNS}" '
-                f'scope="colgroup">{esc(line["heading"])} '
+                f'<tr class="direction-group"><th colspan="{DIRECTION_TABLE_COLUMNS}">'
+                f"{esc(line['heading'])} "
                 f'<span class="direction-group-count">{line["count"]}</span></th></tr>'
             )
             continue
