@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pytest
 
-from benchmark_radar.app_seeds import _direction_trends_seed
+from benchmark_radar.app_seeds import _direction_trends_seed, direction_sparkline
 from benchmark_radar.library_directions import direction_trend_rows, discovery_anchor
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -144,8 +144,10 @@ def test_seed_shows_the_section_with_default_window_rows():
     assert "rows overlap and do not add up" in note
     assert "hidden" not in section
     assert '<a href="/library/?dir=math">Math</a>' in body
-    # The sixteen weekly values are text for screen readers, not only bars.
+    # The sixteen weekly values are text for screen readers, and bars for
+    # everyone, as the live renderer draws them.
     assert '<span class="visually-hidden">Weekly new records, oldest first:' in body
+    assert '<svg viewBox="0 0 96 20" class="direction-spark" aria-hidden="true">' in body
     # Without a discovery crawl there is no window to anchor.
     assert _direction_trends_seed({}, [record("2026-10-10", ["math"], source="x")], TAXONOMY) == {}
 
@@ -168,3 +170,20 @@ def test_windows_end_at_the_discovery_crawl_not_the_daily_run():
     ]
     assert discovery_anchor(records) == "2026-10-14"
     assert site_anchor(records) == "2026-10-14"
+
+
+def test_seeded_bars_and_failure_handling_match_the_page():
+    node = shutil.which("node")
+    if not node:
+        pytest.skip("node is not installed")
+    cases = [[0, 3, None, 12, 1, 0, 7, 4, 2, 0, 9, 5, 0, 1, 6, 2], [None] * 16, [0] * 16]
+    result = subprocess.run(
+        [node, "tests/direction_trends_render_harness.mjs"],
+        input=json.dumps(cases),
+        capture_output=True,
+        text=True,
+        check=True,
+        timeout=60,
+        cwd=ROOT,
+    )
+    assert json.loads(result.stdout) == [direction_sparkline(weekly) for weekly in cases]

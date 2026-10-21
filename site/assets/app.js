@@ -6693,6 +6693,9 @@ function directionChange(row) {
 function renderDirectionTrends() {
   const table = byId("direction-trends-body");
   if (!table || !state.data) return;
+  // Bound before the catalog arrives, so a window chosen on the seeded table
+  // while it loads is the one rendered.
+  initDirectionTrends();
   if (!state.benchmarkIndexLoaded) {
     loadBenchmarkIndex().then((records) => {
       state.benchmarkIndex = records;
@@ -6707,13 +6710,21 @@ function renderDirectionTrends() {
   if (!state.benchmarkIndex || !taxonomy || !anchor) {
     // A failed catalog fetch must not silently remove the server-seeded table:
     // keep it, say it could not be refreshed, and hide only an empty section.
+    // The seeded note's caveats (anchor date, incomplete latest days, overlap)
+    // stay; the failure is added to them. The controls cannot change a seeded
+    // table, so they are disabled rather than left to do nothing.
     const seeded = table.children.length > 0;
     section.hidden = !seeded;
-    if (seeded) byId("direction-trends-note").textContent = t("The benchmark catalog could not be loaded.");
+    if (seeded) {
+      const note = byId("direction-trends-note");
+      note.dataset.seedNote ??= note.textContent;
+      note.textContent = [note.dataset.seedNote, t("The benchmark catalog could not be loaded.")].filter(Boolean).join(" ");
+    }
+    byId("direction-trends-window").disabled = true;
+    byId("direction-trends-group").disabled = true;
     return;
   }
   section.hidden = false;
-  initDirectionTrends();
   byId("direction-trends-window").value = String(state.directionTrendWindow);
   const groups = byId("direction-trends-group");
   if (!groups.options.length) {

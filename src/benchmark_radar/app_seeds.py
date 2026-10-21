@@ -1175,6 +1175,22 @@ def weekly_summary(weekly: list[int | None]) -> str:
     )
 
 
+def direction_sparkline(weekly: list[int | None]) -> str:
+    """The 16-week bars as SVG, attribute for attribute as directionSparkline."""
+    max_value = max([1, *(value for value in weekly if value is not None)])
+    bars = "".join(
+        f'<rect x="{index * 6}" '
+        f'y="{_js_number(20 - max(1.5 if value else 0.5, value / max_value * 20))}" width="4" '
+        f'height="{_js_number(max(1.5 if value else 0.5, value / max_value * 20))}"></rect>'
+        for index, value in enumerate(weekly)
+        if value is not None
+    )
+    return (
+        f'<svg viewBox="0 0 {len(weekly) * 6} 20" class="direction-spark" '
+        f'aria-hidden="true">{bars}</svg>'
+    )
+
+
 def _direction_trends_seed(
     dashboard: dict[str, Any],
     catalog_index: list[dict[str, Any]],
@@ -1202,7 +1218,8 @@ def _direction_trends_seed(
             f'<td class="direction-number">{previous}</td>'
             f'<td class="direction-number">{change}</td>'
             f'<td class="direction-number">{row["undated"]:,}</td>'
-            '<td><span class="visually-hidden">'
+            f"<td>{direction_sparkline(row['weekly'])}"
+            '<span class="visually-hidden">'
             f"{esc(weekly_summary(row['weekly']))}</span></td></tr>"
         )
     # The same caveats the live renderer writes: without them the seeded counts
