@@ -1340,8 +1340,9 @@ def _direction_trends_seed(
         focused = ' class="is-focused"' if row["id"] == focus else ""
         body += (
             f'<tr{focused}><th scope="row"><a href="/library/?dir={esc(row["id"])}" '
-            f'data-direction="{esc(row["id"])}">'
-            f"{esc(row['name'])}</a></th>"
+            f'data-direction="{esc(row["id"])}"'
+            + (' data-i18n="Not yet classified">' if row["id"] == "unclassified" else ">")
+            + f"{esc(row['name'])}</a></th>"
             f'<td class="direction-number">{row["current"]:,}</td>'
             f'<td class="direction-number">{previous}</td>'
             f'<td class="direction-number">{change}</td>'
@@ -1359,6 +1360,8 @@ def _direction_trends_seed(
             "The latest days are still filling in as new papers are collected.",
             "A record counts in every direction it is filed under, so rows overlap and do not "
             "add up to a total.",
+            "Undated counts every record in the direction that has no release date, whatever "
+            "the window.",
             ""
             if model["comparable"]
             else "No comparison: the previous 30 days start before the discovery stream "

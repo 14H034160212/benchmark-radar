@@ -49,7 +49,7 @@ const byId = (id) => {
 globalThis.document = { createElementNS: (_ns, tag) => new Node(tag), addEventListener() {}, querySelectorAll: () => [] };
 
 let releaseIndex;
-const state = { data: {}, view: "trends" };
+const state = { data: {}, view: "trends", directionTrendWindow: 30, directionTrendGroup: "" };
 const env = {
   state, byId,
   t: (key, params) => Object.entries(params || {}).reduce((text, [k, v]) => text.replaceAll(`{${k}}`, String(v)), key),
@@ -78,7 +78,8 @@ await new Promise((resolve) => setTimeout(resolve, 0));
 // the reader's language; the failure is a separate visible status.
 assert.equal(byId("direction-trends-note").textContent,
   "New benchmark records by release date, 30 days to 2026-10-14. The latest days are still filling in as new papers are collected. "
-  + "A record counts in every direction it is filed under, so rows overlap and do not add up to a total.");
+  + "A record counts in every direction it is filed under, so rows overlap and do not add up to a total. "
+  + "Undated counts every record in the direction that has no release date, whatever the window.");
 assert.equal(byId("direction-trends-status").textContent, "The benchmark catalog could not be loaded.");
 assert.equal(byId("direction-trends-window").disabled, true);
 assert.equal(byId("direction-trends-group").disabled, true);
@@ -91,8 +92,15 @@ assert.equal(byId("direction-trends-status").textContent.match(/could not be loa
 state.directionFocus = "law";
 renderDirectionTrends();
 assert.equal(byId("direction-focus").hidden, true);
-assert.match(byId("direction-trends-status").textContent, /The linked direction could not be shown\./);
+assert.match(byId("direction-trends-status").textContent, /The linked view could not be shown\./);
 state.directionFocus = "";
+
+// A link to another window cannot be shown from the 30-day seed either.
+state.directionTrendWindow = 90;
+renderDirectionTrends();
+assert.match(byId("direction-trends-status").textContent, /The linked view could not be shown\./);
+assert.equal(byId("direction-focus").hidden, true);
+state.directionTrendWindow = 30;
 
 // Reached through the app with no seed, a failed catalog still leaves the
 // section visible with the failure stated.

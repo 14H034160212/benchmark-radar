@@ -370,7 +370,7 @@ function toggleLang() {
   rerenderCurrentView();
   // Without the page's data nothing re-renders, but a kept Trends seed can
   // still be rewritten in the new language.
-  if (!state.data && state.view === "trends") reconcileSeededDirectionFocus(byId("direction-trends-status")?.textContent || "");
+  if (state.view === "trends" && state.directionTrendsLive === false && state.directionTrendsFailure) reconcileSeededDirectionFocus();
 }
 
 const I18N = {
@@ -442,7 +442,8 @@ const I18N = {
     "Recent releases": "最近发布",
     "No release in this window.": "这个时间段内没有发布。",
     "Open in the Library": "在 Library 中打开",
-    "The linked direction could not be shown.": "无法显示链接里的方向。",
+    "The linked view could not be shown.": "无法显示链接里的视图。",
+    "Undated counts every record in the direction that has no release date, whatever the window.": "“无日期”统计该方向下所有没有发布日期的记录，与所选时间段无关。",
     "Newest {shown} of {n} releases": "{n} 个发布中最新的 {shown} 个",
     "Group": "分组",
     "Last 30 days": "最近 30 天",
@@ -1430,6 +1431,8 @@ const state = {
   directionFocusOpen: false,
   directionFocusShown: "",
   directionTrendsLive: false,
+  // The i18n key of why the direction table shows its seed, if it does.
+  directionTrendsFailure: "",
   leaderboardShowAll: false,
   leaderboardTopExpanded: false,
   // Issue #530: the leaderboard opens on the latest releases; the cumulative
@@ -6860,6 +6863,7 @@ function directionTrendNote({ anchor, windowDays, comparable, discoverySince }) 
     }),
     t("The latest days are still filling in as new papers are collected."),
     t("A record counts in every direction it is filed under, so rows overlap and do not add up to a total."),
+    t("Undated counts every record in the direction that has no release date, whatever the window."),
     comparable ? "" : t("No comparison: the previous {days} days start before the discovery stream ({since}).", {
       days: windowDays, since: discoverySince ? formatDate(discoverySince, { dateStyle: "medium" }) : "—",
     }),
@@ -6868,7 +6872,8 @@ function directionTrendNote({ anchor, windowDays, comparable, discoverySince }) 
 
 function renderDirectionTrends() {
   const table = byId("direction-trends-body");
-  if (!table || !state.data) return;
+  // Only the catalog is needed, not the page's dashboard data.
+  if (!table) return;
   // Bound before the catalog arrives, so a window chosen on the seeded table
   // while it loads is the one rendered.
   initDirectionTrends();
@@ -6892,7 +6897,8 @@ function renderDirectionTrends() {
     // Reached through the app with no seed, the section still says why it is
     // empty rather than disappearing.
     section.hidden = false;
-    reconcileSeededDirectionFocus(t("The benchmark catalog could not be loaded."));
+    state.directionTrendsFailure = "The benchmark catalog could not be loaded.";
+    reconcileSeededDirectionFocus();
     byId("direction-trends-window").disabled = true;
     byId("direction-trends-group").disabled = true;
     state.directionTrendsLive = false;
@@ -6900,6 +6906,7 @@ function renderDirectionTrends() {
   }
   // From here the table is live, so a direction's link may focus it.
   state.directionTrendsLive = true;
+  state.directionTrendsFailure = "";
   section.hidden = false;
   byId("direction-trends-status").textContent = "";
   // The menus ship disabled: the seeded table is the 30-day window and only
@@ -6979,7 +6986,7 @@ function renderDirectionTrends() {
 // direction's: a link to another one cannot be honoured, so that panel is not
 // shown in its place, while a link to the seeded one opens its phone sheet.
 // Used when the catalog fails and when the whole page's data fails.
-function reconcileSeededDirectionFocus(failure) {
+function reconcileSeededDirectionFocus() {
   const table = byId("direction-trends-body");
   if (!table) return;
   // The seeded weekly summaries for screen readers, in the reader's language.
@@ -6997,7 +7004,15 @@ function reconcileSeededDirectionFocus(failure) {
     });
   }
   const seededFocus = table.querySelector("tr.is-focused a[data-direction]")?.dataset.direction;
-  const linkedElsewhere = Boolean(state.directionFocus) && state.directionFocus !== seededFocus;
+  // The seed is the default view: 30 days, every group, the top direction. A
+  // link to another window, group or direction cannot be shown from it.
+  const seededWindow = Number(note?.dataset.window || 30);
+  const otherView = state.directionTrendWindow !== seededWindow || Boolean(state.directionTrendGroup);
+  const linkedElsewhere = otherView || (Boolean(state.directionFocus) && state.directionFocus !== seededFocus);
+  if (otherView) {
+    byId("direction-trends-window").value = String(seededWindow);
+    byId("direction-trends-group").value = "";
+  }
   const panel = byId("direction-focus");
   if (linkedElsewhere) {
     panel.hidden = true;
@@ -7020,8 +7035,8 @@ function reconcileSeededDirectionFocus(failure) {
     for (const date of panel.querySelectorAll("span[data-date]")) date.textContent = formatDate(date.dataset.date, { dateStyle: "medium" });
   }
   byId("direction-trends-status").textContent = [
-    failure,
-    linkedElsewhere ? t("The linked direction could not be shown.") : "",
+    state.directionTrendsFailure ? t(state.directionTrendsFailure) : "",
+    linkedElsewhere ? t("The linked view could not be shown.") : "",
   ].filter(Boolean).join(" ");
 }
 
@@ -11755,11 +11770,9 @@ async function initialize() {
       // With the page's own data the direction table still loads its catalog
       // (it does not need the failed trends payload); without it, the seed is
       // kept and made consistent with the link.
-      if (state.data) renderDirectionTrends();
-      else {
-        initDirectionTrends();
-        reconcileSeededDirectionFocus("");
-      }
+      // The direction table needs only its catalog, so it is tried even when
+      // the page's own data failed; if the catalog fails too, the seed stays.
+      renderDirectionTrends();
     }
     const banner = byId("error-state");
     banner.hidden = false;
