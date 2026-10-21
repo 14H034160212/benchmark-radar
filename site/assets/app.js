@@ -439,6 +439,7 @@ const I18N = {
     "Recent releases": "最近发布",
     "No release in this window.": "这个时间段内没有发布。",
     "Open in the Library": "在 Library 中打开",
+    "The linked direction could not be shown.": "无法显示链接里的方向。",
     "Group": "分组",
     "Last 30 days": "最近 30 天",
     "Last 60 days": "最近 60 天",
@@ -6869,13 +6870,24 @@ function renderDirectionTrends() {
     // empty rather than disappearing.
     section.hidden = false;
     const note = byId("direction-trends-note");
-    const seeded = note.dataset.anchor
-      ? directionTrendNote({
+    if (note.dataset.anchor) {
+      note.textContent = directionTrendNote({
         anchor: note.dataset.anchor, windowDays: Number(note.dataset.window), comparable: note.dataset.comparable === "1",
         discoverySince: note.dataset.since || null,
-      })
-      : "";
-    note.textContent = [seeded, t("The benchmark catalog could not be loaded.")].filter(Boolean).join(" ");
+      });
+    }
+    // The seeded panel is the top direction's; a link to another one cannot
+    // be honoured without the catalog, so it is not shown in its place.
+    const seededFocus = table.querySelector("tr.is-focused a[data-direction]")?.dataset.direction;
+    const linkedElsewhere = Boolean(state.directionFocus) && state.directionFocus !== seededFocus;
+    if (linkedElsewhere) {
+      byId("direction-focus").hidden = true;
+      table.querySelector("tr.is-focused")?.classList.remove("is-focused");
+    }
+    byId("direction-trends-status").textContent = [
+      t("The benchmark catalog could not be loaded."),
+      linkedElsewhere ? t("The linked direction could not be shown.") : "",
+    ].filter(Boolean).join(" ");
     byId("direction-trends-window").disabled = true;
     byId("direction-trends-group").disabled = true;
     state.directionTrendsLive = false;
@@ -6884,6 +6896,7 @@ function renderDirectionTrends() {
   // From here the table is live, so a direction's link may focus it.
   state.directionTrendsLive = true;
   section.hidden = false;
+  byId("direction-trends-status").textContent = "";
   // The menus ship disabled: the seeded table is the 30-day window and only
   // live data can change it.
   byId("direction-trends-window").disabled = false;

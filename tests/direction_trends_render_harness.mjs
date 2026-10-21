@@ -21,6 +21,10 @@ class Node {
     this.textContent = "";
     this.disabled = false;
     this.value = "";
+    this.classList = { add() {}, remove() {}, toggle() {} };
+  }
+  querySelector() {
+    return null;
   }
   setAttribute(key, value) {
     this.attrs.push([key, String(value)]);
@@ -70,16 +74,25 @@ assert.equal(byId("direction-trends-window").listeners.change.length, 1);
 // controls that can no longer change anything are disabled.
 releaseIndex(null);
 await new Promise((resolve) => setTimeout(resolve, 0));
+// The caveats are rebuilt from the seeded facts through t(), so they follow
+// the reader's language; the failure is a separate visible status.
 assert.equal(byId("direction-trends-note").textContent,
-  // Rebuilt from the seeded facts through t(), so it follows the reader's
-  // language; the seeded English text is not reused.
   "New benchmark records by release date, 30 days to 2026-10-14. The latest days are still filling in as new papers are collected. "
-  + "A record counts in every direction it is filed under, so rows overlap and do not add up to a total. The benchmark catalog could not be loaded.");
+  + "A record counts in every direction it is filed under, so rows overlap and do not add up to a total.");
+assert.equal(byId("direction-trends-status").textContent, "The benchmark catalog could not be loaded.");
 assert.equal(byId("direction-trends-window").disabled, true);
 assert.equal(byId("direction-trends-group").disabled, true);
 // Rendering again does not repeat the failure.
 renderDirectionTrends();
-assert.equal(byId("direction-trends-note").textContent.match(/could not be loaded/g).length, 1);
+assert.equal(byId("direction-trends-status").textContent.match(/could not be loaded/g).length, 1);
+
+// A link to a direction other than the seeded one cannot be honoured without
+// the catalog: the seeded panel is hidden and the status says so.
+state.directionFocus = "law";
+renderDirectionTrends();
+assert.equal(byId("direction-focus").hidden, true);
+assert.match(byId("direction-trends-status").textContent, /The linked direction could not be shown\./);
+state.directionFocus = "";
 
 // Reached through the app with no seed, a failed catalog still leaves the
 // section visible with the failure stated.
@@ -88,7 +101,7 @@ state.benchmarkIndexLoaded = true;
 state.benchmarkIndex = null;
 renderDirectionTrends();
 assert.equal(byId("direction-trends").hidden, false);
-assert.equal(byId("direction-trends-note").textContent, "The benchmark catalog could not be loaded.");
+assert.equal(byId("direction-trends-status").textContent, "The benchmark catalog could not be loaded.");
 
 // The bars, serialized for test_direction_trends.py to compare with the seed.
 const cases = JSON.parse(readFileSync(0, "utf8"));

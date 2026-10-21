@@ -1004,7 +1004,7 @@
             </select>
             <select id="direction-trends-group" class="library-sort" aria-label="Group" data-i18n-aria="Group" disabled><option value="" data-i18n="All groups">All groups</option></select>
           </div>
-          <p class="section-note" id="direction-trends-note"></p>
+          <p class="library-status" id="direction-trends-status" aria-live="polite"></p>
           <div class="direction-trends-layout">
             <div class="direction-trends-frame">
               <table class="direction-trends-table" id="direction-trends-table">
@@ -1022,6 +1022,14 @@
               </table>
             </div>
             <aside class="direction-focus" id="direction-focus" aria-labelledby="direction-focus-heading" hidden></aside>
+          </div>
+          <!-- The result first; how to read it in the standard collapsed note
+               below, as the daily chart does (principle.md). -->
+          <div class="figure-caption">
+            <details class="figure-note" id="direction-trends-notes">
+              <summary class="info-disclosure-toggle" aria-label="Chart notes" data-i18n-aria="Chart notes"><span aria-hidden="true">i</span></summary>
+              <p class="section-note" id="direction-trends-note"></p>
+            </details>
           </div>
         </section>
 

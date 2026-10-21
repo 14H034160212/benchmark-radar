@@ -6674,9 +6674,8 @@ dialog {
   font-weight: 600;
 }
 
+/* Not sticky: the site header is, and a sticky panel would slide under it. */
 .direction-focus {
-  position: sticky;
-  top: 0.5rem;
   padding: 1rem;
   border: 1px solid var(--edge);
   border-radius: var(--radius);
