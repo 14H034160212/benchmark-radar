@@ -6906,6 +6906,13 @@ function renderDirectionTrends() {
   if (state.directionTrendGroup && state.directionTrendGroup !== DIRECTION_RANKED
     && !taxonomy.groups.some((group) => group.id === state.directionTrendGroup)) state.directionTrendGroup = "";
   groups.value = state.directionTrendGroup;
+  // A linked direction that no longer exists (a typo, or removed from the
+  // taxonomy) is dropped, not swapped for an unrelated one, and leaves the URL.
+  if (state.directionFocus && !model.rows.some((row) => row.id === state.directionFocus)) {
+    state.directionFocus = "";
+    state.directionFocusOpen = false;
+    writeUrl();
+  }
   const lines = directionDisplay(model, taxonomy, state.directionTrendGroup);
   const shown = lines.filter((line) => line.row).map((line) => line.row.id);
   const focus = directionFocusId(model, shown, state.directionFocus);

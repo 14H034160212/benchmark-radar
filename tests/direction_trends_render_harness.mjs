@@ -50,6 +50,7 @@ const env = {
   state, byId,
   t: (key, params) => Object.entries(params || {}).reduce((text, [k, v]) => text.replaceAll(`{${k}}`, String(v)), key),
   formatDate: (value) => value,
+  writeUrl: () => {},
   loadBenchmarkIndex: () => new Promise((resolve) => { releaseIndex = resolve; }),
   DIRECTION_TREND_WINDOWS: [30, 60, 90],
 };
