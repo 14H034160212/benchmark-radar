@@ -9,8 +9,19 @@ from pathlib import Path
 
 import pytest
 
-from benchmark_radar.app_seeds import _direction_trends_seed, direction_sparkline
-from benchmark_radar.library_directions import direction_trend_rows, discovery_anchor
+from benchmark_radar.app_seeds import (
+    _direction_trends_seed,
+    direction_focus_chart,
+    direction_sparkline,
+)
+from benchmark_radar.library_directions import (
+    DIRECTION_RANKED,
+    direction_display,
+    direction_focus_id,
+    direction_focus_records,
+    direction_trend_rows,
+    discovery_anchor,
+)
 
 ROOT = Path(__file__).resolve().parents[1]
 INDEX = ROOT / "site" / "data" / "benchmark-index.json"
@@ -25,6 +36,8 @@ TAXONOMY = {
 
 def record(released, categories=None, source="claire_radar", collected_at="2026-10-14T09:44:51Z"):
     return {
+        "name": f"{released} {' '.join(categories or [])}",
+        "slug": f"r-{released}",
         "released": released,
         "source": source,
         "collected_at": collected_at,
@@ -50,6 +63,57 @@ def site_rows(records, taxonomy, anchor, windows):
         cwd=ROOT,
     )
     return json.loads(completed.stdout)["models"]
+
+
+def site_views(records, taxonomy, anchor, windows):
+    node = shutil.which("node")
+    if not node:
+        pytest.skip("node is not installed")
+    completed = subprocess.run(
+        [node, "tests/direction_trends_harness.mjs"],
+        input=json.dumps(
+            {"records": records, "taxonomy": taxonomy, "anchor": anchor, "windows": windows}
+        ),
+        capture_output=True,
+        text=True,
+        check=True,
+        timeout=120,
+        cwd=ROOT,
+    )
+    payload = json.loads(completed.stdout)
+    return payload["views"], payload["focus"]
+
+
+def python_views(records, taxonomy, anchor, windows):
+    views, focus = [], []
+    for days in windows:
+        model = direction_trend_rows(records, taxonomy, anchor, days)
+        per_group = []
+        for group in ["", DIRECTION_RANKED, *(entry["id"] for entry in taxonomy["groups"])]:
+            lines = direction_display(model, taxonomy, group)
+            shown = [line["row"]["id"] for line in lines if "row" in line]
+            per_group.append(
+                {
+                    "group": group,
+                    "lines": [
+                        line["row"]["id"]
+                        if "row" in line
+                        else f"# {line['heading']} {line['count']}"
+                        for line in lines
+                    ],
+                    "focus": direction_focus_id(model, shown),
+                }
+            )
+        views.append(per_group)
+        focus.append(
+            {
+                row["id"]: [
+                    r["name"] for r in direction_focus_records(records, row["id"], anchor, days)
+                ]
+                for row in model["rows"]
+            }
+        )
+    return views, focus
 
 
 def site_anchor(records):
@@ -138,12 +202,16 @@ def test_site_and_python_agree_on_the_published_catalog():
 
 def test_seed_shows_the_section_with_default_window_rows():
     seeds = _direction_trends_seed({}, [record("2026-10-10", ["math"])], TAXONOMY)
-    note, section, body = seeds.values()
+    note, section, body, panel = seeds.values()
     # The caveats travel with the seeded numbers.
     assert "30 days to Oct 14, 2026" in note
     assert "rows overlap and do not add up" in note
     assert "hidden" not in section
-    assert '<a href="/library/?dir=math">Math</a>' in body
+    assert '<a href="/library/?dir=math" data-direction="math">Math</a>' in body
+    # Grouped, and the top direction is focused in the seeded panel.
+    assert '<tr class="direction-group"><th colspan="6" scope="colgroup">Group' in body
+    assert '<tr class="is-focused">' in body
+    assert "Direction focus" in panel and '<h3 id="direction-focus-heading">Math</h3>' in panel
     # The page ships the 30-day window; its menus wait for live data.
     template = (ROOT / "site" / "index.html").read_text(encoding="utf-8")
     assert 'data-i18n-aria="Window" disabled' in template
@@ -190,4 +258,48 @@ def test_seeded_bars_and_failure_handling_match_the_page():
         timeout=60,
         cwd=ROOT,
     )
-    assert json.loads(result.stdout) == [direction_sparkline(weekly) for weekly in cases]
+    output = json.loads(result.stdout)
+    assert output["sparklines"] == [direction_sparkline(weekly) for weekly in cases]
+    assert output["focusCharts"] == [direction_focus_chart(weekly) for weekly in cases]
+
+
+def test_site_and_python_agree_on_grouping_and_focus():
+    taxonomy = {
+        "groups": [{"id": "g", "name": "Group"}, {"id": "h", "name": "Other group"}],
+        "categories": [
+            {"id": "math", "group": "g", "name": "Math"},
+            {"id": "science", "group": "g", "name": "Science"},
+            {"id": "law", "group": "h", "name": "Law"},
+        ],
+    }
+    records = [
+        record("2026-10-14", ["math", "science"]),
+        record("2026-10-12", ["law"]),
+        record("2026-10-12", ["law", "math"]),
+        record("2026-09-20", ["math"]),
+        record("2026-10-01"),
+    ]
+    views, focus = python_views(records, taxonomy, "2026-10-14", [30, 60])
+    assert site_views(records, taxonomy, "2026-10-14", [30, 60]) == (views, focus)
+    # Grouped by default: each group heads its directions; unclassified last.
+    assert views[0][0]["lines"] == [
+        "# Group 2",
+        "math",
+        "science",
+        "# Other group 1",
+        "law",
+        "unclassified",
+    ]
+    assert views[0][0]["focus"] == "math"
+    # Newest first, then by name; only records in the window.
+    assert focus[0]["math"] == ["2026-10-14 math science", "2026-10-12 law math", "2026-09-20 math"]
+
+
+@pytest.mark.skipif(not INDEX.exists(), reason="build the data release first")
+def test_site_and_python_agree_on_grouping_and_focus_for_the_published_catalog():
+    index = json.loads(INDEX.read_text(encoding="utf-8"))
+    taxonomy = index["library_taxonomy"]
+    anchor = discovery_anchor(index["benchmarks"])
+    assert site_views(index["benchmarks"], taxonomy, anchor, [30]) == python_views(
+        index["benchmarks"], taxonomy, anchor, [30]
+    )

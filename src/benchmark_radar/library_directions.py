@@ -316,3 +316,68 @@ def direction_trend_rows(
         "comparable": comparable,
         "rows": [*ordered, rows["unclassified"]],
     }
+
+
+# The group menu's value for every direction as one ranked list; "" (the
+# default) shows them under their taxonomy groups, as benchmark-radar.com does.
+DIRECTION_RANKED = "__ranked"
+DIRECTION_FOCUS_RECORDS = 8
+
+
+def direction_display(
+    model: dict[str, Any], taxonomy: dict[str, Any], group: str = ""
+) -> list[dict[str, Any]]:
+    """The table's lines: group headings and rows, in display order.
+
+    By default each taxonomy group, in taxonomy order, heads its directions in
+    the model's order (most new records first), and "Not yet classified" ends
+    the list without a heading. DIRECTION_RANKED is the model's own order; a
+    group id is that group's rows. Mirrors directionDisplay in app.js.
+    """
+    rows = model["rows"]
+    if group == DIRECTION_RANKED:
+        return [{"row": row} for row in rows]
+    if group:
+        return [{"row": row} for row in rows if row["group"] == group]
+    lines: list[dict[str, Any]] = []
+    for entry in taxonomy["groups"]:
+        members = [row for row in rows if row["group"] == entry["id"]]
+        if members:
+            lines.append({"heading": entry["name"], "count": len(members)})
+            lines.extend({"row": row} for row in members)
+    lines.extend({"row": row} for row in rows if row["group"] is None)
+    return lines
+
+
+def direction_focus_id(model: dict[str, Any], shown: list[str], wanted: str = "") -> str | None:
+    """The focused direction: the one asked for when shown, else the shown
+    direction with the most new records. Mirrors directionFocusId in app.js."""
+    if wanted in shown:
+        return wanted
+    for row in model["rows"]:
+        if row["id"] in shown:
+            return row["id"]
+    return None
+
+
+def direction_focus_records(
+    records: list[dict[str, Any]], direction: str, anchor: str, window_days: int
+) -> list[dict[str, Any]]:
+    """A direction's newest records in the window, as the table counts them.
+
+    The same membership and window as direction_trend_rows' `current`: newest
+    release first, then by name, at most DIRECTION_FOCUS_RECORDS. Mirrors
+    directionFocusRecords in app.js.
+    """
+    end = _day_number(anchor)
+    found = []
+    for record in records:
+        categories = (record.get("library_direction") or {}).get("categories") or ["unclassified"]
+        released = record.get("released")
+        if direction not in categories or not released:
+            continue
+        age = end - _day_number(released)
+        if 0 <= age < window_days:
+            found.append(record)
+    found.sort(key=lambda record: (-_day_number(record["released"]), record["name"]))
+    return found[:DIRECTION_FOCUS_RECORDS]

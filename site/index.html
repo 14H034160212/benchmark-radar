@@ -1005,20 +1005,23 @@
             <select id="direction-trends-group" class="library-sort" aria-label="Group" data-i18n-aria="Group" disabled><option value="" data-i18n="All groups">All groups</option></select>
           </div>
           <p class="section-note" id="direction-trends-note"></p>
-          <div class="direction-trends-frame">
-            <table class="direction-trends-table">
-              <thead>
-                <tr>
-                  <th scope="col" data-i18n="Research direction">Research direction</th>
-                  <th scope="col" class="direction-number" data-i18n="New">New</th>
-                  <th scope="col" class="direction-number" data-i18n="Previous period">Previous period</th>
-                  <th scope="col" class="direction-number" data-i18n="Change">Change</th>
-                  <th scope="col" class="direction-number" data-i18n="Undated">Undated</th>
-                  <th scope="col" data-i18n="16-week trend">16-week trend</th>
-                </tr>
-              </thead>
-              <tbody id="direction-trends-body"></tbody>
-            </table>
+          <div class="direction-trends-layout">
+            <div class="direction-trends-frame">
+              <table class="direction-trends-table" id="direction-trends-table">
+                <thead>
+                  <tr>
+                    <th scope="col" data-i18n="Research direction">Research direction</th>
+                    <th scope="col" class="direction-number" data-i18n="New">New</th>
+                    <th scope="col" class="direction-number" data-i18n="Previous period">Previous period</th>
+                    <th scope="col" class="direction-number" data-i18n="Change">Change</th>
+                    <th scope="col" class="direction-number" data-i18n="Undated">Undated</th>
+                    <th scope="col" data-i18n="16-week trend">16-week trend</th>
+                  </tr>
+                </thead>
+                <tbody id="direction-trends-body"></tbody>
+              </table>
+            </div>
+            <aside class="direction-focus" id="direction-focus" aria-labelledby="direction-focus-heading" hidden></aside>
           </div>
         </section>
 

@@ -18,7 +18,7 @@ one side has an obvious counterpart on the other.
 from __future__ import annotations
 
 import math
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 from decimal import ROUND_HALF_UP, Decimal
 from typing import Any
 from urllib.parse import urlsplit, urlunsplit
@@ -1191,28 +1191,127 @@ def direction_sparkline(weekly: list[int | None]) -> str:
     )
 
 
+def direction_focus_chart(weekly: list[int | None]) -> str:
+    """The focus panel's weekly chart, attribute for attribute as directionFocusChart."""
+    max_value = max([1, *(value for value in weekly if value is not None)])
+    parts = ""
+    for index, value in enumerate(weekly):
+        if value is None:
+            continue
+        height = max(1.5 if value else 0.5, value / max_value * 72)
+        parts += (
+            f'<rect x="{index * 20 + 3}" y="{_js_number(84 - height)}" width="14" '
+            f'height="{_js_number(height)}"></rect>'
+            f'<text x="{index * 20 + 10}" y="{_js_number(81 - height)}" '
+            f'text-anchor="middle">{value}</text>'
+        )
+    return (
+        f'<svg viewBox="0 0 {len(weekly) * 20} 96" class="direction-focus-chart" '
+        f'aria-hidden="true">{parts}</svg>'
+    )
+
+
+# Columns in the Trends direction table, which a group heading spans.
+DIRECTION_TABLE_COLUMNS = 6
+
+
+def _direction_change(row: dict[str, Any]) -> str:
+    if row["previous"] is None:
+        return "—"
+    delta = row["current"] - row["previous"]
+    return f"+{delta}" if delta > 0 else (f"−{-delta}" if delta < 0 else "0")
+
+
+def _direction_focus_seed(
+    row: dict[str, Any],
+    model: dict[str, Any],
+    taxonomy: dict[str, Any],
+    records: list[dict[str, Any]],
+) -> str:
+    """The focus panel for one direction; mirrors directionFocusPanel."""
+    from .library_directions import DIRECTION_TREND_WEEKS, direction_focus_records
+
+    days = model["window_days"]
+    group = next(
+        (entry["name"] for entry in taxonomy["groups"] if entry["id"] == row["group"]), None
+    )
+    facts = " · ".join(
+        part
+        for part in (
+            group,
+            f"{row['current']:,} new in the last {days} days",
+            f"no comparison with the previous {days} days"
+            if row["previous"] is None
+            else f"{_direction_change(row)} vs the previous {days} days",
+        )
+        if part
+    )
+    first_week = (
+        date.fromisoformat(model["anchor"]) - timedelta(days=7 * DIRECTION_TREND_WEEKS - 1)
+    ).isoformat()
+    recent = direction_focus_records(records, row["id"], model["anchor"], days)
+    listing = (
+        '<ol class="direction-focus-records">'
+        + "".join(
+            f'<li><a href="/benchmarks/{esc(record["slug"])}/">{esc(record["name"])}</a>'
+            f"<span>{_medium_date(record['released'])}</span></li>"
+            for record in recent
+        )
+        + "</ol>"
+        if recent
+        else '<p class="empty-state">No release in this window.</p>'
+    )
+    return (
+        '<div class="direction-focus-head"><div>'
+        '<p class="direction-focus-eyebrow">Direction focus</p>'
+        f'<h3 id="direction-focus-heading">{esc(row["name"])}</h3></div>'
+        '<button class="clear-button direction-focus-close" type="button" '
+        'id="direction-focus-close">Close</button></div>'
+        f'<p class="direction-focus-facts">{esc(facts)}</p>'
+        f'<figure class="direction-focus-figure">{direction_focus_chart(row["weekly"])}'
+        f"<figcaption>Weekly new records, {_medium_date(first_week)} to "
+        f"{_medium_date(model['anchor'])}</figcaption></figure>"
+        f"<h4>Recent releases</h4>{listing}"
+        f'<a class="direction-focus-library" href="/library/?dir={esc(row["id"])}">'
+        "Open in the Library</a>"
+    )
+
+
 def _direction_trends_seed(
     dashboard: dict[str, Any],
     catalog_index: list[dict[str, Any]],
     taxonomy: dict[str, Any] | None,
 ) -> dict[str, str]:
     """The Trends direction table at its default 30-day window, as HTML."""
-    from .library_directions import direction_trend_rows, discovery_anchor
+    from .library_directions import (
+        direction_display,
+        direction_focus_id,
+        direction_trend_rows,
+        discovery_anchor,
+    )
 
     anchor = discovery_anchor(catalog_index)
     if not catalog_index or not taxonomy or not anchor:
         return {}
     model = direction_trend_rows(catalog_index, taxonomy, anchor, 30)
+    lines = direction_display(model, taxonomy)
+    focus = direction_focus_id(model, [line["row"]["id"] for line in lines if "row" in line])
     body = ""
-    for row in model["rows"]:
+    for line in lines:
+        if "heading" in line:
+            body += (
+                f'<tr class="direction-group"><th colspan="{DIRECTION_TABLE_COLUMNS}" '
+                f'scope="colgroup">{esc(line["heading"])} '
+                f'<span class="direction-group-count">{line["count"]}</span></th></tr>'
+            )
+            continue
+        row = line["row"]
         previous = "—" if row["previous"] is None else f"{row['previous']:,}"
-        if row["previous"] is None:
-            change = "—"
-        else:
-            delta = row["current"] - row["previous"]
-            change = f"+{delta}" if delta > 0 else (f"−{-delta}" if delta < 0 else "0")
+        change = _direction_change(row)
+        focused = ' class="is-focused"' if row["id"] == focus else ""
         body += (
-            f'<tr><th scope="row"><a href="/library/?dir={esc(row["id"])}">'
+            f'<tr{focused}><th scope="row"><a href="/library/?dir={esc(row["id"])}" '
+            f'data-direction="{esc(row["id"])}">'
             f"{esc(row['name'])}</a></th>"
             f'<td class="direction-number">{row["current"]:,}</td>'
             f'<td class="direction-number">{previous}</td>'
@@ -1245,6 +1344,18 @@ def _direction_trends_seed(
         f"{DIRECTION_TREND_SECTION} hidden>": f"{DIRECTION_TREND_SECTION} data-seed>",
         '<tbody id="direction-trends-body"></tbody>': (
             f'<tbody id="direction-trends-body" data-seed>{body}</tbody>'
+        ),
+        '<aside class="direction-focus" id="direction-focus" '
+        'aria-labelledby="direction-focus-heading" hidden></aside>': (
+            '<aside class="direction-focus" id="direction-focus" '
+            'aria-labelledby="direction-focus-heading" data-seed>'
+            + _direction_focus_seed(
+                next(row for row in model["rows"] if row["id"] == focus),
+                model,
+                taxonomy,
+                catalog_index,
+            )
+            + "</aside>"
         ),
     }
 

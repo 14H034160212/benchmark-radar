@@ -6644,6 +6644,123 @@ dialog {
   fill: var(--blue);
 }
 
+/* benchmark-radar.com's layout: the table beside a focus panel for one
+   direction. */
+.direction-trends-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.6fr) minmax(18rem, 1fr);
+  gap: 1rem;
+  align-items: start;
+}
+
+.direction-trends-table .direction-group th {
+  padding-top: 0.75rem;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.direction-group-count {
+  font-weight: normal;
+}
+
+.direction-trends-table tr.is-focused th,
+.direction-trends-table tr.is-focused td {
+  background: rgb(37 94 168 / 8%);
+}
+
+.direction-trends-table tr.is-focused a {
+  color: var(--blue-deep);
+  font-weight: 600;
+}
+
+.direction-focus {
+  position: sticky;
+  top: 0.5rem;
+  padding: 1rem;
+  border: 1px solid var(--edge);
+  border-radius: var(--radius);
+  background: var(--panel);
+}
+
+.direction-focus-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: start;
+  gap: 0.75rem;
+}
+
+.direction-focus-eyebrow {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.direction-focus h3 {
+  margin: 0.1rem 0 0;
+  font-size: 1.1rem;
+}
+
+.direction-focus h4 {
+  margin: 0.75rem 0 0.35rem;
+  font-size: 0.88rem;
+}
+
+.direction-focus-close {
+  display: none;
+}
+
+.direction-focus-facts,
+.direction-focus figcaption {
+  margin: 0.4rem 0 0;
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.direction-focus-figure {
+  margin: 0.75rem 0 0;
+}
+
+.direction-focus-chart {
+  width: 100%;
+  height: auto;
+  fill: var(--blue);
+}
+
+.direction-focus-chart text {
+  fill: var(--muted);
+  font-family: var(--body);
+  font-size: 8px;
+}
+
+.direction-focus-records {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.85rem;
+}
+
+.direction-focus-records li {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.direction-focus-records span {
+  flex: none;
+  color: var(--muted);
+}
+
+.direction-focus-library {
+  display: inline-block;
+  margin-top: 0.75rem;
+  font-size: 0.85rem;
+}
+
 /* On a phone the counts and bars fit beside the names: names wrap, and the
    previous-period and undated counts (the change column carries the
    comparison) are left for wider screens. */
@@ -6664,5 +6781,32 @@ dialog {
 
   .direction-spark {
     width: 64px;
+  }
+
+  /* The table takes the screen; a direction's focus opens as a sheet. */
+  .direction-trends-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .direction-focus {
+    display: none;
+    position: fixed;
+    top: auto;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 60;
+    max-height: 75vh;
+    overflow-y: auto;
+    border-radius: var(--radius) var(--radius) 0 0;
+    box-shadow: var(--shadow);
+  }
+
+  .direction-focus.is-open {
+    display: block;
+  }
+
+  .direction-focus-close {
+    display: inline-block;
   }
 }

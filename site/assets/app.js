@@ -430,6 +430,15 @@ const I18N = {
     "16-week trend": "16 周趋势",
     "All groups": "全部分组",
     "Window": "时间窗口",
+    "All directions, ranked": "全部方向（排名）",
+    "Direction focus": "方向详情",
+    "{n} new in the last {days} days": "最近 {days} 天新增 {n} 个",
+    "{change} vs the previous {days} days": "比前 {days} 天 {change}",
+    "no comparison with the previous {days} days": "无法与前 {days} 天比较",
+    "Weekly new records, {start} to {end}": "每周新增记录，{start} 至 {end}",
+    "Recent releases": "最近发布",
+    "No release in this window.": "这个时间段内没有发布。",
+    "Open in the Library": "在 Library 中打开",
     "Group": "分组",
     "Last 30 days": "最近 30 天",
     "Last 60 days": "最近 60 天",
@@ -1410,6 +1419,8 @@ const state = {
   // Trends direction table (#420): window in days and an optional group.
   directionTrendWindow: 30,
   directionTrendGroup: "",
+  // The direction shown in the Trends focus panel; empty is the top one.
+  directionFocus: "",
   leaderboardShowAll: false,
   leaderboardTopExpanded: false,
   // Issue #530: the leaderboard opens on the latest releases; the cumulative
@@ -1659,6 +1670,7 @@ function readUrl() {
   state.benchmarkModel = (params.get("bmodel") || "").trim();
   state.libraryQuery = (params.get("libq") || "").trim();
   state.libraryDirection = params.get("dir") || "";
+  state.directionFocus = params.get("tdir") || "";
   state.librarySort = LIBRARY_SORTS.includes(params.get("lsort")) ? params.get("lsort") : "latest";
   state.librarySaved = params.get("saved") === "1";
   state.libraryVisibleLimit = LIBRARY_PAGE_SIZE;
@@ -1744,6 +1756,7 @@ function writeUrl(mode = "replace") {
     if (state.todayPage > 1) params.set("page", state.todayPage);
   }
   if (!utility && state.view === "map" && state.entity) params.set("entity", state.entity);
+  if (!utility && state.view === "trends" && state.directionFocus) params.set("tdir", state.directionFocus);
   if (!utility && state.view === "leaderboard") {
     // The adoption filters are written only in adoption mode: any of them in
     // a URL is what readUrl takes as the reader's choice of that mode, so a
@@ -6692,6 +6705,111 @@ function directionChange(row) {
   return delta > 0 ? `+${delta}` : delta < 0 ? `−${Math.abs(delta)}` : "0";
 }
 
+// The group menu's value for one ranked list; "" (the default) shows the
+// directions under their taxonomy groups, as benchmark-radar.com does.
+const DIRECTION_RANKED = "__ranked";
+const DIRECTION_FOCUS_RECORDS = 8;
+
+// The table's lines in display order: group headings and rows. Mirrors
+// library_directions.direction_display.
+function directionDisplay(model, taxonomy, group = "") {
+  if (group === DIRECTION_RANKED) return model.rows.map((row) => ({ row }));
+  if (group) return model.rows.filter((row) => row.group === group).map((row) => ({ row }));
+  const lines = [];
+  for (const entry of taxonomy.groups) {
+    const members = model.rows.filter((row) => row.group === entry.id);
+    if (members.length) lines.push({ heading: entry.name, count: members.length }, ...members.map((row) => ({ row })));
+  }
+  lines.push(...model.rows.filter((row) => row.group === null).map((row) => ({ row })));
+  return lines;
+}
+
+// The focused direction: the one asked for when shown, else the shown one with
+// the most new records. Mirrors library_directions.direction_focus_id.
+function directionFocusId(model, shown, wanted = "") {
+  if (shown.includes(wanted)) return wanted;
+  return model.rows.find((row) => shown.includes(row.id))?.id || null;
+}
+
+// A direction's newest records in the window, counted as the table counts
+// them. Mirrors library_directions.direction_focus_records.
+function directionFocusRecords(records, direction, anchor, windowDays) {
+  const end = dayNumber(anchor);
+  return records
+    .filter((record) => {
+      const categories = record.library_direction?.categories?.length ? record.library_direction.categories : ["unclassified"];
+      if (!categories.includes(direction) || !record.released) return false;
+      const age = end - dayNumber(record.released);
+      return age >= 0 && age < windowDays;
+    })
+    .sort((a, b) => dayNumber(b.released) - dayNumber(a.released) || (a.name < b.name ? -1 : a.name > b.name ? 1 : 0))
+    .slice(0, DIRECTION_FOCUS_RECORDS);
+}
+
+// The focus panel's weekly chart: the sixteen weeks with their counts written
+// above the bars. Mirrors app_seeds.direction_focus_chart.
+function directionFocusChart(weekly) {
+  const max = Math.max(1, ...weekly.filter((value) => value !== null));
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.setAttribute("viewBox", `0 0 ${weekly.length * 20} 96`);
+  svg.setAttribute("class", "direction-focus-chart");
+  svg.setAttribute("aria-hidden", "true");
+  weekly.forEach((value, index) => {
+    if (value === null) return;
+    const height = Math.max(value ? 1.5 : 0.5, (value / max) * 72);
+    const bar = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+    bar.setAttribute("x", String(index * 20 + 3));
+    bar.setAttribute("y", String(84 - height));
+    bar.setAttribute("width", "14");
+    bar.setAttribute("height", String(height));
+    const label = document.createElementNS("http://www.w3.org/2000/svg", "text");
+    label.setAttribute("x", String(index * 20 + 10));
+    label.setAttribute("y", String(81 - height));
+    label.setAttribute("text-anchor", "middle");
+    label.textContent = String(value);
+    svg.append(bar, label);
+  });
+  return svg;
+}
+
+function directionFocusPanel(row, model, taxonomy, records) {
+  const group = taxonomy.groups.find((entry) => entry.id === row.group)?.name;
+  const firstWeek = new Date(Date.UTC(1970, 0, 1) + (dayNumber(model.anchor) - 7 * DIRECTION_TREND_WEEKS + 1) * 864e5)
+    .toISOString().slice(0, 10);
+  const facts = [
+    group,
+    t("{n} new in the last {days} days", { n: row.current.toLocaleString(), days: model.windowDays }),
+    row.previous === null
+      ? t("no comparison with the previous {days} days", { days: model.windowDays })
+      : t("{change} vs the previous {days} days", { change: directionChange(row), days: model.windowDays }),
+  ].filter(Boolean).join(" · ");
+  const recent = directionFocusRecords(records, row.id, model.anchor, model.windowDays);
+  return [
+    element("div", { className: "direction-focus-head" }, [
+      element("div", {}, [
+        element("p", { className: "direction-focus-eyebrow", text: t("Direction focus") }),
+        element("h3", { attrs: { id: "direction-focus-heading" }, text: row.id === "unclassified" ? t("Not yet classified") : row.name }),
+      ]),
+      element("button", { className: "clear-button direction-focus-close", text: t("Close"), attrs: { type: "button", id: "direction-focus-close" } }),
+    ]),
+    element("p", { className: "direction-focus-facts", text: facts }),
+    element("figure", { className: "direction-focus-figure" }, [
+      directionFocusChart(row.weekly),
+      element("figcaption", { text: t("Weekly new records, {start} to {end}", {
+        start: formatDate(firstWeek, { dateStyle: "medium" }), end: formatDate(model.anchor, { dateStyle: "medium" }),
+      }) }),
+    ]),
+    element("h4", { text: t("Recent releases") }),
+    recent.length
+      ? element("ol", { className: "direction-focus-records" }, recent.map((record) => element("li", {}, [
+        element("a", { text: record.name, attrs: { href: `/benchmarks/${record.slug}/` } }),
+        element("span", { text: formatDate(record.released, { dateStyle: "medium" }) }),
+      ])))
+      : element("p", { className: "empty-state", text: t("No release in this window.") }),
+    element("a", { className: "direction-focus-library", text: t("Open in the Library"), attrs: { href: `/library/?dir=${encodeURIComponent(row.id)}` } }),
+  ];
+}
+
 function renderDirectionTrends() {
   const table = byId("direction-trends-body");
   if (!table || !state.data) return;
@@ -6736,13 +6854,18 @@ function renderDirectionTrends() {
   // added once it has loaded.
   if (groups.options.length <= 1) {
     replaceChildren(groups, [element("option", { text: t("All groups"), attrs: { value: "" } }),
+      element("option", { text: t("All directions, ranked"), attrs: { value: DIRECTION_RANKED } }),
       ...taxonomy.groups.map((group) => element("option", { text: group.name, attrs: { value: group.id } }))]);
   }
-  // Rebuilt only once, so its label follows a language switch here.
+  // Rebuilt only once, so these labels follow a language switch here.
   groups.options[0].textContent = t("All groups");
+  groups.options[1].textContent = t("All directions, ranked");
   groups.value = state.directionTrendGroup;
   const model = directionTrendRows(state.benchmarkIndex, taxonomy, anchor, state.directionTrendWindow);
-  const rows = model.rows.filter((row) => !state.directionTrendGroup || row.group === state.directionTrendGroup);
+  const lines = directionDisplay(model, taxonomy, state.directionTrendGroup);
+  const shown = lines.filter((line) => line.row).map((line) => line.row.id);
+  const focus = directionFocusId(model, shown, state.directionFocus);
+  const columns = byId("direction-trends-table")?.querySelectorAll("thead th").length || 6;
   byId("direction-trends-note").textContent = [
     t("New benchmark records by release date, {days} days to {date}.", {
       days: model.windowDays, date: formatDate(model.anchor, { dateStyle: "medium" }),
@@ -6753,11 +6876,18 @@ function renderDirectionTrends() {
       days: model.windowDays, since: model.discoverySince ? formatDate(model.discoverySince, { dateStyle: "medium" }) : "—",
     }),
   ].filter(Boolean).join(" ");
-  replaceChildren(table, rows.map((row) => element("tr", {}, [
+  replaceChildren(table, lines.map(({ row, heading, count }) => (heading ? element("tr", { className: "direction-group" }, [
+    element("th", { attrs: { colspan: columns, scope: "colgroup" } }, [
+      document.createTextNode(`${heading} `),
+      element("span", { className: "direction-group-count", text: String(count) }),
+    ]),
+  ]) : element("tr", { className: row.id === focus ? "is-focused" : "" }, [
     element("th", { attrs: { scope: "row" } }, [
+      // A link to the direction in the Library, which the page turns into
+      // "focus this direction"; without JavaScript it still goes there.
       element("a", {
         text: row.id === "unclassified" ? t("Not yet classified") : row.name,
-        attrs: { href: `/library/?dir=${encodeURIComponent(row.id)}` },
+        attrs: { href: `/library/?dir=${encodeURIComponent(row.id)}`, "data-direction": row.id },
       }),
     ]),
     element("td", { className: "direction-number", text: row.current.toLocaleString() }),
@@ -6772,7 +6902,17 @@ function renderDirectionTrends() {
         values: row.weekly.map((value) => (value === null ? t("no data") : value)).join(", "),
       }) }),
     ]),
-  ])));
+  ]))));
+  const panel = byId("direction-focus");
+  const focused = model.rows.find((row) => row.id === focus);
+  panel.hidden = !focused;
+  if (focused) {
+    replaceChildren(panel, directionFocusPanel(focused, model, taxonomy, state.benchmarkIndex));
+    byId("direction-focus-close").addEventListener("click", () => {
+      panel.classList.remove("is-open");
+      table.querySelector(`a[data-direction="${CSS.escape(focus)}"]`)?.focus();
+    });
+  }
 }
 
 function initDirectionTrends() {
@@ -6787,6 +6927,21 @@ function initDirectionTrends() {
   byId("direction-trends-group").addEventListener("change", (event) => {
     state.directionTrendGroup = event.target.value;
     renderDirectionTrends();
+  });
+  // A direction's name focuses it in the panel (on a phone, the panel opens as
+  // a sheet). The link's own target, the Library, is in the panel.
+  byId("direction-trends-body").addEventListener("click", (event) => {
+    const link = event.target.closest?.("a[data-direction]");
+    if (!link || !state.benchmarkIndex || event.metaKey || event.ctrlKey || event.shiftKey) return;
+    event.preventDefault();
+    state.directionFocus = link.dataset.direction;
+    renderDirectionTrends();
+    writeUrl();
+    byId("direction-focus").classList.add("is-open");
+    byId("direction-focus-close")?.focus();
+  });
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") byId("direction-focus")?.classList.remove("is-open");
   });
 }
 

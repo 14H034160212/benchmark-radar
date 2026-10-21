@@ -33,7 +33,8 @@ class Node {
   }
   serialize() {
     const attrs = this.attrs.map(([key, value]) => ` ${key}="${value}"`).join("");
-    return `<${this.tag}${attrs}>${this.children.map((child) => child.serialize()).join("")}</${this.tag}>`;
+    const inner = this.children.length ? this.children.map((child) => child.serialize()).join("") : this.textContent;
+    return `<${this.tag}${attrs}>${inner}</${this.tag}>`;
   }
 }
 const nodes = new Map();
@@ -41,7 +42,7 @@ const byId = (id) => {
   if (!nodes.has(id)) nodes.set(id, new Node(id === "direction-trends-body" ? "tbody" : "div"));
   return nodes.get(id);
 };
-globalThis.document = { createElementNS: (_ns, tag) => new Node(tag) };
+globalThis.document = { createElementNS: (_ns, tag) => new Node(tag), addEventListener() {} };
 
 let releaseIndex;
 const state = { data: {}, view: "trends" };
@@ -51,9 +52,9 @@ const env = {
   loadBenchmarkIndex: () => new Promise((resolve) => { releaseIndex = resolve; }),
   DIRECTION_TREND_WINDOWS: [30, 60, 90],
 };
-const { directionSparkline, renderDirectionTrends } = new Function(
+const { directionSparkline, directionFocusChart, renderDirectionTrends } = new Function(
   ...Object.keys(env),
-  `${fn("directionSparkline")}\n${fn("initDirectionTrends")}\n${fn("renderDirectionTrends")}\nreturn { directionSparkline, renderDirectionTrends };`,
+  `${fn("directionSparkline")}\n${fn("directionFocusChart")}\n${fn("initDirectionTrends")}\n${fn("renderDirectionTrends")}\nreturn { directionSparkline, directionFocusChart, renderDirectionTrends };`,
 )(...Object.values(env));
 
 // The seeded window selector works while the catalog is still loading.
@@ -85,4 +86,7 @@ assert.equal(byId("direction-trends-note").textContent, "The benchmark catalog c
 
 // The bars, serialized for test_direction_trends.py to compare with the seed.
 const cases = JSON.parse(readFileSync(0, "utf8"));
-process.stdout.write(JSON.stringify(cases.map((weekly) => directionSparkline(weekly).serialize())));
+process.stdout.write(JSON.stringify({
+  sparklines: cases.map((weekly) => directionSparkline(weekly).serialize()),
+  focusCharts: cases.map((weekly) => directionFocusChart(weekly).serialize()),
+}));
