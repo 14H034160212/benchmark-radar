@@ -1424,6 +1424,7 @@ const state = {
   directionFocus: "",
   directionFocusOpen: false,
   directionFocusShown: "",
+  directionTrendsLive: false,
   leaderboardShowAll: false,
   leaderboardTopExpanded: false,
   // Issue #530: the leaderboard opens on the latest releases; the cumulative
@@ -6851,8 +6852,11 @@ function renderDirectionTrends() {
     note.textContent = [note.dataset.seedNote, t("The benchmark catalog could not be loaded.")].filter(Boolean).join(" ");
     byId("direction-trends-window").disabled = true;
     byId("direction-trends-group").disabled = true;
+    state.directionTrendsLive = false;
     return;
   }
+  // From here the table is live, so a direction's link may focus it.
+  state.directionTrendsLive = true;
   section.hidden = false;
   // The menus ship disabled: the seeded table is the 30-day window and only
   // live data can change it.
@@ -6963,7 +6967,8 @@ function initDirectionTrends() {
   // a sheet). The link's own target, the Library, is in the panel.
   byId("direction-trends-body").addEventListener("click", (event) => {
     const link = event.target.closest?.("a[data-direction]");
-    if (!link || !state.benchmarkIndex || event.metaKey || event.ctrlKey || event.shiftKey) return;
+    // Until the live table renders, the seeded links go to the Library.
+    if (!link || !state.directionTrendsLive || event.metaKey || event.ctrlKey || event.shiftKey) return;
     event.preventDefault();
     state.directionFocus = link.dataset.direction;
     state.directionFocusOpen = true;
