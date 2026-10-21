@@ -6730,9 +6730,11 @@ function renderDirectionTrends() {
   byId("direction-trends-group").disabled = false;
   byId("direction-trends-window").value = String(state.directionTrendWindow);
   const groups = byId("direction-trends-group");
-  if (!groups.options.length) {
-    groups.append(element("option", { text: t("All groups"), attrs: { value: "" } }),
-      ...taxonomy.groups.map((group) => element("option", { text: group.name, attrs: { value: group.id } })));
+  // The page ships only the "All groups" option; the taxonomy's groups are
+  // added once it has loaded.
+  if (groups.options.length <= 1) {
+    replaceChildren(groups, [element("option", { text: t("All groups"), attrs: { value: "" } }),
+      ...taxonomy.groups.map((group) => element("option", { text: group.name, attrs: { value: group.id } }))]);
   }
   groups.value = state.directionTrendGroup;
   const model = directionTrendRows(state.benchmarkIndex, taxonomy, anchor, state.directionTrendWindow);
