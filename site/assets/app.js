@@ -6959,7 +6959,8 @@ function initDirectionTrends() {
     state.directionFocus = link.dataset.direction;
     state.directionFocusOpen = true;
     renderDirectionTrends();
-    writeUrl();
+    // A discrete choice, so Back returns to the previous focus.
+    writeUrl("push");
     // The heading is visible on every screen; the Close button only on phones.
     byId("direction-focus-heading")?.focus();
   });
