@@ -429,6 +429,8 @@ const I18N = {
     "no data": "无数据",
     "16-week trend": "16 周趋势",
     "All groups": "全部分组",
+    "Window": "时间窗口",
+    "Group": "分组",
     "Last 30 days": "最近 30 天",
     "Last 60 days": "最近 60 天",
     "Last 90 days": "最近 90 天",
@@ -6736,6 +6738,8 @@ function renderDirectionTrends() {
     replaceChildren(groups, [element("option", { text: t("All groups"), attrs: { value: "" } }),
       ...taxonomy.groups.map((group) => element("option", { text: group.name, attrs: { value: group.id } }))]);
   }
+  // Rebuilt only once, so its label follows a language switch here.
+  groups.options[0].textContent = t("All groups");
   groups.value = state.directionTrendGroup;
   const model = directionTrendRows(state.benchmarkIndex, taxonomy, anchor, state.directionTrendWindow);
   const rows = model.rows.filter((row) => !state.directionTrendGroup || row.group === state.directionTrendGroup);
