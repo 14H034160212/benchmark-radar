@@ -1247,7 +1247,7 @@ const I18N = {
     "release date unrecorded": "未记录发布日期",
     released: "发布于",
     // Latest releases (issue #530)
-    "Leaderboard views": "排行榜视图",
+    "Landscape views": "全景视图",
     "Latest releases": "最新发布",
     "Model-card adoption": "模型卡采用情况",
     "Reported scores": "报告分数",
