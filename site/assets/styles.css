@@ -6606,6 +6606,8 @@ dialog {
 
 .direction-trends-table {
   width: 100%;
+  /* Not the site-wide 1100px table minimum: this table fits a phone. */
+  min-width: 0;
   border-collapse: collapse;
   font-size: 0.88rem;
 }
@@ -6615,7 +6617,9 @@ dialog {
   padding: 0.3rem 0.5rem;
   border-bottom: 1px solid var(--line);
   text-align: left;
+  font-family: var(--body);
   font-weight: normal;
+  letter-spacing: normal;
 }
 
 .direction-trends-table thead th {
@@ -6625,6 +6629,8 @@ dialog {
 
 .direction-trends-table a {
   color: var(--ink);
+  font-family: var(--body);
+  letter-spacing: normal;
 }
 
 .direction-trends-table .direction-number {
@@ -6636,4 +6642,27 @@ dialog {
   width: 96px;
   height: 20px;
   fill: var(--blue);
+}
+
+/* On a phone the counts and bars fit beside the names: names wrap, and the
+   previous-period and undated counts (the change column carries the
+   comparison) are left for wider screens. */
+@media (max-width: 720px) {
+  .direction-trends-table {
+    font-size: 0.8rem;
+  }
+
+  .direction-trends-table th,
+  .direction-trends-table td {
+    padding: 0.3rem 0.25rem;
+  }
+
+  .direction-trends-table tr > :nth-child(3),
+  .direction-trends-table tr > :nth-child(5) {
+    display: none;
+  }
+
+  .direction-spark {
+    width: 64px;
+  }
 }
