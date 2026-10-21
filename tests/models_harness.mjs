@@ -156,7 +156,7 @@ const names = [
 ];
 const models = new Function(
   ...Object.keys(env),
-  `${source.match(/const MODEL_PAGE_COLUMNS = .*;/)[0]}\n${fn("element")}\n${fn("replaceChildren")}\n${fn("debounce")}\n${block}\nreturn {${names.join(",")}};`,
+  `${source.match(/const MODEL_PAGE_COLUMNS = .*;/)[0]}\n${fn("safeHttpUrl")}\n${fn("element")}\n${fn("replaceChildren")}\n${fn("debounce")}\n${block}\nreturn {${names.join(",")}};`,
 )(...Object.values(env));
 const { state } = env;
 
@@ -516,4 +516,30 @@ const fallbackCell = byId("models-list").querySelector('button.models-cell[data-
 fallbackCell.click();
 await tick();
 assert.match(byId("models-panel").textContent, /67%/);
+// The panel links only http(s) sources, draws lower-is-better bars so the
+// best score is longest, and names split checkpoints in the chart.
+reset(payload);
+models.renderModels();
+shards.set("llm-stats-b4", { scores_by_source: { llm_stats: {
+  series: { direction: "lower_is_better", score_summary: { display_multiplier: 1 } },
+  rows: [
+    { model_name: "Acme-4", organization: "Acme", value: 9.76, source_url: "javascript:alert(1)", source_title: "bad" },
+    { model_name: "Best", organization: "Other", value: 5.81, source_url: "https://example.org/r", source_title: "good" },
+    { model_name: "Twin", organization: "Other", model_id: "twin-0513", value: 7 },
+    { model_name: "Twin", organization: "Other", model_id: "twin-0806", value: 8 },
+  ],
+} } });
+byId("models-list").querySelector('button.models-cell[data-model="acme-4"]').click();
+await tick();
+const panelLinks = byId("models-panel").querySelectorAll("a").map((link) => link.getAttribute("href"));
+assert(!panelLinks.some((href) => String(href).startsWith("javascript:")));
+const bars = byId("models-panel").querySelector("ol.models-panel-chart").querySelectorAll("li");
+const shareOf = (label) => Number(bars.find((bar) => bar.textContent.startsWith(label)).querySelector("span.models-panel-bar").getAttribute("style").split(":")[1]);
+assert.equal(shareOf("Best"), 1);
+assert(shareOf("Acme-4") < shareOf("Best"));
+assert.match(byId("models-panel").textContent, /Lower is better: the longest bar is the lowest score\./);
+const chartText = byId("models-panel").querySelector("ol.models-panel-chart").textContent;
+assert.match(chartText, /Twin \(twin-0513\)/);
+assert.match(chartText, /Twin \(twin-0806\)/);
+
 console.log("Models matrix, shared-benchmark average rules and the three #862 defects passed.");
