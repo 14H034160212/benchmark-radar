@@ -11642,9 +11642,11 @@ async function refreshData() {
     // data a URL-backed state needs.
     if (stateNeedsFullData()) await ensureFullData("reload");
     else if (stateNeedsTrendsData()) await ensureTrendsData("reload");
-    // A catalog request that failed is tried again on Refresh, so the Trends
-    // direction table can recover rather than keep the failure.
-    if (state.benchmarkIndexLoaded && !state.benchmarkIndex) {
+    // A catalog that failed, or arrived without what the Trends direction
+    // table needs (taxonomy, crawl anchor), is fetched again on Refresh, so
+    // the table can recover rather than keep the failure.
+    if (state.benchmarkIndexLoaded
+      && (!state.benchmarkIndex || !state.libraryTaxonomy || !discoveryAnchor(state.benchmarkIndex))) {
       benchmarkIndexPromise = null;
       state.benchmarkIndexLoaded = false;
     }
