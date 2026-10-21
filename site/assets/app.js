@@ -11686,6 +11686,9 @@ async function initialize() {
   if (initialParams.has("view") || legacyUtilityHash
     || (state.view === "saturation" && viewFromPath(window.location.pathname) === "leaderboard")) writeUrl("replace");
   bindEvents();
+  // The Trends direction table needs only its catalog, so it starts loading
+  // now rather than after the page's own data, which can be slow.
+  if (state.view === "trends") renderDirectionTrends();
   const initializationNavigationSequence = viewNavigationSequence;
   const initializationRefreshSequence = successfulDataRefreshSequence;
   // Utility pages ship useful dialog content in their first HTML response.
