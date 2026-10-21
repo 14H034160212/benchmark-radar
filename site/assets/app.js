@@ -6881,21 +6881,7 @@ function renderDirectionTrends() {
         discoverySince: note.dataset.since || null,
       });
     }
-    // The seeded panel is the top direction's; a link to another one cannot
-    // be honoured without the catalog, so it is not shown in its place.
-    const seededFocus = table.querySelector("tr.is-focused a[data-direction]")?.dataset.direction;
-    const linkedElsewhere = Boolean(state.directionFocus) && state.directionFocus !== seededFocus;
-    if (linkedElsewhere) {
-      byId("direction-focus").hidden = true;
-      table.querySelector("tr.is-focused")?.classList.remove("is-focused");
-    } else if (state.directionFocus && state.directionFocusOpen) {
-      // The seed already shows the linked direction: open its phone sheet.
-      byId("direction-focus").classList.add("is-open");
-    }
-    byId("direction-trends-status").textContent = [
-      t("The benchmark catalog could not be loaded."),
-      linkedElsewhere ? t("The linked direction could not be shown.") : "",
-    ].filter(Boolean).join(" ");
+    reconcileSeededDirectionFocus(t("The benchmark catalog could not be loaded."));
     byId("direction-trends-window").disabled = true;
     byId("direction-trends-group").disabled = true;
     state.directionTrendsLive = false;
@@ -6975,8 +6961,28 @@ function renderDirectionTrends() {
   panel.classList.toggle("is-open", Boolean(focused) && state.directionFocusOpen);
   if (focused) {
     replaceChildren(panel, directionFocusPanel(focused, model, taxonomy, state.benchmarkIndex));
-    byId("direction-focus-close").addEventListener("click", closeDirectionFocus);
   }
+}
+
+// Without live data the seeded table stays, and its panel is the top
+// direction's: a link to another one cannot be honoured, so that panel is not
+// shown in its place, while a link to the seeded one opens its phone sheet.
+// Used when the catalog fails and when the whole page's data fails.
+function reconcileSeededDirectionFocus(failure) {
+  const table = byId("direction-trends-body");
+  if (!table) return;
+  const seededFocus = table.querySelector("tr.is-focused a[data-direction]")?.dataset.direction;
+  const linkedElsewhere = Boolean(state.directionFocus) && state.directionFocus !== seededFocus;
+  if (linkedElsewhere) {
+    byId("direction-focus").hidden = true;
+    table.querySelector("tr.is-focused")?.classList.remove("is-focused");
+  } else if (state.directionFocus && state.directionFocusOpen) {
+    byId("direction-focus").classList.add("is-open");
+  }
+  byId("direction-trends-status").textContent = [
+    failure,
+    linkedElsewhere ? t("The linked direction could not be shown.") : "",
+  ].filter(Boolean).join(" ");
 }
 
 // Close the phone sheet (Close or Escape) and give focus back to the row the
@@ -7025,6 +7031,10 @@ function initDirectionTrends() {
   });
   document.addEventListener("keydown", (event) => {
     if (event.key === "Escape" && state.directionFocusOpen) closeDirectionFocus();
+  });
+  // Delegated, so the seeded panel's Close works too when no live render ran.
+  byId("direction-focus")?.addEventListener("click", (event) => {
+    if (event.target.closest?.("#direction-focus-close")) closeDirectionFocus();
   });
 }
 
@@ -11693,6 +11703,12 @@ async function initialize() {
       section.hidden = !seeded;
       if (seeded) survivor = section;
     });
+    // A seeded Trends page keeps its direction table: make its focus match the
+    // link (or say it cannot) and let its sheet close.
+    if (survivor?.id === "trends-view") {
+      initDirectionTrends();
+      reconcileSeededDirectionFocus("");
+    }
     const banner = byId("error-state");
     banner.hidden = false;
     // The banner sits last in the document, which is the right place when it is

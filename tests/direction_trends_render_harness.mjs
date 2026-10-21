@@ -60,7 +60,7 @@ const env = {
 };
 const { directionSparkline, directionFocusChart, renderDirectionTrends } = new Function(
   ...Object.keys(env),
-  `${fn("directionTrendNote")}\n${fn("directionSparkline")}\n${fn("directionFocusChart")}\n${fn("initDirectionTrends")}\n${fn("renderDirectionTrends")}\nreturn { directionSparkline, directionFocusChart, renderDirectionTrends };`,
+  `${fn("directionTrendNote")}\n${fn("reconcileSeededDirectionFocus")}\n${fn("closeDirectionFocus")}\n${fn("directionSparkline")}\n${fn("directionFocusChart")}\n${fn("initDirectionTrends")}\n${fn("renderDirectionTrends")}\nreturn { directionSparkline, directionFocusChart, renderDirectionTrends };`,
 )(...Object.values(env));
 
 // The seeded window selector works while the catalog is still loading.
