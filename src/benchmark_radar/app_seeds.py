@@ -1264,7 +1264,7 @@ def _direction_focus_seed(
     return (
         '<div class="direction-focus-head"><div>'
         '<p class="direction-focus-eyebrow">Direction focus</p>'
-        f'<h3 id="direction-focus-heading">{esc(row["name"])}</h3></div>'
+        f'<h3 id="direction-focus-heading" tabindex="-1">{esc(row["name"])}</h3></div>'
         '<button class="clear-button direction-focus-close" type="button" '
         'id="direction-focus-close">Close</button></div>'
         f'<p class="direction-focus-facts">{esc(facts)}</p>'
@@ -1272,7 +1272,12 @@ def _direction_focus_seed(
         f'<span class="visually-hidden">{esc(weekly_summary(row["weekly"]))}</span>'
         f"<figcaption>Weekly new records, {_medium_date(first_week)} to "
         f"{_medium_date(model['anchor'])}</figcaption></figure>"
-        f"<h4>Recent releases</h4>{listing}"
+        + (
+            f"<h4>Newest {len(recent)} of {row['current']:,} releases</h4>"
+            if row["current"] > len(recent)
+            else "<h4>Recent releases</h4>"
+        )
+        + f"{listing}"
         f'<a class="direction-focus-library" href="/library/?dir={esc(row["id"])}">'
         "Open in the Library</a>"
     )

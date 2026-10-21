@@ -440,6 +440,7 @@ const I18N = {
     "No release in this window.": "这个时间段内没有发布。",
     "Open in the Library": "在 Library 中打开",
     "The linked direction could not be shown.": "无法显示链接里的方向。",
+    "Newest {shown} of {n} releases": "{n} 个发布中最新的 {shown} 个",
     "Group": "分组",
     "Last 30 days": "最近 30 天",
     "Last 60 days": "最近 60 天",
@@ -6815,7 +6816,11 @@ function directionFocusPanel(row, model, taxonomy, records) {
         start: formatDate(firstWeek, { dateStyle: "medium" }), end: formatDate(model.anchor, { dateStyle: "medium" }),
       }) }),
     ]),
-    element("h4", { text: t("Recent releases") }),
+    // The list stops at DIRECTION_FOCUS_RECORDS; say so when the window has
+    // more, and the Library link below lists them all, newest first.
+    element("h4", { text: row.current > recent.length
+      ? t("Newest {shown} of {n} releases", { shown: recent.length, n: row.current.toLocaleString() })
+      : t("Recent releases") }),
     recent.length
       ? element("ol", { className: "direction-focus-records" }, recent.map((record) => element("li", {}, [
         element("a", { text: record.name, attrs: { href: `/benchmarks/${record.slug}/` } }),
@@ -6883,6 +6888,9 @@ function renderDirectionTrends() {
     if (linkedElsewhere) {
       byId("direction-focus").hidden = true;
       table.querySelector("tr.is-focused")?.classList.remove("is-focused");
+    } else if (state.directionFocus && state.directionFocusOpen) {
+      // The seed already shows the linked direction: open its phone sheet.
+      byId("direction-focus").classList.add("is-open");
     }
     byId("direction-trends-status").textContent = [
       t("The benchmark catalog could not be loaded."),
