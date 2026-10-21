@@ -6283,7 +6283,7 @@ function modelMatrixTable(columns, data, recordsByKey) {
 // The chart ranks only runs in the same comparable group as the selected
 // model's best score: runs under another protocol or scaffold on the same
 // record are not one ordered comparison. Every row of the model is listed.
-function modelPanelRows(shard, model, scored, direction) {
+function modelPanelRows(shard, model, scored, direction, splitLabels = new Set()) {
   const rows = Object.values(shard?.scores_by_source || {}).flatMap((payload) => payload.rows || []);
   const better = (a, b) => (direction === "lower_is_better" ? a.value < b.value : a.value > b.value);
   const mine = rows.filter((row) => (row.model_name || "").toLowerCase() === model.name.toLowerCase()
@@ -6310,7 +6310,10 @@ function modelPanelRows(shard, model, scored, direction) {
     && (!model.sourceModelId || row.model_id === model.sourceModelId);
   // How a chart entry is named: the source's checkpoint ID is added when it
   // files several under one label, so 88.7 and 85.7 say whose they are.
-  const name = (row) => (ids.get(label(row))?.size > 1 && row.model_id ? `${row.model_name} (${row.model_id})` : row.model_name);
+  // A label split anywhere in the corpus (splitLabels) is named by ID even on
+  // a record where only one of its checkpoints reports.
+  const split = (row) => ids.get(label(row))?.size > 1 || splitLabels.has(label(row));
+  const name = (row) => (split(row) && row.model_id ? `${row.model_name} (${row.model_id})` : row.model_name);
   return { mine, best: [...best.values()], lead, own, name };
 }
 
@@ -6362,7 +6365,9 @@ function openModelPanel(model, record, data) {
     // right even when model-scores.json did not load.
     const scale = modelSeriesScale(shard.scores_by_source?.[record.source]?.series);
     const { multiplier } = scale;
-    const { mine, best, lead, own, name } = modelPanelRows(shard, model, data.scored, scale.direction);
+    const splitLabels = new Set(data.models.filter((entry) => entry.sourceModelId)
+      .map((entry) => `${entry.organization.toLowerCase()}\u0000${entry.name.toLowerCase()}`));
+    const { mine, best, lead, own, name } = modelPanelRows(shard, model, data.scored, scale.direction, splitLabels);
     const display = (row) => modelValueText(typeof row.value === "number" ? row.value * multiplier : null, scale);
     const top = best.sort((a, b) => (scale.direction === "lower_is_better" ? a.value - b.value : b.value - a.value)).slice(0, 10);
     if (!top.some(own) && lead) top.push(lead);
@@ -6397,12 +6402,13 @@ function openModelPanel(model, record, data) {
         : t("Not on a 0–100 scale; shown, left out of averages.") }),
       element("h3", { text: t("Top models on this record") }),
       lead && modelRowSetting(lead) ? element("p", { className: "models-col-facts", text: t("Same setting only: {setting}", { setting: modelRowSetting(lead) }) }) : null,
-      lower ? element("p", { className: "models-col-facts", text: t("Lower is better: the longest bar is the lowest score.") }) : null,
       element("ol", { className: "models-panel-chart" }, top.map((row) => element("li", { className: own(row) ? "is-selected" : "" }, [
         element("span", { className: "models-panel-model", text: name(row) }),
         element("span", { className: "models-panel-bar", attrs: { style: `--share:${Math.max(0, Math.min(1, share(row))).toFixed(3)}` } }),
         element("span", { className: "models-panel-value", text: display(row) }),
       ]))),
+      // Below the figure, as principle.md places a chart's notes.
+      lower ? element("p", { className: "models-col-facts", text: t("Lower is better: the longest bar is the lowest score.") }) : null,
       element("a", { text: t("Open the benchmark page"), attrs: { href: `/benchmarks/${record.slug}/` } }),
     ]);
   });
