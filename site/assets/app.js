@@ -6785,18 +6785,35 @@ function directionFocusChart(weekly) {
   return svg;
 }
 
+// The panel's sentences, from its facts. The seed carries the same facts as
+// data attributes, so a seeded panel can be rebuilt in the reader's language.
+function directionFocusText({ group, current, previous, change, days, firstWeek, anchor, shown }) {
+  return {
+    facts: [
+      group,
+      t("{n} new in the last {days} days", { n: current.toLocaleString(), days }),
+      previous === null
+        ? t("no comparison with the previous {days} days", { days })
+        : t("{change} vs the previous {days} days", { change, days }),
+    ].filter(Boolean).join(" · "),
+    caption: t("Weekly new records, {start} to {end}", {
+      start: formatDate(firstWeek, { dateStyle: "medium" }), end: formatDate(anchor, { dateStyle: "medium" }),
+    }),
+    heading: current > shown
+      ? t("Newest {shown} of {n} releases", { shown, n: current.toLocaleString() })
+      : t("Recent releases"),
+  };
+}
+
 function directionFocusPanel(row, model, taxonomy, records) {
   const group = taxonomy.groups.find((entry) => entry.id === row.group)?.name;
   const firstWeek = new Date(Date.UTC(1970, 0, 1) + (dayNumber(model.anchor) - 7 * DIRECTION_TREND_WEEKS + 1) * 864e5)
     .toISOString().slice(0, 10);
-  const facts = [
-    group,
-    t("{n} new in the last {days} days", { n: row.current.toLocaleString(), days: model.windowDays }),
-    row.previous === null
-      ? t("no comparison with the previous {days} days", { days: model.windowDays })
-      : t("{change} vs the previous {days} days", { change: directionChange(row), days: model.windowDays }),
-  ].filter(Boolean).join(" · ");
   const recent = directionFocusRecords(records, row.id, model.anchor, model.windowDays);
+  const text = directionFocusText({
+    group, current: row.current, previous: row.previous, change: directionChange(row), days: model.windowDays,
+    firstWeek, anchor: model.anchor, shown: recent.length,
+  });
   return [
     element("div", { className: "direction-focus-head" }, [
       element("div", {}, [
@@ -6805,22 +6822,18 @@ function directionFocusPanel(row, model, taxonomy, records) {
       ]),
       element("button", { className: "clear-button direction-focus-close", text: t("Close"), attrs: { type: "button", id: "direction-focus-close" } }),
     ]),
-    element("p", { className: "direction-focus-facts", text: facts }),
+    element("p", { className: "direction-focus-facts", text: text.facts }),
     element("figure", { className: "direction-focus-figure" }, [
       directionFocusChart(row.weekly),
       // The chart is drawn for sighted readers; its sixteen counts are text too.
       element("span", { className: "visually-hidden", text: t("Weekly new records, oldest first: {values}", {
         values: row.weekly.map((value) => (value === null ? t("no data") : value)).join(", "),
       }) }),
-      element("figcaption", { text: t("Weekly new records, {start} to {end}", {
-        start: formatDate(firstWeek, { dateStyle: "medium" }), end: formatDate(model.anchor, { dateStyle: "medium" }),
-      }) }),
+      element("figcaption", { text: text.caption }),
     ]),
     // The list stops at DIRECTION_FOCUS_RECORDS; say so when the window has
     // more, and the Library link below lists them all, newest first.
-    element("h4", { text: row.current > recent.length
-      ? t("Newest {shown} of {n} releases", { shown: recent.length, n: row.current.toLocaleString() })
-      : t("Recent releases") }),
+    element("h4", { text: text.heading }),
     recent.length
       ? element("ol", { className: "direction-focus-records" }, recent.map((record) => element("li", {}, [
         element("a", { text: record.name, attrs: { href: `/benchmarks/${record.slug}/` } }),
@@ -6973,11 +6986,26 @@ function reconcileSeededDirectionFocus(failure) {
   if (!table) return;
   const seededFocus = table.querySelector("tr.is-focused a[data-direction]")?.dataset.direction;
   const linkedElsewhere = Boolean(state.directionFocus) && state.directionFocus !== seededFocus;
+  const panel = byId("direction-focus");
   if (linkedElsewhere) {
-    byId("direction-focus").hidden = true;
+    panel.hidden = true;
     table.querySelector("tr.is-focused")?.classList.remove("is-focused");
   } else if (state.directionFocus && state.directionFocusOpen) {
-    byId("direction-focus").classList.add("is-open");
+    panel.classList.add("is-open");
+  }
+  // The seeded panel's sentences and dates, in the reader's language; its
+  // fixed labels carry data-i18n.
+  const facts = panel.dataset;
+  if (facts.days) {
+    const text = directionFocusText({
+      group: facts.group || null, current: Number(facts.current), previous: facts.previous === "" ? null : Number(facts.previous),
+      change: facts.change, days: Number(facts.days), firstWeek: facts.firstWeek, anchor: facts.anchor, shown: Number(facts.shown),
+    });
+    const set = (selector, value) => { const node = panel.querySelector(selector); if (node) node.textContent = value; };
+    set("p.direction-focus-facts", text.facts);
+    set("figcaption", text.caption);
+    set("h4", text.heading);
+    for (const date of panel.querySelectorAll("span[data-date]")) date.textContent = formatDate(date.dataset.date, { dateStyle: "medium" });
   }
   byId("direction-trends-status").textContent = [
     failure,

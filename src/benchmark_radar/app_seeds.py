@@ -1228,7 +1228,12 @@ def _direction_focus_seed(
     taxonomy: dict[str, Any],
     records: list[dict[str, Any]],
 ) -> str:
-    """The focus panel for one direction; mirrors directionFocusPanel."""
+    """The focus panel for one direction; mirrors directionFocusPanel.
+
+    The <aside> also carries the panel's facts as data attributes, which
+    directionFocusText turns back into its sentences in the reader's language
+    when the page keeps this seed.
+    """
     from .library_directions import DIRECTION_TREND_WEEKS, direction_focus_records
 
     days = model["window_days"]
@@ -1254,19 +1259,29 @@ def _direction_focus_seed(
         '<ol class="direction-focus-records">'
         + "".join(
             f'<li><a href="/benchmarks/{esc(record["slug"])}/">{esc(record["name"])}</a>'
-            f"<span>{_medium_date(record['released'])}</span></li>"
+            f'<span data-date="{esc(record["released"])}">'
+            f"{_medium_date(record['released'])}</span></li>"
             for record in recent
         )
         + "</ol>"
         if recent
         else '<p class="empty-state">No release in this window.</p>'
     )
+    attrs = (
+        f'data-current="{row["current"]}" '
+        f'data-previous="{"" if row["previous"] is None else row["previous"]}" '
+        f'data-change="{esc(_direction_change(row))}" data-days="{days}" '
+        f'data-group="{esc(group or "")}" data-first-week="{first_week}" '
+        f'data-anchor="{esc(model["anchor"])}" data-shown="{len(recent)}"'
+    )
     return (
+        '<aside class="direction-focus" id="direction-focus" '
+        f'aria-labelledby="direction-focus-heading" data-seed {attrs}>'
         '<div class="direction-focus-head"><div>'
-        '<p class="direction-focus-eyebrow">Direction focus</p>'
+        '<p class="direction-focus-eyebrow" data-i18n="Direction focus">Direction focus</p>'
         f'<h3 id="direction-focus-heading" tabindex="-1">{esc(row["name"])}</h3></div>'
         '<button class="clear-button direction-focus-close" type="button" '
-        'id="direction-focus-close">Close</button></div>'
+        'id="direction-focus-close" data-i18n="Close">Close</button></div>'
         f'<p class="direction-focus-facts">{esc(facts)}</p>'
         f'<figure class="direction-focus-figure">{direction_focus_chart(row["weekly"])}'
         f'<span class="visually-hidden">{esc(weekly_summary(row["weekly"]))}</span>'
@@ -1278,8 +1293,9 @@ def _direction_focus_seed(
             else "<h4>Recent releases</h4>"
         )
         + f"{listing}"
-        f'<a class="direction-focus-library" href="/library/?dir={esc(row["id"])}">'
-        "Open in the Library</a>"
+        f'<a class="direction-focus-library" href="/library/?dir={esc(row["id"])}" '
+        'data-i18n="Open in the Library">Open in the Library</a>'
+        "</aside>"
     )
 
 
@@ -1356,15 +1372,12 @@ def _direction_trends_seed(
         ),
         '<aside class="direction-focus" id="direction-focus" '
         'aria-labelledby="direction-focus-heading" hidden></aside>': (
-            '<aside class="direction-focus" id="direction-focus" '
-            'aria-labelledby="direction-focus-heading" data-seed>'
-            + _direction_focus_seed(
+            _direction_focus_seed(
                 next(row for row in model["rows"] if row["id"] == focus),
                 model,
                 taxonomy,
                 catalog_index,
             )
-            + "</aside>"
         ),
     }
 
