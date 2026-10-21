@@ -370,7 +370,10 @@ function toggleLang() {
   rerenderCurrentView();
   // Without the page's data nothing re-renders, but a kept Trends seed can
   // still be rewritten in the new language.
-  if (state.view === "trends" && state.directionTrendsLive === false && state.directionTrendsFailure) reconcileSeededDirectionFocus();
+  // Without the page's data rerenderCurrentView draws nothing, but the Trends
+  // direction table renders from its own catalog (live) or rewrites its kept
+  // seed (failed), in the new language either way.
+  if (!state.data && state.view === "trends") renderDirectionTrends();
 }
 
 const I18N = {
@@ -1897,6 +1900,9 @@ async function onPopState() {
   }
   applyCurrentSeo();
   syncNavState();
+  // Without the page's data nothing below runs, but the Trends direction
+  // table may be live from its own catalog: restore the entry's focus there.
+  if (!state.data && state.view === "trends") renderDirectionTrends();
   if (!state.data) return;
   try {
     await ensureDataForState();
