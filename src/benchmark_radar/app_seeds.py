@@ -1340,7 +1340,10 @@ def _direction_trends_seed(
     )
     return {
         '<p class="section-note" id="direction-trends-note"></p>': (
-            f'<p class="section-note" id="direction-trends-note" data-seed>{esc(note)}</p>'
+            '<p class="section-note" id="direction-trends-note" data-seed '
+            f'data-anchor="{esc(anchor)}" data-window="30" '
+            f'data-comparable="{1 if model["comparable"] else 0}" '
+            f'data-since="{esc(model["discovery_since"] or "")}">{esc(note)}</p>'
         ),
         f"{DIRECTION_TREND_SECTION} hidden>": f"{DIRECTION_TREND_SECTION} data-seed>",
         '<tbody id="direction-trends-body"></tbody>': (

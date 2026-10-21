@@ -48,18 +48,20 @@ let releaseIndex;
 const state = { data: {}, view: "trends" };
 const env = {
   state, byId,
-  t: (key) => key,
+  t: (key, params) => Object.entries(params || {}).reduce((text, [k, v]) => text.replaceAll(`{${k}}`, String(v)), key),
+  formatDate: (value) => value,
   loadBenchmarkIndex: () => new Promise((resolve) => { releaseIndex = resolve; }),
   DIRECTION_TREND_WINDOWS: [30, 60, 90],
 };
 const { directionSparkline, directionFocusChart, renderDirectionTrends } = new Function(
   ...Object.keys(env),
-  `${fn("directionSparkline")}\n${fn("directionFocusChart")}\n${fn("initDirectionTrends")}\n${fn("renderDirectionTrends")}\nreturn { directionSparkline, directionFocusChart, renderDirectionTrends };`,
+  `${fn("directionTrendNote")}\n${fn("directionSparkline")}\n${fn("directionFocusChart")}\n${fn("initDirectionTrends")}\n${fn("renderDirectionTrends")}\nreturn { directionSparkline, directionFocusChart, renderDirectionTrends };`,
 )(...Object.values(env));
 
 // The seeded window selector works while the catalog is still loading.
 byId("direction-trends-body").children = [new Node("tr")];
-byId("direction-trends-note").textContent = "New benchmark records by release date, 30 days to Oct 14, 2026.";
+Object.assign(byId("direction-trends-note").dataset, { anchor: "2026-10-14", window: "30", comparable: "1", since: "2026-05-18" });
+byId("direction-trends-note").textContent = "seeded English text";
 renderDirectionTrends();
 assert.equal(byId("direction-trends-window").listeners.change.length, 1);
 
@@ -68,7 +70,10 @@ assert.equal(byId("direction-trends-window").listeners.change.length, 1);
 releaseIndex(null);
 await new Promise((resolve) => setTimeout(resolve, 0));
 assert.equal(byId("direction-trends-note").textContent,
-  "New benchmark records by release date, 30 days to Oct 14, 2026. The benchmark catalog could not be loaded.");
+  // Rebuilt from the seeded facts through t(), so it follows the reader's
+  // language; the seeded English text is not reused.
+  "New benchmark records by release date, 30 days to 2026-10-14. The latest days are still filling in as new papers are collected. "
+  + "A record counts in every direction it is filed under, so rows overlap and do not add up to a total. The benchmark catalog could not be loaded.");
 assert.equal(byId("direction-trends-window").disabled, true);
 assert.equal(byId("direction-trends-group").disabled, true);
 // Rendering again does not repeat the failure.

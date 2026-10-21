@@ -6825,6 +6825,23 @@ function directionFocusPanel(row, model, taxonomy, records) {
   ];
 }
 
+// The caveats every view of the table carries: its anchor date, that the
+// latest days are incomplete, that rows overlap, and when no comparison is
+// possible. The seed carries the same facts as data attributes, so a failed
+// catalog can rebuild them in the reader's language.
+function directionTrendNote({ anchor, windowDays, comparable, discoverySince }) {
+  return [
+    t("New benchmark records by release date, {days} days to {date}.", {
+      days: windowDays, date: formatDate(anchor, { dateStyle: "medium" }),
+    }),
+    t("The latest days are still filling in as new papers are collected."),
+    t("A record counts in every direction it is filed under, so rows overlap and do not add up to a total."),
+    comparable ? "" : t("No comparison: the previous {days} days start before the discovery stream ({since}).", {
+      days: windowDays, since: discoverySince ? formatDate(discoverySince, { dateStyle: "medium" }) : "—",
+    }),
+  ].filter(Boolean).join(" ");
+}
+
 function renderDirectionTrends() {
   const table = byId("direction-trends-body");
   if (!table || !state.data) return;
@@ -6852,8 +6869,13 @@ function renderDirectionTrends() {
     // empty rather than disappearing.
     section.hidden = false;
     const note = byId("direction-trends-note");
-    note.dataset.seedNote ??= note.textContent;
-    note.textContent = [note.dataset.seedNote, t("The benchmark catalog could not be loaded.")].filter(Boolean).join(" ");
+    const seeded = note.dataset.anchor
+      ? directionTrendNote({
+        anchor: note.dataset.anchor, windowDays: Number(note.dataset.window), comparable: note.dataset.comparable === "1",
+        discoverySince: note.dataset.since || null,
+      })
+      : "";
+    note.textContent = [seeded, t("The benchmark catalog could not be loaded.")].filter(Boolean).join(" ");
     byId("direction-trends-window").disabled = true;
     byId("direction-trends-group").disabled = true;
     state.directionTrendsLive = false;
@@ -6891,16 +6913,7 @@ function renderDirectionTrends() {
   // group filters it out; closing the sheet returns focus to its row.
   state.directionFocusShown = focus;
   const columns = byId("direction-trends-table")?.querySelectorAll("thead th").length || 6;
-  byId("direction-trends-note").textContent = [
-    t("New benchmark records by release date, {days} days to {date}.", {
-      days: model.windowDays, date: formatDate(model.anchor, { dateStyle: "medium" }),
-    }),
-    t("The latest days are still filling in as new papers are collected."),
-    t("A record counts in every direction it is filed under, so rows overlap and do not add up to a total."),
-    model.comparable ? "" : t("No comparison: the previous {days} days start before the discovery stream ({since}).", {
-      days: model.windowDays, since: model.discoverySince ? formatDate(model.discoverySince, { dateStyle: "medium" }) : "—",
-    }),
-  ].filter(Boolean).join(" ");
+  byId("direction-trends-note").textContent = directionTrendNote(model);
   replaceChildren(table, lines.map(({ row, heading, count }) => (heading ? element("tr", { className: "direction-group" }, [
     element("th", { attrs: { colspan: columns } }, [
       document.createTextNode(`${heading} `),
