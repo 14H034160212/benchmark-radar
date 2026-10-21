@@ -74,6 +74,15 @@ assert.equal(byId("direction-trends-group").disabled, true);
 renderDirectionTrends();
 assert.equal(byId("direction-trends-note").textContent.match(/could not be loaded/g).length, 1);
 
+// Reached through the app with no seed, a failed catalog still leaves the
+// section visible with the failure stated.
+nodes.clear();
+state.benchmarkIndexLoaded = true;
+state.benchmarkIndex = null;
+renderDirectionTrends();
+assert.equal(byId("direction-trends").hidden, false);
+assert.equal(byId("direction-trends-note").textContent, "The benchmark catalog could not be loaded.");
+
 // The bars, serialized for test_direction_trends.py to compare with the seed.
 const cases = JSON.parse(readFileSync(0, "utf8"));
 process.stdout.write(JSON.stringify(cases.map((weekly) => directionSparkline(weekly).serialize())));

@@ -144,6 +144,10 @@ def test_seed_shows_the_section_with_default_window_rows():
     assert "rows overlap and do not add up" in note
     assert "hidden" not in section
     assert '<a href="/library/?dir=math">Math</a>' in body
+    # The page ships the 30-day window; its menus wait for live data.
+    template = (ROOT / "site" / "index.html").read_text(encoding="utf-8")
+    assert 'data-i18n-aria="Window" disabled' in template
+    assert 'data-i18n-aria="Group" disabled' in template
     # The sixteen weekly values are text for screen readers, and bars for
     # everyone, as the live renderer draws them.
     assert '<span class="visually-hidden">Weekly new records, oldest first:' in body

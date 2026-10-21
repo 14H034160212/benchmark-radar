@@ -6713,18 +6713,21 @@ function renderDirectionTrends() {
     // The seeded note's caveats (anchor date, incomplete latest days, overlap)
     // stay; the failure is added to them. The controls cannot change a seeded
     // table, so they are disabled rather than left to do nothing.
-    const seeded = table.children.length > 0;
-    section.hidden = !seeded;
-    if (seeded) {
-      const note = byId("direction-trends-note");
-      note.dataset.seedNote ??= note.textContent;
-      note.textContent = [note.dataset.seedNote, t("The benchmark catalog could not be loaded.")].filter(Boolean).join(" ");
-    }
+    // Reached through the app with no seed, the section still says why it is
+    // empty rather than disappearing.
+    section.hidden = false;
+    const note = byId("direction-trends-note");
+    note.dataset.seedNote ??= note.textContent;
+    note.textContent = [note.dataset.seedNote, t("The benchmark catalog could not be loaded.")].filter(Boolean).join(" ");
     byId("direction-trends-window").disabled = true;
     byId("direction-trends-group").disabled = true;
     return;
   }
   section.hidden = false;
+  // The menus ship disabled: the seeded table is the 30-day window and only
+  // live data can change it.
+  byId("direction-trends-window").disabled = false;
+  byId("direction-trends-group").disabled = false;
   byId("direction-trends-window").value = String(state.directionTrendWindow);
   const groups = byId("direction-trends-group");
   if (!groups.options.length) {
