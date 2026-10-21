@@ -1423,6 +1423,7 @@ const state = {
   // phone the panel is a sheet, open when chosen or linked to.
   directionFocus: "",
   directionFocusOpen: false,
+  directionFocusShown: "",
   leaderboardShowAll: false,
   leaderboardTopExpanded: false,
   // Issue #530: the leaderboard opens on the latest releases; the cumulative
@@ -6869,11 +6870,18 @@ function renderDirectionTrends() {
   // Rebuilt only once, so these labels follow a language switch here.
   groups.options[0].textContent = t("All groups");
   groups.options[1].textContent = t("All directions, ranked");
-  groups.value = state.directionTrendGroup;
   const model = directionTrendRows(state.benchmarkIndex, taxonomy, anchor, state.directionTrendWindow);
+  // A group from an old or mistyped link falls back to every group rather
+  // than an empty table.
+  if (state.directionTrendGroup && state.directionTrendGroup !== DIRECTION_RANKED
+    && !taxonomy.groups.some((group) => group.id === state.directionTrendGroup)) state.directionTrendGroup = "";
+  groups.value = state.directionTrendGroup;
   const lines = directionDisplay(model, taxonomy, state.directionTrendGroup);
   const shown = lines.filter((line) => line.row).map((line) => line.row.id);
   const focus = directionFocusId(model, shown, state.directionFocus);
+  // The direction actually shown, which differs from the linked one when the
+  // group filters it out; closing the sheet returns focus to its row.
+  state.directionFocusShown = focus;
   const columns = byId("direction-trends-table")?.querySelectorAll("thead th").length || 6;
   byId("direction-trends-note").textContent = [
     t("New benchmark records by release date, {days} days to {date}.", {
@@ -6930,8 +6938,9 @@ function closeDirectionFocus() {
   const hadFocus = panel.contains(document.activeElement);
   state.directionFocusOpen = false;
   panel.classList.remove("is-open");
-  if (hadFocus && state.directionFocus) {
-    byId("direction-trends-body").querySelector(`a[data-direction="${CSS.escape(state.directionFocus)}"]`)?.focus();
+  const shown = state.directionFocusShown || state.directionFocus;
+  if (hadFocus && shown) {
+    byId("direction-trends-body").querySelector(`a[data-direction="${CSS.escape(shown)}"]`)?.focus();
   }
 }
 
