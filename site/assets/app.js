@@ -1419,8 +1419,10 @@ const state = {
   // Trends direction table (#420): window in days and an optional group.
   directionTrendWindow: 30,
   directionTrendGroup: "",
-  // The direction shown in the Trends focus panel; empty is the top one.
+  // The direction shown in the Trends focus panel; empty is the top one. On a
+  // phone the panel is a sheet, open when chosen or linked to.
   directionFocus: "",
+  directionFocusOpen: false,
   leaderboardShowAll: false,
   leaderboardTopExpanded: false,
   // Issue #530: the leaderboard opens on the latest releases; the cumulative
@@ -1671,6 +1673,9 @@ function readUrl() {
   state.libraryQuery = (params.get("libq") || "").trim();
   state.libraryDirection = params.get("dir") || "";
   state.directionFocus = params.get("tdir") || "";
+  state.directionFocusOpen = Boolean(state.directionFocus);
+  state.directionTrendWindow = DIRECTION_TREND_WINDOWS.includes(Number(params.get("twin"))) ? Number(params.get("twin")) : 30;
+  state.directionTrendGroup = params.get("tgroup") || "";
   state.librarySort = LIBRARY_SORTS.includes(params.get("lsort")) ? params.get("lsort") : "latest";
   state.librarySaved = params.get("saved") === "1";
   state.libraryVisibleLimit = LIBRARY_PAGE_SIZE;
@@ -1756,7 +1761,12 @@ function writeUrl(mode = "replace") {
     if (state.todayPage > 1) params.set("page", state.todayPage);
   }
   if (!utility && state.view === "map" && state.entity) params.set("entity", state.entity);
-  if (!utility && state.view === "trends" && state.directionFocus) params.set("tdir", state.directionFocus);
+  if (!utility && state.view === "trends") {
+    // The whole view, so a shared focus shows the same window and group.
+    if (state.directionTrendWindow !== 30) params.set("twin", state.directionTrendWindow);
+    if (state.directionTrendGroup) params.set("tgroup", state.directionTrendGroup);
+    if (state.directionFocus) params.set("tdir", state.directionFocus);
+  }
   if (!utility && state.view === "leaderboard") {
     // The adoption filters are written only in adoption mode: any of them in
     // a URL is what readUrl takes as the reader's choice of that mode, so a
@@ -6616,7 +6626,6 @@ function initModels() {
 // stream, so a window or week starting before that stream does would undercount
 // and fake growth: those comparisons and bars are absent, not zero. .com's
 // "attention growth" tab has no counterpart: no attention history is recorded.
-const DIRECTION_TREND_WINDOWS = [30, 60, 90];
 const DIRECTION_TREND_WEEKS = 16;
 const DISCOVERY_SOURCE = "claire_radar";
 
@@ -6788,7 +6797,7 @@ function directionFocusPanel(row, model, taxonomy, records) {
     element("div", { className: "direction-focus-head" }, [
       element("div", {}, [
         element("p", { className: "direction-focus-eyebrow", text: t("Direction focus") }),
-        element("h3", { attrs: { id: "direction-focus-heading" }, text: row.id === "unclassified" ? t("Not yet classified") : row.name }),
+        element("h3", { attrs: { id: "direction-focus-heading", tabindex: "-1" }, text: row.id === "unclassified" ? t("Not yet classified") : row.name }),
       ]),
       element("button", { className: "clear-button direction-focus-close", text: t("Close"), attrs: { type: "button", id: "direction-focus-close" } }),
     ]),
@@ -6906,12 +6915,23 @@ function renderDirectionTrends() {
   const panel = byId("direction-focus");
   const focused = model.rows.find((row) => row.id === focus);
   panel.hidden = !focused;
+  panel.classList.toggle("is-open", Boolean(focused) && state.directionFocusOpen);
   if (focused) {
     replaceChildren(panel, directionFocusPanel(focused, model, taxonomy, state.benchmarkIndex));
-    byId("direction-focus-close").addEventListener("click", () => {
-      panel.classList.remove("is-open");
-      table.querySelector(`a[data-direction="${CSS.escape(focus)}"]`)?.focus();
-    });
+    byId("direction-focus-close").addEventListener("click", closeDirectionFocus);
+  }
+}
+
+// Close the phone sheet (Close or Escape) and give focus back to the row the
+// reader opened it from. The desktop panel stays; there is nothing to close.
+function closeDirectionFocus() {
+  const panel = byId("direction-focus");
+  if (!panel) return;
+  const hadFocus = panel.contains(document.activeElement);
+  state.directionFocusOpen = false;
+  panel.classList.remove("is-open");
+  if (hadFocus && state.directionFocus) {
+    byId("direction-trends-body").querySelector(`a[data-direction="${CSS.escape(state.directionFocus)}"]`)?.focus();
   }
 }
 
@@ -6923,10 +6943,12 @@ function initDirectionTrends() {
     const value = Number(windowSelect.value);
     state.directionTrendWindow = DIRECTION_TREND_WINDOWS.includes(value) ? value : 30;
     renderDirectionTrends();
+    writeUrl();
   });
   byId("direction-trends-group").addEventListener("change", (event) => {
     state.directionTrendGroup = event.target.value;
     renderDirectionTrends();
+    writeUrl();
   });
   // A direction's name focuses it in the panel (on a phone, the panel opens as
   // a sheet). The link's own target, the Library, is in the panel.
@@ -6935,13 +6957,14 @@ function initDirectionTrends() {
     if (!link || !state.benchmarkIndex || event.metaKey || event.ctrlKey || event.shiftKey) return;
     event.preventDefault();
     state.directionFocus = link.dataset.direction;
+    state.directionFocusOpen = true;
     renderDirectionTrends();
     writeUrl();
-    byId("direction-focus").classList.add("is-open");
-    byId("direction-focus-close")?.focus();
+    // The heading is visible on every screen; the Close button only on phones.
+    byId("direction-focus-heading")?.focus();
   });
   document.addEventListener("keydown", (event) => {
-    if (event.key === "Escape") byId("direction-focus")?.classList.remove("is-open");
+    if (event.key === "Escape" && state.directionFocusOpen) closeDirectionFocus();
   });
 }
 
@@ -9474,6 +9497,8 @@ const LATEST_WINDOWS = ["7d", "30d", "90d"];
 // The Library's address parameters, read and written with the other views'.
 const LIBRARY_PAGE_SIZE = 120;
 const LIBRARY_SORTS = ["latest", "documented", "name"];
+// The Trends direction table's windows, in days; ?twin= is one of them.
+const DIRECTION_TREND_WINDOWS = [30, 60, 90];
 // The Models matrix's column orders (modelOrder); the first is the default.
 const MODEL_SORTS = ["coverage", "newest"];
 // Models per matrix page; ?mpage= counts these.
