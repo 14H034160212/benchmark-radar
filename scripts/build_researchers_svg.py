@@ -25,8 +25,8 @@ LOGO_DIR = REPO_ROOT / "assets" / "researchers-logos"
 OUT = REPO_ROOT / "assets" / "researchers.svg"
 
 ROWS = [
-    ["google.svg", "amazon.svg", "aws.svg", "ibm.svg", "bytedance.svg", "xtracta.svg"],
-    ["cmu.svg", "harvard.svg", "mit.svg", "nus.svg", "auckland.svg"],
+    ["google.svg", "amazon.svg", "aws.svg", "ibm.svg", "bytedance.svg"],
+    ["cmu.svg", "harvard.svg", "mit.svg", "nus.svg", "auckland.svg", "xtracta.svg"],
     ["alibaba.svg", "tencent.svg", "hunyuan.svg", "qwen.svg"],
     ["stepfun.png", "kuaishou.png", "zhihu.svg", "tsinghua.svg", "sjtu.png"],
 ]
