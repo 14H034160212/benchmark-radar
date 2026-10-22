@@ -263,6 +263,9 @@ th {
   background: #fffbeb;
 }
 
+/* One slim line (#420): the badge read as a second header that pushed every
+   page's content down, the "bangs over the face" problem the merge set out to
+   fix. The badge and the upvote link stay; only their height shrinks. */
 .hf-upvote-banner-inner {
   display: flex;
   width: min(1680px, calc(100% - 48px));
@@ -270,11 +273,11 @@ th {
   align-items: center;
   justify-content: center;
   margin-inline: auto;
-  padding-block: 0.25rem;
+  padding-block: 0;
 }
 
 .hf-paper-award {
-  width: 200px;
+  width: 128px;
   min-width: 0;
   max-width: 100%;
   border-radius: 8px;
@@ -556,6 +559,8 @@ main {
 
 /* Primary page titles stay close to the shared masthead so switching sections
    does not make the heading jump down the page. */
+#library-view,
+#models-view,
 #leaderboard-view,
 #saturation-view,
 #trends-view {
@@ -6051,8 +6056,11 @@ dialog {
 }
 
 .library-direction-count {
+  flex: none;
   color: var(--muted);
   font-variant-numeric: tabular-nums;
+  overflow-wrap: normal;
+  white-space: nowrap;
 }
 
 .library-list {
@@ -6129,9 +6137,30 @@ dialog {
     grid-template-columns: 1fr;
   }
 
+  /* On a phone the directions (and Models' labs) become one scrolling row of
+     chips, so the first screen reaches the list instead of 37 stacked rows. */
   .library-directions {
     position: static;
-    max-height: 14rem;
+    flex-direction: row;
+    gap: 0.35rem;
+    max-height: none;
+    overflow-x: auto;
+    padding-bottom: 0.25rem;
+  }
+
+  .library-direction-group {
+    display: contents;
+  }
+
+  .library-direction-heading {
+    display: none;
+  }
+
+  .library-direction {
+    flex: none;
+    width: auto;
+    border: 1px solid var(--line);
+    white-space: nowrap;
   }
 
   .library-status {
