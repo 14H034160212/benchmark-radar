@@ -51,6 +51,16 @@ def stars_gained(history: list[list[Any]], as_of: str, days: int = GAIN_WINDOW_D
     return latest - before
 
 
+def repository_of(entry: dict[str, Any]) -> str | None:
+    """The .com record's GitHub repository (``gh:owner/repo``), or None."""
+    repositories = sorted(
+        str(artifact).lower()
+        for artifact in entry.get("artifacts") or []
+        if str(artifact).startswith("gh:")
+    )
+    return ",".join(repositories) or None
+
+
 def _signals(entry: dict[str, Any], record_id: str, join: str, observed_on: str) -> dict[str, Any]:
     as_of = entry.get("as_of") or observed_on
     return {
@@ -61,6 +71,9 @@ def _signals(entry: dict[str, Any], record_id: str, join: str, observed_on: str)
         "as_of": as_of,
         "join": join,
         "source_record": record_id,
+        # The observed repository, so a total can count it once however many
+        # catalog records (sources, or benchmarks sharing it) it reaches.
+        "repository": repository_of(entry),
     }
 
 

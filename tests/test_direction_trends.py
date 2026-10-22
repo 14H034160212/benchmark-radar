@@ -312,3 +312,35 @@ def test_site_and_python_agree_on_grouping_and_focus_for_the_published_catalog()
     assert site_views(index["benchmarks"], taxonomy, anchor, [30]) == python_views(
         index["benchmarks"], taxonomy, anchor, [30]
     )
+
+
+def test_star_growth_counts_each_repository_once_per_direction():
+    def starred(released, categories, gain, source_record, repository=None, source="claire_radar"):
+        row = record(released, categories, source=source)
+        row["attention_signals"] = {
+            "github_stars_30d": gain,
+            "source_record": source_record,
+            "repository": repository,
+        }
+        return row
+
+    records = [
+        # One .com observation reaching two catalog records (DeepSWE through
+        # Claire Radar and LLM Stats) counts once.
+        starred("2026-10-10", ["math"], 157, "bm_deepswe", source="claire_radar"),
+        starred("2026-10-10", ["math"], 157, "bm_deepswe", source="llm_stats"),
+        # Two distinct benchmarks sharing one repository count once.
+        starred("2026-10-09", ["math"], 72, "bm_a", repository="gh:org/shared"),
+        starred("2026-10-08", ["math", "science"], 72, "bm_b", repository="gh:org/shared"),
+        starred("2026-10-07", ["math"], -5, "bm_c", repository="gh:org/other"),
+    ]
+    model = direction_trend_rows(records, TAXONOMY, "2026-10-14", 30)
+    math = next(row for row in model["rows"] if row["id"] == "math")
+    science = next(row for row in model["rows"] if row["id"] == "science")
+    assert (math["stars_30d"], math["stars_tracked"]) == (157 + 72 - 5, 3)
+    assert (science["stars_30d"], science["stars_tracked"]) == (72, 1)
+    # Every record is still counted as a record.
+    assert math["current"] == 5
+    # The page computes the same rows.
+    for site_model in site_rows(records, TAXONOMY, "2026-10-14", [30]):
+        assert as_python(site_model) == model

@@ -276,6 +276,13 @@ def discovery_anchor(records: list[dict[str, Any]]) -> str | None:
     return max(dates) if dates else None
 
 
+def signal_identity(signals: dict[str, Any]) -> str:
+    """What one stars observation is: its repository, else its .com record.
+
+    Mirrors signalIdentity in app.js."""
+    return signals.get("repository") or f"record:{signals.get('source_record')}"
+
+
 def direction_trend_rows(
     records: list[dict[str, Any]],
     taxonomy: dict[str, Any],
@@ -319,10 +326,13 @@ def direction_trend_rows(
             "weekly": [0 if ok else None for ok in week_covered],
             "undated": 0,
             # .com's "attention growth": GitHub stars gained in the 30 days to
-            # the observation date, summed over records that have the
-            # observation, with how many records that is.
+            # the observation date, summed over the direction's observed
+            # repositories, each once (a repository reached through two
+            # sources, or shared by two benchmarks, is one observation), with
+            # how many repositories that is.
             "stars_30d": 0,
             "stars_tracked": 0,
+            "_observed": set(),
         }
 
     rows = {
@@ -333,12 +343,16 @@ def direction_trend_rows(
     for record in records:
         direction = record.get("library_direction") or {}
         categories = direction.get("categories") or ["unclassified"]
-        gain = (record.get("attention_signals") or {}).get("github_stars_30d")
+        signals = record.get("attention_signals") or {}
+        gain = signals.get("github_stars_30d")
         if gain is not None:
+            identity = signal_identity(signals)
             for category_id in categories:
-                if category_id in rows:
-                    rows[category_id]["stars_30d"] += gain
-                    rows[category_id]["stars_tracked"] += 1
+                row = rows.get(category_id)
+                if row is not None and identity not in row["_observed"]:
+                    row["_observed"].add(identity)
+                    row["stars_30d"] += gain
+                    row["stars_tracked"] += 1
         released = record.get("released")
         if not released:
             # Counted, not dropped: a reader must be able to tell "no new
@@ -370,7 +384,10 @@ def direction_trend_rows(
         "window_days": window_days,
         "discovery_since": since,
         "comparable": comparable,
-        "rows": [*ordered, rows["unclassified"]],
+        "rows": [
+            {key: value for key, value in row.items() if key != "_observed"}
+            for row in [*ordered, rows["unclassified"]]
+        ],
     }
 
 

@@ -37,6 +37,11 @@ from .model_scores import (
 from .site_shell import SOURCE_LABELS, esc
 
 
+def _signed(value: int) -> str:
+    """Match signedCount in app.js: "+" only for a gain."""
+    return f"+{value:,}" if value > 0 else f"{value:,}"
+
+
 def _num(value: Any) -> str:
     """Match Number.toLocaleString() for the en locale these seeds are written in."""
     try:
@@ -911,7 +916,7 @@ def _library_seed(
             gain = signals.get("github_stars_30d")
             facts.append(
                 f"★ {signals['github_stars']:,} GitHub"
-                + (f" · +{gain:,} in 30 days" if gain is not None else "")
+                + (f" · {_signed(gain)} in 30 days" if gain is not None else "")
             )
         description = (
             f'<p class="library-row-description">{esc(record["description"])}</p>'
@@ -1365,7 +1370,7 @@ def _direction_trends_seed(
             f'<td class="direction-number">{change}</td>'
             f'<td class="direction-number">{row["undated"]:,}</td>'
             f'<td class="direction-number">'
-            f"{'+' + format(row['stars_30d'], ',') if row['stars_tracked'] else '—'}</td>"
+            f"{_signed(row['stars_30d']) if row['stars_tracked'] else '—'}</td>"
             f"<td>{direction_sparkline(row['weekly'])}"
             f'<span class="visually-hidden" data-weekly="{_weekly_values(row["weekly"])}">'
             f"{esc(weekly_summary(row['weekly']))}</span></td></tr>"

@@ -56,6 +56,8 @@ def test_signals_join_by_identity_and_skip_disagreeing_candidates():
     assert signals["claire-radar:1"]["github_stars"] == 5
     assert signals["claire-radar:1"]["github_stars_30d"] == 4
     assert signals["claire-radar:1"]["join"] == "claire_record_id"
+    # The observed repository travels with the stars, so totals can count it once.
+    assert signals["opencompass:8"]["repository"] is None
     assert "opencompass:7" not in signals
     assert signals["opencompass:8"]["join"] == "artifact:arxiv:2"
 
@@ -78,3 +80,34 @@ def test_seed_rows_carry_artifact_and_star_facts():
     }
     rows = _library_seed([record], taxonomy)['<div id="library-list" class="library-list"></div>']
     assert "Paper · Code · ★ 1,275 GitHub · +676 in 30 days" in rows
+
+
+def test_repository_is_carried_and_negative_growth_has_no_plus():
+    records = [
+        {
+            "key": "claire-radar:1",
+            "source": "claire_radar",
+            "source_metadata": {"claire_radar": {"id": "bm_a"}},
+        }
+    ]
+    signals = assign_library_signals(
+        records, document({"bm_a": entry(5, artifacts=["arxiv:9", "gh:Org/Repo"])})
+    )
+    assert signals["claire-radar:1"]["repository"] == "gh:org/repo"
+    taxonomy = {
+        "groups": [{"id": "g", "name": "G"}],
+        "categories": [{"id": "m", "group": "g", "name": "M"}],
+    }
+    record = {
+        "slug": "a",
+        "key": "k:a",
+        "name": "A",
+        "source": "claire_radar",
+        "description": "",
+        "released": "2026-10-01",
+        "has_repo": True,
+        "attention_signals": {"github_stars": 40, "github_stars_30d": -5},
+    }
+    rows = _library_seed([record], taxonomy)['<div id="library-list" class="library-list"></div>']
+    assert "★ 40 GitHub · -5 in 30 days" in rows
+    assert "+-5" not in rows

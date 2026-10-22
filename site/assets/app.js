@@ -439,7 +439,7 @@ const I18N = {
     "Change": "变化",
     "Undated": "无日期",
     "Stars gained, 30 days": "30 天新增星标",
-    "GitHub stars gained in 30 days across {n} records with a tracked repository": "{n} 条有追踪仓库的记录在 30 天内新增的 GitHub 星标",
+    "GitHub stars gained in 30 days across {n} tracked repositories, each counted once": "{n} 个有追踪的仓库在 30 天内新增的 GitHub 星标（每个仓库只计一次）",
     "A record counts in every direction it is filed under, so rows overlap and do not add up to a total.": "一条记录会计入它所属的每个方向，因此各行有重叠，不能相加得到总数。",
     "Weekly new records, oldest first: {values}": "每周新增记录（从早到晚）：{values}",
     "no data": "无数据",
@@ -5825,7 +5825,7 @@ function librarySignalFact(record) {
   return element("span", {
     className: "library-signal",
     text: `★ ${signals.github_stars.toLocaleString()} GitHub`
-      + (gain !== null && gain !== undefined ? ` · +${gain.toLocaleString()} ${t("in 30 days")}` : ""),
+      + (gain !== null && gain !== undefined ? ` · ${signedCount(gain)} ${t("in 30 days")}` : ""),
     attrs: { title: t("Stars of the linked GitHub repository, which several benchmarks can share; observed by benchmark-radar.com on {date}", { date: signals.as_of || "—" }) },
   });
 }
@@ -6773,6 +6773,17 @@ function discoveryAnchor(records) {
   return dates.length ? dates[dates.length - 1] : null;
 }
 
+// What one stars observation is: its repository, else its .com record.
+// Mirrors library_directions.signal_identity.
+function signalIdentity(signals) {
+  return signals.repository || `record:${signals.source_record}`;
+}
+
+// A signed count: "+" only for a gain, so a loss reads "-5", not "+-5".
+function signedCount(value) {
+  return value > 0 ? `+${value.toLocaleString()}` : value.toLocaleString();
+}
+
 function directionTrendRows(records, taxonomy, anchor, windowDays) {
   const end = dayNumber(anchor);
   const discovery = records
@@ -6794,12 +6805,17 @@ function directionTrendRows(records, taxonomy, anchor, windowDays) {
   });
   const rows = new Map(taxonomy.categories.map((category) => [category.id, empty(category.id, category.name, category.group)]));
   rows.set("unclassified", empty("unclassified", "Not yet classified", null));
+  const observed = new Map([...rows.keys()].map((id) => [id, new Set()]));
   for (const record of records) {
     const categories = record.library_direction?.categories?.length ? record.library_direction.categories : ["unclassified"];
     const gain = record.attention_signals?.github_stars_30d;
     if (gain !== null && gain !== undefined) {
+      // Each observed repository once per direction, however many records
+      // (sources, or benchmarks sharing it) reach it.
+      const identity = signalIdentity(record.attention_signals);
       for (const id of categories) {
-        if (!rows.has(id)) continue;
+        if (!rows.has(id) || observed.get(id).has(identity)) continue;
+        observed.get(id).add(identity);
         rows.get(id).stars_30d += gain;
         rows.get(id).stars_tracked += 1;
       }
@@ -7093,8 +7109,8 @@ function renderDirectionTrends() {
     element("td", { className: "direction-number", text: row.undated.toLocaleString() }),
     element("td", {
       className: "direction-number",
-      text: row.stars_tracked ? `+${row.stars_30d.toLocaleString()}` : "—",
-      attrs: { title: t("GitHub stars gained in 30 days across {n} records with a tracked repository", { n: row.stars_tracked }) },
+      text: row.stars_tracked ? signedCount(row.stars_30d) : "—",
+      attrs: { title: t("GitHub stars gained in 30 days across {n} tracked repositories, each counted once", { n: row.stars_tracked }) },
     }),
     // The bars are drawn for sighted readers; the same sixteen values are
     // given as text so the column is not empty to a screen reader.

@@ -16,7 +16,7 @@ const constants = [
   source.match(/const LIBRARY_FOLLOWED_KEY = .*;/)[0],
   source.match(/let libraryFollowedMemory = null;/)[0],
 ].join("\n");
-const names = ["librarySavedSlugs", "setLibrarySaved", "libraryFollowedDirections", "setLibraryFollowed", "libraryInFollowed", "libraryInDirection", "codePointCompare", "libraryCompare", "libraryMatches", "libraryRows", "libraryDirectionCounts"];
+const names = ["signedCount", "librarySavedSlugs", "setLibrarySaved", "libraryFollowedDirections", "setLibraryFollowed", "libraryInFollowed", "libraryInDirection", "codePointCompare", "libraryCompare", "libraryMatches", "libraryRows", "libraryDirectionCounts"];
 const record = (slug, name, released, categories, documents = 0) => ({
   slug, key: `k:${slug}`, name, released,
   library_direction: categories ? { primary: categories[0], categories } : null,
@@ -126,3 +126,8 @@ assert.deepEqual([...lib.librarySavedSlugs()], ["k:x"]);
 lib.setLibrarySaved("k:x", false);
 assert.deepEqual([...lib.librarySavedSlugs()], []);
 console.log("Library filters, sorts, saved list and followed directions passed.");
+
+// "+" only for a gain: a loss reads "-5", never "+-5".
+assert.equal(lib.signedCount(5), "+5");
+assert.equal(lib.signedCount(-5), "-5");
+assert.equal(lib.signedCount(0), "0");
