@@ -69,15 +69,21 @@ Check the diff for changes to scores, rankings, counts, or output formats that
 the description does not mention. Ask the contributor to state them, or state
 them in the merge comment.
 
-## 7. Does this change harm or benefit SEO?
+## 7. Was the SEO impact assessed, with no known crawlability or indexing regression?
 
 For a website change, state whether its SEO effect is beneficial, neutral,
 harmful, or uncertain, and cite the evidence. Check crawlable links, page titles
-and headings, canonical URLs, robots directives, sitemap coverage, and redirects
-when URLs move. Compare the generated HTML before and after; a visual improvement
-alone does not establish a search-ranking benefit. Request changes for a known
-crawlability or indexing regression. Mark changes outside the website as not
-applicable.
+and headings, canonical URLs, robots directives, sitemap coverage, structured
+data (JSON-LD), share-card metadata, `llms.txt`, and redirects when URLs move.
+
+For each revision, use a clean worktree with its own venv. Run
+`benchmark-radar normalize-catalog`, then `benchmark-radar classify`. Compare
+the affected generated HTML heads and bodies before and after. Use
+[`tests/test_site_seo.py`](tests/test_site_seo.py) to check titles, canonicals,
+robots directives, the sitemap, structured data, and `llms.txt`. A visual
+improvement alone does not establish a search-ranking benefit. Request changes
+for a known crawlability or indexing regression. Mark changes outside the
+website as not applicable.
 
 ## 8. Does the current head pass on current `main`?
 
