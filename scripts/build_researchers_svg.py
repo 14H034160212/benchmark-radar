@@ -2,9 +2,9 @@
 """Regenerate assets/researchers.svg from the official logos in assets/researchers-logos/.
 
 Each file in assets/researchers-logos/ is the official institution logo as
-downloaded from Wikimedia Commons / Wikipedia, or from the organization's own
-site where Commons has none (xtracta.svg: xtracta.com's site logo). Run this script after adding,
-removing, or replacing a logo there:
+downloaded from Wikimedia Commons / Wikipedia, or supplied by the organization
+where Commons has none (xtracta.svg: Xtracta's official full-colour RGB logo,
+unmodified). Run this script after adding, removing, or replacing a logo there:
 
     python scripts/build_researchers_svg.py
 
