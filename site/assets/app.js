@@ -6439,16 +6439,21 @@ function openModelPanel(model, record, data) {
     const top = best.sort((a, b) => (scale.direction === "lower_is_better" ? a.value - b.value : b.value - a.value)).slice(0, 10);
     if (!top.some(own) && lead) top.push(lead);
     // Longer is better either way. Higher-is-better bars are the value on its
-    // scale. Lower-is-better bars run from the worst shown score (shortest,
-    // still visible) to the best (full), so the winning 5.81 is not drawn
-    // shorter than a 9.76 and a winning 0 does not erase the rest.
+    // scale. Lower-is-better bars are the best score's ratio to each value, so
+    // the winning 5.81 is full, a 9.76 is 60%, and near-equal scores draw
+    // near-equal bars rather than an inflated gap. A best score at or below 0
+    // has no meaningful ratio; only then do bars run from the worst shown
+    // score (shortest, still visible) to the best, so a winning 0 does not
+    // erase the rest.
     const lower = scale.direction === "lower_is_better";
     const extent = Math.max(scale.percent ? 100 / multiplier : 0, ...top.map((row) => Math.abs(row.value)), 1e-9);
     const lowest = Math.min(...top.map((row) => row.value));
     const highest = Math.max(...top.map((row) => row.value));
-    const share = (row) => (lower
-      ? (highest === lowest ? 1 : 0.1 + 0.9 * ((highest - row.value) / (highest - lowest)))
-      : Math.abs(row.value) / extent);
+    const lowerShare = (row) => {
+      if (lowest > 0) return lowest / row.value;
+      return highest === lowest ? 1 : 0.1 + 0.9 * ((highest - row.value) / (highest - lowest));
+    };
+    const share = (row) => (lower ? lowerShare(row) : Math.abs(row.value) / extent);
     replaceChildren(body, [
       element("h3", { text: t("Scores for this model") }),
       element("ul", { className: "models-panel-scores" }, mine.map((row) => element("li", {}, [

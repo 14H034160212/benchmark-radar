@@ -543,6 +543,31 @@ assert.match(chartText, /Twin \(twin-0513\)/);
 assert.match(chartText, /Twin \(twin-0806\)/);
 // Every lower-is-better bar stays visible, ordered best to worst.
 assert(shareOf("Acme-4") > 0 && shareOf("Twin (twin-0513)") > shareOf("Twin (twin-0806)"));
+// Lower-is-better bars are the best score's ratio to each value, so the gap
+// is drawn as large as the data has it: 5.81 vs 9.76 is 100% vs 60%.
+assert.equal(shareOf("Acme-4"), Number((5.81 / 9.76).toFixed(3)));
+const lowerBars = async (rows) => {
+  shards.set("llm-stats-b4", { scores_by_source: { llm_stats: {
+    series: { direction: "lower_is_better", score_summary: { display_multiplier: 1 } }, rows,
+  } } });
+  byId("models-list").querySelector('button.models-cell[data-model="acme-4"]').click();
+  await tick();
+  const items = byId("models-panel").querySelector("ol.models-panel-chart").querySelectorAll("li");
+  return (label) => Number(items.find((bar) => bar.textContent.startsWith(label)).querySelector("span.models-panel-bar").getAttribute("style").split(":")[1]);
+};
+// Near-equal scores draw near-equal bars, not 100% vs 10%.
+const nearEqual = await lowerBars([
+  { model_name: "Acme-4", organization: "Acme", value: 5.82 },
+  { model_name: "Best", organization: "Other", value: 5.81 },
+]);
+assert(nearEqual("Best") - nearEqual("Acme-4") < 0.01);
+// A winning 0 has no ratio; the other bars stay visible rather than vanish.
+const zeroBest = await lowerBars([
+  { model_name: "Acme-4", organization: "Acme", value: 9.76 },
+  { model_name: "Best", organization: "Other", value: 0 },
+]);
+assert.equal(zeroBest("Best"), 1);
+assert(zeroBest("Acme-4") > 0);
 // The note on direction comes after the chart.
 const panelChildren = byId("models-panel").querySelector("div.models-panel-body").children;
 assert(panelChildren.findIndex((child) => child.tagName === "OL") < panelChildren.findIndex((child) => /Lower is better/.test(child.textContent || "")));
