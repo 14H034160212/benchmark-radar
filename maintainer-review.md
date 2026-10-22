@@ -69,7 +69,23 @@ Check the diff for changes to scores, rankings, counts, or output formats that
 the description does not mention. Ask the contributor to state them, or state
 them in the merge comment.
 
-## 7. Does the current head pass on current `main`?
+## 7. Was the SEO impact assessed, with no known crawlability or indexing regression?
+
+For a website change, state whether its SEO effect is beneficial, neutral,
+harmful, or uncertain, and cite the evidence. Check crawlable links, page titles
+and headings, canonical URLs, robots directives, sitemap coverage, structured
+data (JSON-LD), share-card metadata, `llms.txt`, and redirects when URLs move.
+
+For each revision, use a clean worktree with its own venv. Run
+`benchmark-radar normalize-catalog`, then `benchmark-radar classify`. Compare
+the affected generated HTML heads and bodies before and after. Use
+[`tests/test_site_seo.py`](tests/test_site_seo.py) to check titles, canonicals,
+robots directives, the sitemap, structured data, and `llms.txt`. A visual
+improvement alone does not establish a search-ranking benefit. Request changes
+for a known crawlability or indexing regression. Mark changes outside the
+website as not applicable.
+
+## 8. Does the current head pass on current `main`?
 
 A "verified head" in the description goes stale with each new commit. Merge the
 current head onto the latest `main` in a clean worktree with its own venv. Run
@@ -77,7 +93,7 @@ the full CI sequence from [`AGENTS.md`](AGENTS.md). When the user asks you to
 merge, run `gh pr merge --merge --admin --match-head-commit <sha>`. A push after
 your check then cannot slip in. Never squash.
 
-## 8. Does it do what the linked issue asks, and is the result easier to read?
+## 9. Does it do what the linked issue asks, and is the result easier to read?
 
 Open the issue and the PR description side by side. List each thing the issue
 asks for. Mark each as done or not done in the diff, then check the before and

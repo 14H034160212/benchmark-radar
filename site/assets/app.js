@@ -368,6 +368,12 @@ function toggleLang() {
   applyCurrentSeo();
   syncLangToggle();
   rerenderCurrentView();
+  // Without the page's data nothing re-renders, but a kept Trends seed can
+  // still be rewritten in the new language.
+  // Without the page's data rerenderCurrentView draws nothing, but the Trends
+  // direction table renders from its own catalog (live) or rewrites its kept
+  // seed (failed), in the new language either way.
+  if (!state.data && state.view === "trends") renderDirectionTrends();
 }
 
 const I18N = {
@@ -418,6 +424,38 @@ const I18N = {
     "Sort": "排序",
     "Models": "模型",
     "models.note": "目录中所有有报告成绩的模型，并排比较：列是模型，行是 benchmark。点一个分数，查看它的设置和来源。",
+    "Landscape": "全景",
+    "New benchmark records by research direction": "各研究方向的新 benchmark 记录",
+    "Research direction": "研究方向",
+    "New": "新增",
+    "Previous period": "上一期",
+    "Change": "变化",
+    "Undated": "无日期",
+    "A record counts in every direction it is filed under, so rows overlap and do not add up to a total.": "一条记录会计入它所属的每个方向，因此各行有重叠，不能相加得到总数。",
+    "Weekly new records, oldest first: {values}": "每周新增记录（从早到晚）：{values}",
+    "no data": "无数据",
+    "16-week trend": "16 周趋势",
+    "All groups": "全部分组",
+    "Window": "时间窗口",
+    "All directions, ranked": "全部方向（排名）",
+    "Direction focus": "方向详情",
+    "{n} new records in the last {days} days": "最近 {days} 天新增 {n} 条记录",
+    "{change} vs the previous {days} days": "比前 {days} 天 {change}",
+    "no comparison with the previous {days} days": "无法与前 {days} 天比较",
+    "Weekly new records, {start} to {end}": "每周新增记录，{start} 至 {end}",
+    "Recent releases": "最近发布",
+    "No release in this window.": "这个时间段内没有发布。",
+    "Open in the Library": "在 Library 中打开",
+    "The linked view could not be shown.": "无法显示链接里的视图。",
+    "Undated counts every record in the direction that has no release date, whatever the window.": "“无日期”统计该方向下所有没有发布日期的记录，与所选时间段无关。",
+    "Newest {shown} of {n} releases": "{n} 个发布中最新的 {shown} 个",
+    "Group": "分组",
+    "Last 30 days": "最近 30 天",
+    "Last 60 days": "最近 60 天",
+    "Last 90 days": "最近 90 天",
+    "New benchmark records by release date, {days} days to {date}.": "按发布日期统计的新 benchmark 记录，截至 {date} 的 {days} 天。",
+    "The latest days are still filling in as new papers are collected.": "最近几天的数据仍在随新论文的收录陆续补全。",
+    "No comparison: the previous {days} days start before the discovery stream ({since}).": "无法比较：上一个 {days} 天早于发现数据的起始日期（{since}）。",
     "AI labs": "AI 实验室",
     "All labs": "全部实验室",
     "Model card": "模型卡",
@@ -1210,7 +1248,7 @@ const I18N = {
     "release date unrecorded": "未记录发布日期",
     released: "发布于",
     // Latest releases (issue #530)
-    "Leaderboard views": "排行榜视图",
+    "Landscape views": "全景视图",
     "Latest releases": "最新发布",
     "Model-card adoption": "模型卡采用情况",
     "Reported scores": "报告分数",
@@ -1389,6 +1427,17 @@ const state = {
   modelsMatrix: null,
   // undefined until /data/model-scores.json settles; null when it failed.
   modelScores: undefined,
+  // Trends direction table (#420): window in days and an optional group.
+  directionTrendWindow: 30,
+  directionTrendGroup: "",
+  // The direction shown in the Trends focus panel; empty is the top one. On a
+  // phone the panel is a sheet, open when chosen or linked to.
+  directionFocus: "",
+  directionFocusOpen: false,
+  directionFocusShown: "",
+  directionTrendsLive: false,
+  // The i18n key of why the direction table shows its seed, if it does.
+  directionTrendsFailure: "",
   leaderboardShowAll: false,
   leaderboardTopExpanded: false,
   // Issue #530: the leaderboard opens on the latest releases; the cumulative
@@ -1638,6 +1687,10 @@ function readUrl() {
   state.benchmarkModel = (params.get("bmodel") || "").trim();
   state.libraryQuery = (params.get("libq") || "").trim();
   state.libraryDirection = params.get("dir") || "";
+  state.directionFocus = params.get("tdir") || "";
+  state.directionFocusOpen = Boolean(state.directionFocus);
+  state.directionTrendWindow = DIRECTION_TREND_WINDOWS.includes(Number(params.get("twin"))) ? Number(params.get("twin")) : 30;
+  state.directionTrendGroup = params.get("tgroup") || "";
   state.librarySort = LIBRARY_SORTS.includes(params.get("lsort")) ? params.get("lsort") : "latest";
   state.librarySaved = params.get("saved") === "1";
   state.libraryVisibleLimit = LIBRARY_PAGE_SIZE;
@@ -1723,6 +1776,12 @@ function writeUrl(mode = "replace") {
     if (state.todayPage > 1) params.set("page", state.todayPage);
   }
   if (!utility && state.view === "map" && state.entity) params.set("entity", state.entity);
+  if (!utility && state.view === "trends") {
+    // The whole view, so a shared focus shows the same window and group.
+    if (state.directionTrendWindow !== 30) params.set("twin", state.directionTrendWindow);
+    if (state.directionTrendGroup) params.set("tgroup", state.directionTrendGroup);
+    if (state.directionFocus) params.set("tdir", state.directionFocus);
+  }
   if (!utility && state.view === "leaderboard") {
     // The adoption filters are written only in adoption mode: any of them in
     // a URL is what readUrl takes as the reader's choice of that mode, so a
@@ -1843,6 +1902,9 @@ async function onPopState() {
   }
   applyCurrentSeo();
   syncNavState();
+  // Without the page's data nothing below runs, but the Trends direction
+  // table may be live from its own catalog: restore the entry's focus there.
+  if (!state.data && state.view === "trends") renderDirectionTrends();
   if (!state.data) return;
   try {
     await ensureDataForState();
@@ -3240,6 +3302,7 @@ function coverageNote(day) {
 
 function renderTrends() {
   if (!state.data) return;
+  renderDirectionTrends();
   const categories = state.data.facets.categories;
   byId("trend-released-only").checked = state.trendReleasedOnly;
   replaceChildren(
@@ -6598,6 +6661,471 @@ function initModels() {
   });
 }
 
+// --- Research-direction trends ------------------------------------------------
+// The direction table merged from benchmark-radar.com's Trends (#420): new
+// benchmark records per taxonomy-v5 direction, by each record's own release
+// date. Mirrors direction_trend_rows in library_directions.py, and a test holds
+// the two equal. Nearly every recent record comes from Claire Radar's discovery
+// stream, so a window or week starting before that stream does would undercount
+// and fake growth: those comparisons and bars are absent, not zero. .com's
+// "attention growth" tab has no counterpart: no attention history is recorded.
+const DIRECTION_TREND_WEEKS = 16;
+const DISCOVERY_SOURCE = "claire_radar";
+
+function dayNumber(value) {
+  const [year, month, day] = value.split("-").map(Number);
+  return Math.round(Date.UTC(year, month - 1, day) / 86400000);
+}
+
+// The day the catalog's discovery stream was last collected. Windows end here,
+// not at the daily radar's latest day: the radar advances every day while the
+// catalog stays pinned to its crawl, so windows would slide over unchanged
+// data and publish declines that never happened.
+function discoveryAnchor(records) {
+  const dates = records
+    .filter((record) => record.source === DISCOVERY_SOURCE && record.collected_at)
+    .map((record) => String(record.collected_at).slice(0, 10))
+    .sort();
+  return dates.length ? dates[dates.length - 1] : null;
+}
+
+function directionTrendRows(records, taxonomy, anchor, windowDays) {
+  const end = dayNumber(anchor);
+  const discovery = records
+    .filter((record) => record.source === DISCOVERY_SOURCE && record.released)
+    .map((record) => record.released)
+    .sort();
+  const since = discovery[0] || null;
+  const sinceDay = since ? dayNumber(since) : null;
+  const covered = (firstDay) => sinceDay !== null && firstDay >= sinceDay;
+  const comparable = covered(end - 2 * windowDays + 1);
+  const weekCovered = Array.from({ length: DIRECTION_TREND_WEEKS },
+    (_, index) => covered(end - 7 * (DIRECTION_TREND_WEEKS - index) + 1));
+  const empty = (id, name, group) => ({
+    id, name, group, current: 0, previous: comparable ? 0 : null,
+    weekly: weekCovered.map((ok) => (ok ? 0 : null)),
+    undated: 0,
+  });
+  const rows = new Map(taxonomy.categories.map((category) => [category.id, empty(category.id, category.name, category.group)]));
+  rows.set("unclassified", empty("unclassified", "Not yet classified", null));
+  for (const record of records) {
+    const categories = record.library_direction?.categories?.length ? record.library_direction.categories : ["unclassified"];
+    if (!record.released) {
+      // Counted, not dropped: "no new records" and "could not be dated" differ.
+      for (const id of categories) if (rows.has(id)) rows.get(id).undated += 1;
+      continue;
+    }
+    const age = end - dayNumber(record.released);
+    if (age < 0) continue;
+    for (const id of categories) {
+      const row = rows.get(id);
+      if (!row) continue;
+      if (age < windowDays) row.current += 1;
+      else if (age < 2 * windowDays && comparable) row.previous += 1;
+      const week = DIRECTION_TREND_WEEKS - 1 - Math.floor(age / 7);
+      if (week >= 0 && row.weekly[week] !== null) row.weekly[week] += 1;
+    }
+  }
+  const ordered = [...rows.values()]
+    .filter((row) => row.id !== "unclassified")
+    .sort((a, b) => b.current - a.current || (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
+  return { anchor, windowDays, discoverySince: since, comparable, rows: [...ordered, rows.get("unclassified")] };
+}
+
+function directionSparkline(weekly) {
+  const max = Math.max(1, ...weekly.filter((value) => value !== null));
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.setAttribute("viewBox", `0 0 ${weekly.length * 6} 20`);
+  svg.setAttribute("class", "direction-spark");
+  svg.setAttribute("aria-hidden", "true");
+  weekly.forEach((value, index) => {
+    if (value === null) return;
+    const height = Math.max(value ? 1.5 : 0.5, (value / max) * 20);
+    const bar = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+    bar.setAttribute("x", String(index * 6));
+    bar.setAttribute("y", String(20 - height));
+    bar.setAttribute("width", "4");
+    bar.setAttribute("height", String(height));
+    svg.append(bar);
+  });
+  return svg;
+}
+
+function directionChange(row) {
+  if (row.previous === null) return "—";
+  const delta = row.current - row.previous;
+  return delta > 0 ? `+${delta}` : delta < 0 ? `−${Math.abs(delta)}` : "0";
+}
+
+// The group menu's value for one ranked list; "" (the default) shows the
+// directions under their taxonomy groups, as benchmark-radar.com does.
+const DIRECTION_RANKED = "__ranked";
+const DIRECTION_FOCUS_RECORDS = 8;
+
+// The table's lines in display order: group headings and rows. Mirrors
+// library_directions.direction_display.
+function directionDisplay(model, taxonomy, group = "") {
+  if (group === DIRECTION_RANKED) return model.rows.map((row) => ({ row }));
+  if (group) return model.rows.filter((row) => row.group === group).map((row) => ({ row }));
+  const lines = [];
+  for (const entry of taxonomy.groups) {
+    const members = model.rows.filter((row) => row.group === entry.id);
+    if (members.length) lines.push({ heading: entry.name, count: members.length }, ...members.map((row) => ({ row })));
+  }
+  lines.push(...model.rows.filter((row) => row.group === null).map((row) => ({ row })));
+  return lines;
+}
+
+// The focused direction: the one asked for when shown, else the shown one with
+// the most new records. Mirrors library_directions.direction_focus_id.
+function directionFocusId(model, shown, wanted = "") {
+  if (shown.includes(wanted)) return wanted;
+  return model.rows.find((row) => shown.includes(row.id))?.id || null;
+}
+
+// A direction's newest records in the window, counted as the table counts
+// them. Mirrors library_directions.direction_focus_records.
+function directionFocusRecords(records, direction, anchor, windowDays) {
+  const end = dayNumber(anchor);
+  return records
+    .filter((record) => {
+      const categories = record.library_direction?.categories?.length ? record.library_direction.categories : ["unclassified"];
+      if (!categories.includes(direction) || !record.released) return false;
+      const age = end - dayNumber(record.released);
+      return age >= 0 && age < windowDays;
+    })
+    .sort((a, b) => dayNumber(b.released) - dayNumber(a.released) || (a.name < b.name ? -1 : a.name > b.name ? 1 : 0))
+    .slice(0, DIRECTION_FOCUS_RECORDS);
+}
+
+// The focus panel's weekly chart: the sixteen weeks with their counts written
+// above the bars. Mirrors app_seeds.direction_focus_chart.
+function directionFocusChart(weekly) {
+  const max = Math.max(1, ...weekly.filter((value) => value !== null));
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.setAttribute("viewBox", `0 0 ${weekly.length * 20} 96`);
+  svg.setAttribute("class", "direction-focus-chart");
+  svg.setAttribute("aria-hidden", "true");
+  weekly.forEach((value, index) => {
+    if (value === null) return;
+    const height = Math.max(value ? 1.5 : 0.5, (value / max) * 72);
+    const bar = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+    bar.setAttribute("x", String(index * 20 + 3));
+    bar.setAttribute("y", String(84 - height));
+    bar.setAttribute("width", "14");
+    bar.setAttribute("height", String(height));
+    const label = document.createElementNS("http://www.w3.org/2000/svg", "text");
+    label.setAttribute("x", String(index * 20 + 10));
+    label.setAttribute("y", String(81 - height));
+    label.setAttribute("text-anchor", "middle");
+    label.textContent = String(value);
+    svg.append(bar, label);
+  });
+  return svg;
+}
+
+// The panel's sentences, from its facts. The seed carries the same facts as
+// data attributes, so a seeded panel can be rebuilt in the reader's language.
+function directionFocusText({ group, current, previous, change, days, firstWeek, anchor, shown }) {
+  return {
+    facts: [
+      group,
+      // Records, not distinct benchmarks: one benchmark can have a record
+      // from each source.
+      t("{n} new records in the last {days} days", { n: current.toLocaleString(), days }),
+      previous === null
+        ? t("no comparison with the previous {days} days", { days })
+        : t("{change} vs the previous {days} days", { change, days }),
+    ].filter(Boolean).join(" · "),
+    caption: t("Weekly new records, {start} to {end}", {
+      start: formatDate(firstWeek, { dateStyle: "medium" }), end: formatDate(anchor, { dateStyle: "medium" }),
+    }),
+    heading: current > shown
+      ? t("Newest {shown} of {n} releases", { shown, n: current.toLocaleString() })
+      : t("Recent releases"),
+  };
+}
+
+function directionFocusPanel(row, model, taxonomy, records) {
+  const group = taxonomy.groups.find((entry) => entry.id === row.group)?.name;
+  const firstWeek = new Date(Date.UTC(1970, 0, 1) + (dayNumber(model.anchor) - 7 * DIRECTION_TREND_WEEKS + 1) * 864e5)
+    .toISOString().slice(0, 10);
+  const recent = directionFocusRecords(records, row.id, model.anchor, model.windowDays);
+  const text = directionFocusText({
+    group, current: row.current, previous: row.previous, change: directionChange(row), days: model.windowDays,
+    firstWeek, anchor: model.anchor, shown: recent.length,
+  });
+  return [
+    element("div", { className: "direction-focus-head" }, [
+      element("div", {}, [
+        element("p", { className: "direction-focus-eyebrow", text: t("Direction focus") }),
+        element("h3", { attrs: { id: "direction-focus-heading", tabindex: "-1" }, text: row.id === "unclassified" ? t("Not yet classified") : row.name }),
+      ]),
+      element("button", { className: "clear-button direction-focus-close", text: t("Close"), attrs: { type: "button", id: "direction-focus-close" } }),
+    ]),
+    element("p", { className: "direction-focus-facts", text: text.facts }),
+    element("figure", { className: "direction-focus-figure" }, [
+      directionFocusChart(row.weekly),
+      // The chart is drawn for sighted readers; its sixteen counts are text too.
+      element("span", { className: "visually-hidden", text: t("Weekly new records, oldest first: {values}", {
+        values: row.weekly.map((value) => (value === null ? t("no data") : value)).join(", "),
+      }) }),
+      element("figcaption", { text: text.caption }),
+    ]),
+    // The list stops at DIRECTION_FOCUS_RECORDS; say so when the window has
+    // more, and the Library link below lists them all, newest first.
+    element("h4", { text: text.heading }),
+    recent.length
+      ? element("ol", { className: "direction-focus-records" }, recent.map((record) => element("li", {}, [
+        element("a", { text: record.name, attrs: { href: `/benchmarks/${record.slug}/` } }),
+        element("span", { text: formatDate(record.released, { dateStyle: "medium" }) }),
+      ])))
+      : element("p", { className: "empty-state", text: t("No release in this window.") }),
+    element("a", { className: "direction-focus-library", text: t("Open in the Library"), attrs: { href: `/library/?dir=${encodeURIComponent(row.id)}` } }),
+  ];
+}
+
+// The caveats every view of the table carries: its anchor date, that the
+// latest days are incomplete, that rows overlap, and when no comparison is
+// possible. The seed carries the same facts as data attributes, so a failed
+// catalog can rebuild them in the reader's language.
+function directionTrendNote({ anchor, windowDays, comparable, discoverySince }) {
+  return [
+    t("New benchmark records by release date, {days} days to {date}.", {
+      days: windowDays, date: formatDate(anchor, { dateStyle: "medium" }),
+    }),
+    t("The latest days are still filling in as new papers are collected."),
+    t("A record counts in every direction it is filed under, so rows overlap and do not add up to a total."),
+    t("Undated counts every record in the direction that has no release date, whatever the window."),
+    comparable ? "" : t("No comparison: the previous {days} days start before the discovery stream ({since}).", {
+      days: windowDays, since: discoverySince ? formatDate(discoverySince, { dateStyle: "medium" }) : "—",
+    }),
+  ].filter(Boolean).join(" ");
+}
+
+function renderDirectionTrends() {
+  const table = byId("direction-trends-body");
+  // Only the catalog is needed, not the page's dashboard data.
+  if (!table) return;
+  // Bound before the catalog arrives, so a window chosen on the seeded table
+  // while it loads is the one rendered.
+  initDirectionTrends();
+  if (!state.benchmarkIndexLoaded) {
+    loadBenchmarkIndex().then((records) => {
+      state.benchmarkIndex = records;
+      state.benchmarkIndexLoaded = true;
+      if (state.view === "trends") renderDirectionTrends();
+    });
+    return;
+  }
+  const taxonomy = state.libraryTaxonomy;
+  const section = byId("direction-trends");
+  const anchor = state.benchmarkIndex ? discoveryAnchor(state.benchmarkIndex) : null;
+  if (!state.benchmarkIndex || !taxonomy || !anchor) {
+    // A failed catalog fetch must not silently remove the server-seeded table:
+    // keep it, say it could not be refreshed, and hide only an empty section.
+    // The seeded note's caveats (anchor date, incomplete latest days, overlap)
+    // stay; the failure is added to them. The controls cannot change a seeded
+    // table, so they are disabled rather than left to do nothing.
+    // Reached through the app with no seed, the section still says why it is
+    // empty rather than disappearing.
+    section.hidden = false;
+    state.directionTrendsFailure = "The benchmark catalog could not be loaded.";
+    reconcileSeededDirectionFocus();
+    byId("direction-trends-window").disabled = true;
+    byId("direction-trends-group").disabled = true;
+    state.directionTrendsLive = false;
+    return;
+  }
+  // From here the table is live, so a direction's link may focus it.
+  state.directionTrendsLive = true;
+  state.directionTrendsFailure = "";
+  section.hidden = false;
+  byId("direction-trends-status").textContent = "";
+  // The menus ship disabled: the seeded table is the 30-day window and only
+  // live data can change it.
+  byId("direction-trends-window").disabled = false;
+  byId("direction-trends-group").disabled = false;
+  byId("direction-trends-window").value = String(state.directionTrendWindow);
+  const groups = byId("direction-trends-group");
+  // The page ships only the "All groups" option; the taxonomy's groups are
+  // added once it has loaded.
+  if (groups.options.length <= 1) {
+    replaceChildren(groups, [element("option", { text: t("All groups"), attrs: { value: "" } }),
+      element("option", { text: t("All directions, ranked"), attrs: { value: DIRECTION_RANKED } }),
+      ...taxonomy.groups.map((group) => element("option", { text: group.name, attrs: { value: group.id } }))]);
+  }
+  // Rebuilt only once, so these labels follow a language switch here.
+  groups.options[0].textContent = t("All groups");
+  groups.options[1].textContent = t("All directions, ranked");
+  const model = directionTrendRows(state.benchmarkIndex, taxonomy, anchor, state.directionTrendWindow);
+  // A group from an old or mistyped link falls back to every group rather
+  // than an empty table.
+  if (state.directionTrendGroup && state.directionTrendGroup !== DIRECTION_RANKED
+    && !taxonomy.groups.some((group) => group.id === state.directionTrendGroup)) state.directionTrendGroup = "";
+  groups.value = state.directionTrendGroup;
+  // A linked direction that no longer exists (a typo, or removed from the
+  // taxonomy) is dropped, not swapped for an unrelated one, and leaves the URL.
+  if (state.directionFocus && !model.rows.some((row) => row.id === state.directionFocus)) {
+    state.directionFocus = "";
+    state.directionFocusOpen = false;
+    writeUrl();
+  }
+  const lines = directionDisplay(model, taxonomy, state.directionTrendGroup);
+  const shown = lines.filter((line) => line.row).map((line) => line.row.id);
+  const focus = directionFocusId(model, shown, state.directionFocus);
+  // The direction actually shown, which differs from the linked one when the
+  // group filters it out; closing the sheet returns focus to its row.
+  state.directionFocusShown = focus;
+  const columns = byId("direction-trends-table")?.querySelectorAll("thead th").length || 6;
+  byId("direction-trends-note").textContent = directionTrendNote(model);
+  replaceChildren(table, lines.map(({ row, heading, count }) => (heading ? element("tr", { className: "direction-group" }, [
+    element("th", { attrs: { colspan: columns } }, [
+      document.createTextNode(`${heading} `),
+      element("span", { className: "direction-group-count", text: String(count) }),
+    ]),
+  ]) : element("tr", { className: row.id === focus ? "is-focused" : "" }, [
+    element("th", { attrs: { scope: "row" } }, [
+      // A link to the direction in the Library, which the page turns into
+      // "focus this direction"; without JavaScript it still goes there.
+      element("a", {
+        text: row.id === "unclassified" ? t("Not yet classified") : row.name,
+        attrs: { href: `/library/?dir=${encodeURIComponent(row.id)}`, "data-direction": row.id },
+      }),
+    ]),
+    element("td", { className: "direction-number", text: row.current.toLocaleString() }),
+    element("td", { className: "direction-number", text: row.previous === null ? "—" : row.previous.toLocaleString() }),
+    element("td", { className: "direction-number", text: directionChange(row) }),
+    element("td", { className: "direction-number", text: row.undated.toLocaleString() }),
+    // The bars are drawn for sighted readers; the same sixteen values are
+    // given as text so the column is not empty to a screen reader.
+    element("td", {}, [
+      directionSparkline(row.weekly),
+      element("span", { className: "visually-hidden", text: t("Weekly new records, oldest first: {values}", {
+        values: row.weekly.map((value) => (value === null ? t("no data") : value)).join(", "),
+      }) }),
+    ]),
+  ]))));
+  const panel = byId("direction-focus");
+  const focused = model.rows.find((row) => row.id === focus);
+  panel.hidden = !focused;
+  panel.classList.toggle("is-open", Boolean(focused) && state.directionFocusOpen);
+  if (focused) {
+    replaceChildren(panel, directionFocusPanel(focused, model, taxonomy, state.benchmarkIndex));
+  }
+}
+
+// Without live data the seeded table stays, and its panel is the top
+// direction's: a link to another one cannot be honoured, so that panel is not
+// shown in its place, while a link to the seeded one opens its phone sheet.
+// Used when the catalog fails and when the whole page's data fails.
+function reconcileSeededDirectionFocus() {
+  const table = byId("direction-trends-body");
+  if (!table) return;
+  // The seeded weekly summaries for screen readers, in the reader's language.
+  for (const span of document.querySelectorAll("#direction-trends span[data-weekly]")) {
+    span.textContent = t("Weekly new records, oldest first: {values}", {
+      values: span.dataset.weekly.split(",").map((value) => (value === "" ? t("no data") : value)).join(", "),
+    });
+  }
+  // The seeded caveats, rebuilt from their facts in the reader's language.
+  const note = byId("direction-trends-note");
+  if (note?.dataset.anchor) {
+    note.textContent = directionTrendNote({
+      anchor: note.dataset.anchor, windowDays: Number(note.dataset.window), comparable: note.dataset.comparable === "1",
+      discoverySince: note.dataset.since || null,
+    });
+  }
+  const seededFocus = table.querySelector("tr.is-focused a[data-direction]")?.dataset.direction;
+  // The seed is the default view: 30 days, every group, the top direction. A
+  // link to another window, group or direction cannot be shown from it.
+  const seededWindow = Number(note?.dataset.window || 30);
+  const otherView = state.directionTrendWindow !== seededWindow || Boolean(state.directionTrendGroup);
+  const linkedElsewhere = otherView || (Boolean(state.directionFocus) && state.directionFocus !== seededFocus);
+  if (otherView) {
+    byId("direction-trends-window").value = String(seededWindow);
+    byId("direction-trends-group").value = "";
+  }
+  const panel = byId("direction-focus");
+  if (linkedElsewhere) {
+    panel.hidden = true;
+    table.querySelector("tr.is-focused")?.classList.remove("is-focused");
+  } else if (state.directionFocus && state.directionFocusOpen) {
+    panel.classList.add("is-open");
+  }
+  // The seeded panel's sentences and dates, in the reader's language; its
+  // fixed labels carry data-i18n.
+  const facts = panel.dataset;
+  if (facts.days) {
+    const text = directionFocusText({
+      group: facts.group || null, current: Number(facts.current), previous: facts.previous === "" ? null : Number(facts.previous),
+      change: facts.change, days: Number(facts.days), firstWeek: facts.firstWeek, anchor: facts.anchor, shown: Number(facts.shown),
+    });
+    const set = (selector, value) => { const node = panel.querySelector(selector); if (node) node.textContent = value; };
+    set("p.direction-focus-facts", text.facts);
+    set("figcaption", text.caption);
+    set("h4", text.heading);
+    for (const date of panel.querySelectorAll("span[data-date]")) date.textContent = formatDate(date.dataset.date, { dateStyle: "medium" });
+  }
+  byId("direction-trends-status").textContent = [
+    state.directionTrendsFailure ? t(state.directionTrendsFailure) : "",
+    linkedElsewhere ? t("The linked view could not be shown.") : "",
+  ].filter(Boolean).join(" ");
+}
+
+// Close the phone sheet (Close or Escape) and give focus back to the row the
+// reader opened it from. The desktop panel stays; there is nothing to close.
+function closeDirectionFocus() {
+  const panel = byId("direction-focus");
+  if (!panel) return;
+  const hadFocus = panel.contains(document.activeElement);
+  state.directionFocusOpen = false;
+  panel.classList.remove("is-open");
+  const shown = state.directionFocusShown || state.directionFocus;
+  if (hadFocus && shown) {
+    byId("direction-trends-body").querySelector(`a[data-direction="${CSS.escape(shown)}"]`)?.focus();
+  }
+}
+
+function initDirectionTrends() {
+  const windowSelect = byId("direction-trends-window");
+  if (!windowSelect || windowSelect.dataset.bound === "1") return;
+  windowSelect.dataset.bound = "1";
+  windowSelect.addEventListener("change", () => {
+    const value = Number(windowSelect.value);
+    state.directionTrendWindow = DIRECTION_TREND_WINDOWS.includes(value) ? value : 30;
+    renderDirectionTrends();
+    writeUrl();
+  });
+  byId("direction-trends-group").addEventListener("change", (event) => {
+    state.directionTrendGroup = event.target.value;
+    renderDirectionTrends();
+    writeUrl();
+  });
+  // A direction's name focuses it in the panel (on a phone, the panel opens as
+  // a sheet). The link's own target, the Library, is in the panel.
+  byId("direction-trends-body").addEventListener("click", (event) => {
+    const link = event.target.closest?.("a[data-direction]");
+    // Until the live table renders, the seeded links go to the Library.
+    if (!link || !state.directionTrendsLive || event.metaKey || event.ctrlKey || event.shiftKey) return;
+    event.preventDefault();
+    state.directionFocus = link.dataset.direction;
+    state.directionFocusOpen = true;
+    renderDirectionTrends();
+    // A discrete choice, so Back returns to the previous focus.
+    writeUrl("push");
+    // The heading is visible on every screen; the Close button only on phones.
+    byId("direction-focus-heading")?.focus();
+  });
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && state.directionFocusOpen) closeDirectionFocus();
+  });
+  // Delegated, so the seeded panel's Close works too when no live render ran.
+  byId("direction-focus")?.addEventListener("click", (event) => {
+    if (event.target.closest?.("#direction-focus-close")) closeDirectionFocus();
+  });
+}
+
 // --- Catalog detail ---------------------------------------------------------
 // All source records, including model reports, resolve through this index and
 // shard contract. The source does not select a different chart or fallback.
@@ -9127,6 +9655,8 @@ const LATEST_WINDOWS = ["7d", "30d", "90d"];
 // The Library's address parameters, read and written with the other views'.
 const LIBRARY_PAGE_SIZE = 120;
 const LIBRARY_SORTS = ["latest", "documented", "name"];
+// The Trends direction table's windows, in days; ?twin= is one of them.
+const DIRECTION_TREND_WINDOWS = [30, 60, 90];
 // The Models matrix's column orders (modelOrder); the first is the default.
 const MODEL_SORTS = ["coverage", "newest"];
 // Models per matrix page; ?mpage= counts these.
@@ -11139,6 +11669,14 @@ async function refreshData() {
     // data a URL-backed state needs.
     if (stateNeedsFullData()) await ensureFullData("reload");
     else if (stateNeedsTrendsData()) await ensureTrendsData("reload");
+    // A catalog that failed, or arrived without what the Trends direction
+    // table needs (taxonomy, crawl anchor), is fetched again on Refresh, so
+    // the table can recover rather than keep the failure.
+    if (state.benchmarkIndexLoaded
+      && (!state.benchmarkIndex || !state.libraryTaxonomy || !discoveryAnchor(state.benchmarkIndex))) {
+      benchmarkIndexPromise = null;
+      state.benchmarkIndexLoaded = false;
+    }
     closeFiltersDrawer();
     syncLeaderboardNav();
     setView(state.view, false);
@@ -11175,6 +11713,9 @@ async function initialize() {
   if (initialParams.has("view") || legacyUtilityHash
     || (state.view === "saturation" && viewFromPath(window.location.pathname) === "leaderboard")) writeUrl("replace");
   bindEvents();
+  // The Trends direction table needs only its catalog, so it starts loading
+  // now rather than after the page's own data, which can be slow.
+  if (state.view === "trends") renderDirectionTrends();
   const initializationNavigationSequence = viewNavigationSequence;
   const initializationRefreshSequence = successfulDataRefreshSequence;
   // Utility pages ship useful dialog content in their first HTML response.
@@ -11261,6 +11802,16 @@ async function initialize() {
       section.hidden = !seeded;
       if (seeded) survivor = section;
     });
+    // A seeded Trends page keeps its direction table: make its focus match the
+    // link (or say it cannot) and let its sheet close.
+    if (survivor?.id === "trends-view") {
+      // With the page's own data the direction table still loads its catalog
+      // (it does not need the failed trends payload); without it, the seed is
+      // kept and made consistent with the link.
+      // The direction table needs only its catalog, so it is tried even when
+      // the page's own data failed; if the catalog fails too, the seed stays.
+      renderDirectionTrends();
+    }
     const banner = byId("error-state");
     banner.hidden = false;
     // The banner sits last in the document, which is the right place when it is
